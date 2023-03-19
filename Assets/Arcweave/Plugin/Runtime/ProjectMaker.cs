@@ -37,7 +37,6 @@ namespace Arcweave
             if ( jproject.AsDictionary.TryGetValue(ARCSCRIPT_CODE_JSON_KEY, out jarcscript) ) {
                 this.jproject = fsJsonParser.Parse(jproject.AsDictionary[SUB_PROJECT_JSON_KEY].AsString);
             }
-            UnityEngine.Debug.Log(jproject.ToString());
 
             this.jboards = jproject.AsDictionary["boards"];
             this.jelements = jproject.AsDictionary["elements"]; //inode
