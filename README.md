@@ -25,7 +25,7 @@ Your project is now imported and converted to C#. The `ArcweaveProjectAsset` con
 
 ## Using The Imported Project
 
-You can use the `ArcweaveProjectAsset` as best fits your project utilizing the API provided through which you can access the elements, its contents, evaluate conditions e.t.c. However included in the package is also a `Demo` folder which showcase  some aspects of the easy API provided put into use for re-creating the online Arcweave player directly within Unity alongside with an example GUI. The code and GUI contained in the `Demo` folder are also a great way to learn how to utilize your project in Unity of course.
+You can use the `ArcweaveProjectAsset` as best fits your project utilizing the API provided through which you can access the elements, its contents, evaluate conditions, traverse possible paths e.t.c. However included in the package is also a `Demo` folder which showcase  some aspects of the easy API provided put into use for re-creating the online Arcweave player directly within Unity alongside with an example GUI. The code and GUI contained in the `Demo` folder are also a great way to learn how to utilize your project in Unity of course.
 
 To see the Unity Arcweave Player demo scene in action:
 
