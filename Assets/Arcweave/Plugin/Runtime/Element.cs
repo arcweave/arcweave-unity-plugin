@@ -21,8 +21,8 @@ namespace Arcweave
         [field: SerializeField]
         public List<Connection> outputs { get; private set; }
 
+        public Project project { get; private set; }
         private System.Func<Project, string> runtimeContentFunc { get; set; }
-        public Project project { get; set; }
 
         void INode.InitializeInProject(Project project) { this.project = project; }
         Path INode.ResolvePath(Path p) {
