@@ -89,7 +89,8 @@ namespace Arcweave
             foreach ( var variable in variables ) {
                 list.Add(string.Format("{0}-{1}-{2}", variable.name, variable.value.ToString(), variable.type.FullName));
             }
-            return string.Join("|", list);
+            var save = string.Join("|", list);
+            return save;
         }
 
         ///Loads a previously saved string made with SaveVariables.

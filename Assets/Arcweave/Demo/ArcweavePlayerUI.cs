@@ -59,7 +59,7 @@ namespace Arcweave
             content.canvasRenderer.SetAlpha(0);
             content.CrossFadeAlpha(1f, CROSSFADE_TIME, false);
 
-            var image = e.GetCoverImage();
+            var image = e.GetCoverOrFirstComponentImage();
             if ( cover.texture != image && image != null ) {
                 cover.texture = image;
                 cover.canvasRenderer.SetAlpha(0);

@@ -6,6 +6,7 @@ namespace Arcweave
     ///This is not required to utilize an arweave project but can be helpful for some projects as well as a learning example.
     public class ArcweavePlayer : MonoBehaviour
     {
+        //Delegates for the events.
         public delegate void OnProjectStart(Project project);
         public delegate void OnProjectFinish(Project project);
         public delegate void OnElementEnter(Element element);
@@ -19,8 +20,8 @@ namespace Arcweave
         public bool autoStart = true;
 
         private Element currentElement;
-        private State currentState;
 
+        //events that that UI (or otherwise) can subscribe to get notified and act accordinhly.
         public event OnProjectStart onProjectStart;
         public event OnProjectFinish onProjectFinish;
         public event OnElementEnter onElementEnter;
@@ -32,15 +33,22 @@ namespace Arcweave
 
         //...
         public void PlayProject() {
+
+            if ( aw == null ) {
+                Debug.LogError("There is no Arcweave Project assigned in the inspector of Arcweave Player");
+                return;
+            }
+
+            aw.project.Initialize();
             if ( onProjectStart != null ) onProjectStart(aw.project);
             Next(aw.project.startingElement);
         }
 
-        //...
+        ///Moves to the next element
         void Next(Element element) {
             currentElement = element;
             if ( onElementEnter != null ) onElementEnter(element);
-            currentState = currentElement.GetState();
+            var currentState = currentElement.GetState();
             if ( currentState.hasPaths ) {
                 if ( currentState.hasOptions ) {
                     if ( onElementOptions != null ) onElementOptions(currentState, (index) => Next(currentState.paths[index].targetElement));
@@ -51,24 +59,23 @@ namespace Arcweave
                 return;
             }
             currentElement = null;
-            currentState = null;
             if ( onProjectFinish != null ) onProjectFinish(aw.project);
         }
 
         ///----------------------------------------------------------------------------------------------
 
-        //...
+        ///Save the current element and the variables.
         public void Save() {
             var id = currentElement.id;
             var variables = aw.project.SaveVariables();
-            var save = string.Join("|", id, variables);
+            var save = string.Join("^", id, variables);
             PlayerPrefs.SetString(SAVE_KEY, save);
         }
 
-        //...
+        ///Loads the prviously current element and the variables and moves Next to that element.
         public void Load() {
             var save = PlayerPrefs.GetString(SAVE_KEY);
-            var split = save.Split('|');
+            var split = save.Split('^');
             var element = aw.project.ElementWithID(split[0]);
             aw.project.LoadVariables(split[1]);
             Next(element);

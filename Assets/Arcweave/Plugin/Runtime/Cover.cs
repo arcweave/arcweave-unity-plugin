@@ -18,8 +18,8 @@ namespace Arcweave
         [field: SerializeField]
         public string filePath { get; private set; }
 
+        [System.NonSerialized]
         private Texture2D _cachedImage;
-        private bool _hasTriedLoad;
 
         public Cover(Type type, string filePath) {
             this.type = type;
@@ -27,9 +27,9 @@ namespace Arcweave
         }
 
         public Texture2D ResolveImage() {
-            if ( !_hasTriedLoad ) {
-                _cachedImage = Resources.Load<Texture2D>(System.IO.Path.GetFileNameWithoutExtension(filePath));
-                _hasTriedLoad = true;
+            var imageName = System.IO.Path.GetFileNameWithoutExtension(filePath);
+            if ( _cachedImage == null || _cachedImage.name != imageName ) {
+                _cachedImage = Resources.Load<Texture2D>(imageName);
             }
             return _cachedImage;
         }

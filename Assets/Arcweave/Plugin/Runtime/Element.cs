@@ -65,6 +65,11 @@ namespace Arcweave
             return component != null;
         }
 
+        ///Returns the cover image if exists, otherwise the first component image.
+        public Texture2D GetCoverOrFirstComponentImage() {
+            var result = GetCoverImage();
+            return result != null ? result : GetFirstComponentCoverImage();
+        }
         ///Returns a Texture2D asset by the same image name as the one used in Arcweave and loaded from a "Resources" asset folder.
         public Texture2D GetCoverImage() => cover?.ResolveImage();
         ///Returns a Texture2D asset of the first component attached to the element by the same image name as the one used in Arcweave and loaded from a "Resources" asset folder.
