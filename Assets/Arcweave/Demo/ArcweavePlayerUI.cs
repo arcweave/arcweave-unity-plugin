@@ -7,6 +7,7 @@ namespace Arcweave
     ///A default example GUI for the ArcweavePlayer player
     public class ArcweavePlayerUI : MonoBehaviour
     {
+        [Header("References")]
         public ArcweavePlayer player;
         public Text content;
         public RawImage cover;
@@ -65,12 +66,20 @@ namespace Arcweave
                 cover.canvasRenderer.SetAlpha(0);
                 cover.CrossFadeAlpha(1f, CROSSFADE_TIME, false);
             }
+            if ( image == null ) {
+                cover.canvasRenderer.SetAlpha(1);
+                cover.CrossFadeAlpha(0f, CROSSFADE_TIME, false);
+            }
 
             var compImage = e.GetFirstComponentCoverImage();
             if ( componentCover.texture != compImage && compImage != null ) {
                 componentCover.texture = compImage;
-                cover.canvasRenderer.SetAlpha(0);
-                cover.CrossFadeAlpha(1f, CROSSFADE_TIME, false);
+                componentCover.canvasRenderer.SetAlpha(0);
+                componentCover.CrossFadeAlpha(1f, CROSSFADE_TIME, false);
+            }
+            if ( compImage == null ) {
+                componentCover.canvasRenderer.SetAlpha(1);
+                componentCover.CrossFadeAlpha(0f, CROSSFADE_TIME, false);
             }
         }
 
