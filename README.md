@@ -35,4 +35,4 @@ To see the Unity Arcweave Player demo scene in action:
 
 ### Utilizing Cover Images
 
-If you utilize cover images in your Arcweave project, the plugin is also able by convention to match their files names one-to-one with image files living in any of your Unity project `Resources` folder to dynamically load them when requested via the API. The demo ArcweavePlayerUI included in the package is also made with such cover images displaying in mind.
+If you utilize cover images in your Arcweave project, the plugin is also able by convention to match their files names one-to-one with image files living in any of your Unity project `Resources` folder to dynamically load them when requested via the API. The demo ArcweavePlayerUI included in the package is also made with such cover images displaying in mind. Do note that the images imported in Unity for this purpose have to be set to the "Default" Texture Type in the image import settings (if not already) for the Demo ArcweavePlayerUI to be able to use them.
