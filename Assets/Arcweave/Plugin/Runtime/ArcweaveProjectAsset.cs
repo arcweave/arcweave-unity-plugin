@@ -3,7 +3,7 @@ using UnityEngine.Networking;
 
 namespace Arcweave
 {
-    //An arcweave project wrapper stored as a ScriptableObject asset
+    ///<summary>An arcweave project wrapper stored as a ScriptableObject asset</summary>
     [CreateAssetMenu(menuName = "Arcweave/Project Asset")]
     public class ArcweaveProjectAsset : ScriptableObject
     {
@@ -30,7 +30,7 @@ namespace Arcweave
             }
         }
 
-        ///Import project from json text file or web and get callback when finished.
+        ///<summary>Import project from json text file or web and get callback when finished.</summary>
         public void ImportProject(System.Action callback = null) {
             if ( importSource == ImportSource.FromJson && projectJsonFile != null ) {
                 MakeProject(projectJsonFile.text, callback);

@@ -25,6 +25,7 @@ namespace Arcweave
             this._typeName = value.GetType().FullName;
         }
 
+        ///<summary>Reset the variable to its default value.</summary>
         public void ResetToDefaultValue() {
             if ( type == typeof(string) ) { this.value = (string)_defaultValue; }
             if ( type == typeof(int) ) { this.value = (int)_defaultValue; }

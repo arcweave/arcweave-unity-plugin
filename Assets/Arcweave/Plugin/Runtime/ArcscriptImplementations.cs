@@ -1,5 +1,5 @@
 ﻿namespace Arcweave
 {
-    //A stub partial class for arcscript implementations
+    ///<summary>A stub partial class for arcscript implementations</summary>
     static partial class ArcscriptImplementations { }
 }

@@ -1,6 +1,6 @@
 namespace Arcweave
 {
-    ///An interface for all things a connection can have as source and/or target
+    ///<summary>An interface for all things a connection can have as source and/or target</summary>
     public interface INode
     {
         string id { get; }

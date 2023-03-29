@@ -23,7 +23,7 @@ namespace Arcweave
             this.conditions = conditions;
         }
 
-        ///Returns the true condition
+        ///<summary>Returns the true condition.</summary>
         Condition GetTrueCondition() {
             foreach ( var condition in conditions ) {
                 if ( condition.Evaluate() ) { return condition; }
@@ -31,6 +31,7 @@ namespace Arcweave
             return null;
         }
 
+        ///<summary>Returns the true condition output connection.</summary>
         public Connection GetTrueConditionOutput() => GetTrueCondition()?.output;
     }
 }

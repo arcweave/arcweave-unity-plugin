@@ -2,17 +2,19 @@
 
 namespace Arcweave
 {
-    ///Represents the currenst state of an Element with possible outgoing paths. Can be used to control the arcweave flow easier.
+    ///<summary>Represents the currenst state of an Element with possible outgoing paths. Can be used to control the arcweave flow easier.</summary>
     public class State
     {
-        ///The elementthis state was generated from
+        ///<summary>The element this state was generated from</summary>
         public Element element { get; private set; }
-        ///The possible paths outgoing the element
+        ///<summary>The possible paths outgoing the element</summary>
         public Path[] paths;
-        ///Utility check if there are any paths
+        ///<summary>Utility check if there are any paths</summary>
         public bool hasPaths => paths != null;
-        ///Utility check if there are actually options (also checks hasPaths)
+        ///<summary>Utility check if there are actually options (also checks hasPaths)</summary>
         public bool hasOptions => hasPaths && ( paths.Length > 1 || !string.IsNullOrEmpty(paths[0].label) );
+
+        ///<summary>Make a state object by provided Element.</summary>
         public State(Element element) {
             this.element = element;
             var validPaths = new List<Path>();
@@ -31,12 +33,12 @@ namespace Arcweave
         }
     }
 
-    ///Represents the path from an Element to the next possible Element if any, with the according label that led to that Element.
+    ///<summary>Represents the path from an Element to the next possible Element if any, with the according label that led to that Element.</summary>
     public struct Path
     {
-        ///The last label that lead to the target element
+        ///<summary>The last label that lead to the target element</summary>
         public string label;
-        ///The element that this path will lead/land to
+        ///<summary>The element that this path will lead/land to</summary>
         public Element targetElement;
         internal bool isValid => targetElement != null;
         internal static Path Invalid => default(Path);

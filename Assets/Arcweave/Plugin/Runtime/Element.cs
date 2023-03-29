@@ -42,7 +42,7 @@ namespace Arcweave
 
         ///----------------------------------------------------------------------------------------------
 
-        ///Returns the runtime content taking into account and executing arcscript
+        ///<summary>Returns the runtime content taking into account and executing arcscript</summary>
         public string GetRuntimeContent() {
             if ( runtimeContentFunc == null ) {
                 var methodName = "Element_" + id.Replace("-", "_").ToString();
@@ -55,24 +55,27 @@ namespace Arcweave
 
         ///----------------------------------------------------------------------------------------------
 
-        ///Represents the state of the element with possible paths to next elements taking into account conditions, invalid jumper links, etc.
+        ///<summary>Represents the state of the element with possible paths to next elements taking into account conditions, invalid jumper links, etc.</summary>
         public State GetState() => new State(this);
 
+        ///<summary>Has any content at all?</summary>
         public bool HasContent() => !string.IsNullOrEmpty(rawContent);
+        ///<summary>Has any Component?</summary>
         public bool HasComponent(string name) => TryGetComponent(name, out var component);
+        ///<summary>Try get a Component by name.</summary>
         public bool TryGetComponent(string name, out Component component) {
             component = components.FirstOrDefault(x => x.name == name);
             return component != null;
         }
 
-        ///Returns the cover image if exists, otherwise the first component image.
+        ///<summary>Returns the cover image if exists, otherwise the first component image.</summary>
         public Texture2D GetCoverOrFirstComponentImage() {
             var result = GetCoverImage();
             return result != null ? result : GetFirstComponentCoverImage();
         }
-        ///Returns a Texture2D asset by the same image name as the one used in Arcweave and loaded from a "Resources" asset folder.
+        ///<summary>Returns a Texture2D asset by the same image name as the one used in Arcweave and loaded from a "Resources" asset folder.</summary>
         public Texture2D GetCoverImage() => cover?.ResolveImage();
-        ///Returns a Texture2D asset of the first component attached to the element by the same image name as the one used in Arcweave and loaded from a "Resources" asset folder.
+        ///<summary>Returns a Texture2D asset of the first component attached to the element by the same image name as the one used in Arcweave and loaded from a "Resources" asset folder.</summary>
         public Texture2D GetFirstComponentCoverImage() => components != null && components.Count > 0 ? components[0].GetCoverImage() : null;
     }
 }

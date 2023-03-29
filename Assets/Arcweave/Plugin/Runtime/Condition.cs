@@ -29,7 +29,7 @@ namespace Arcweave
 
         ///----------------------------------------------------------------------------------------------
 
-        ///Evaluates the condition (invalid scripts return True)
+        ///<summary>Evaluates the condition (invalid scripts return True)</summary>
         public bool Evaluate() {
             if ( string.IsNullOrEmpty(script) ) {
                 return true;

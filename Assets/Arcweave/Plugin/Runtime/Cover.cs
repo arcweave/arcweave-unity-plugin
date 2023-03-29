@@ -26,6 +26,7 @@ namespace Arcweave
             this.filePath = filePath;
         }
 
+        ///<summary>Resolves the image from a 'Rersouces' folder.</summary>
         public Texture2D ResolveImage() {
             var imageName = System.IO.Path.GetFileNameWithoutExtension(filePath);
             if ( _cachedImage == null || _cachedImage.name != imageName ) {
