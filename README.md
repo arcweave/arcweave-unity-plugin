@@ -36,3 +36,150 @@ To see the Unity Arcweave Player demo scene in action:
 ### Utilizing Cover Images
 
 If you utilize cover images in your Arcweave project, the plugin is also able by convention to match their files names one-to-one with image files living in any of your Unity project `Resources` folder to dynamically load them when requested via the API. The demo ArcweavePlayerUI included in the package is also made with such cover images displaying in mind. Do note that the images imported in Unity for this purpose have to be set to the "Default" Texture Type in the image import settings (if not already) for the Demo ArcweavePlayerUI to be able to use them.
+
+## API Documentation
+
+### Project
+You can access the Project class through the `ArcweaveProjectAsset.project` property. It is the root of an imported Arcweave project.
+
+**Properties**
+
+- `string name {get}`
+- `List<Board> boards {get}`
+- `List<Component> components {get}`
+- `List<Variable> variables {get}`
+- `Element startingElement {get}`
+
+**Methods**
+|Method Name|Description  |
+|--|--|
+|`void Initialize ()`  |Should be called once before using the project.  |
+|`Board BoardWithID (string id)`  |Returns the Board with id.  |
+|`Board BoardWithName (string name)`  |Returns the Board with name.  |
+|`T GetNodeWithID<T> (string id)`  |Returns the INode of type T with id.   |
+|`T GetVariable<T> (string name)`  |Returns the variable value of type T with name.  |
+|`object GetVariable (string name)`  |Returns the variable object value with name.  |
+|`bool SetVariable (string name, object value)`  |Sets the variable with name to a new value. |
+|`void ResetVariablesToDefaultValues ()`  |Reset all variables to their default value.  |
+|`string SaveVariables ()`  |Returns a string of the saved variables that can be loaded later.  |
+|`void LoadVariables (string save)`  |Loads a previously saved string made with SaveVariables.  |
+
+### Board
+Defines an Arcweave board.
+
+**Properties**
+
+ - `string id {get}`
+ - `string name {get}`
+ - `List<INode> nodes {get}`
+
+**Methods**
+|Method Name  |Description  |
+|--|--|
+|`T NodeWithID<T> (string id)`  |Returns the INode of type T with id.  |
+|`Element ElementWithID (string id)`  |Returns the Element with id.  |
+
+
+### Element
+Defines an Arcweave element.
+
+**Properties**
+
+ - `string id {get}`
+ - `string title {get}`
+ - `string rawContent {get}`
+ - `List<Component> components {get}`
+ - `Cover cover {get}`
+ - `List<Connection> outputs {get}`
+
+**Methods**
+
+|Method Name|Description  |
+|--|--|
+|`string GetRuntimeContent ()`  |Returns the arcscript processed content.  |
+|`State GetState ()`  |Returns information about possible outgoing paths taking into account conditions.  |
+|`bool HasContent ()`  |Does the Element has any content at all?  |
+|`bool HasComponent ()`  |Does the Element has any Component?  |
+|`bool TryGetComponent (string name, out Component component)`  |Try get a Component by name.  |
+|`Texture2D GetCoverImage ()`  |Returns the Texture2D cover image from a `Resources` folder.  |
+|`Texture2D GetFirstComponentCoverImage ()`  |Returns the Texture2D of the first component cover from a `Resources` folder.  |
+
+### Branch
+Defines an Arcweave branch.
+
+**Properties**
+
+ - `string id {get}`
+ - `List<Condition> conditions {get}`
+
+**Methods**
+|Method Name  |Description  |
+|--|--|
+|`Condition GetTrueCondition ()`  |Returns the true condition.  |
+|`Connection GetTrueConditionOutput ()`  |Returns the Connection of the true condition. |
+
+### Condition
+Defines an Arcweave condition that lives within a branch.
+
+**Properties**
+
+ - `string id {get}`
+ - `string script {get}`
+ - `Connection output {get}`
+
+**Methods**
+|Method Name  |Description  |
+|--|--|
+|`bool Evaluate ()`   |Evaluates the condition (invalid scripts return true)  |
+
+### Component
+Defines an Arcweave component.
+
+**Properties**
+
+ - `string id {get}`
+ - `string name {get}`
+ - `List<Attribute> attributes {get}`
+ - `Cover cover {get}`
+
+**Methods**
+|Method Name  |Description  |
+|--|--|
+|`Texture2D GetCoverImage ()`  |Returns the Texture2D cover image from a `Resources` folder.|
+
+### Component.Attribute
+Defines the attribute of a component.
+
+**Properties**
+
+ - `string name {get}`
+ - `DataType type {get`
+ - `object data {get}`
+
+### Connection
+Defines an Arcweave connection.
+
+**Properties**
+
+ - `string id {get}`
+ - `string label {get}`
+ - `INode source {get}`
+ - `INode target {get}`
+
+### State
+Represents the currenst state of an Element with possible outgoing paths. Can be used to control the arcweave flow easier. You can create the State of an element with the `Element.GetState()` method.
+
+**Properties**
+
+ - `Element element {get} // The element this state was generated from.`
+ - `Path[] paths {get} // The possible paths outgoing the element.`
+ - `bool hasPaths {get} // Utility check if there are any paths.`
+ - `bool hasOptions {get} // Utility check if there are actually any options.`
+
+### Path
+Represents the path from an Element to the next possible Element if any, with the according label that led to that Element. The State class above make use of Paths.
+
+**Properties**
+
+ - `string label {get} // The last label that lead to the target element.`
+ - `Element targetElement {get} // The element that this path will lead/lad to.`
