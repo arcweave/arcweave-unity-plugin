@@ -39,7 +39,7 @@ If you utilize cover images in your Arcweave project, the plugin is also able by
 
 ## API Documentation
 
-### Project
+### - Project
 You can access the Project class through the `ArcweaveProjectAsset.project` property. It is the root of an imported Arcweave project.
 
 **Properties**
@@ -64,7 +64,7 @@ You can access the Project class through the `ArcweaveProjectAsset.project` prop
 |`string SaveVariables ()`  |Returns a string of the saved variables that can be loaded later.  |
 |`void LoadVariables (string save)`  |Loads a previously saved string made with SaveVariables.  |
 
-### Board
+### - Board
 Defines an Arcweave board.
 
 **Properties**
@@ -80,7 +80,7 @@ Defines an Arcweave board.
 |`Element ElementWithID (string id)`  |Returns the Element with id.  |
 
 
-### Element
+### - Element
 Defines an Arcweave element.
 
 **Properties**
@@ -104,7 +104,7 @@ Defines an Arcweave element.
 |`Texture2D GetCoverImage ()`  |Returns the Texture2D cover image from a `Resources` folder.  |
 |`Texture2D GetFirstComponentCoverImage ()`  |Returns the Texture2D of the first component cover from a `Resources` folder.  |
 
-### Branch
+### - Branch
 Defines an Arcweave branch.
 
 **Properties**
@@ -118,7 +118,7 @@ Defines an Arcweave branch.
 |`Condition GetTrueCondition ()`  |Returns the true condition.  |
 |`Connection GetTrueConditionOutput ()`  |Returns the Connection of the true condition. |
 
-### Condition
+### - Condition
 Defines an Arcweave condition that lives within a branch.
 
 **Properties**
@@ -132,7 +132,7 @@ Defines an Arcweave condition that lives within a branch.
 |--|--|
 |`bool Evaluate ()`   |Evaluates the condition (invalid scripts return true)  |
 
-### Component
+### - Component
 Defines an Arcweave component.
 
 **Properties**
@@ -147,7 +147,7 @@ Defines an Arcweave component.
 |--|--|
 |`Texture2D GetCoverImage ()`  |Returns the Texture2D cover image from a `Resources` folder.|
 
-### Component.Attribute
+### - Component.Attribute
 Defines the attribute of a component.
 
 **Properties**
@@ -156,7 +156,7 @@ Defines the attribute of a component.
  - `DataType type {get`
  - `object data {get}`
 
-### Connection
+### - Connection
 Defines an Arcweave connection.
 
 **Properties**
@@ -166,7 +166,7 @@ Defines an Arcweave connection.
  - `INode source {get}`
  - `INode target {get}`
 
-### State
+### - State
 Represents the currenst state of an Element with possible outgoing paths. Can be used to control the arcweave flow easier. You can create the State of an element with the `Element.GetState()` method.
 
 **Properties**
@@ -176,7 +176,7 @@ Represents the currenst state of an Element with possible outgoing paths. Can be
  - `bool hasPaths {get} // Utility check if there are any paths.`
  - `bool hasOptions {get} // Utility check if there are actually any options.`
 
-### Path
+### - Path
 Represents the path from an Element to the next possible Element if any, with the according label that led to that Element. The State class above make use of Paths.
 
 **Properties**
@@ -184,7 +184,7 @@ Represents the path from an Element to the next possible Element if any, with th
  - `string label {get} // The last label that lead to the target element.`
  - `Element targetElement {get} // The element that this path will lead/lad to.`
 
-### Variable
+### - Variable
 Defines an Arcweave variable.
 
 **Properties**
@@ -198,7 +198,7 @@ Defines an Arcweave variable.
 |--|--|
 |`void ResetToDefaultValue ()`  |Reset the variable to its default value.  |
 
-### ArcweavePlayer
+### - ArcweavePlayer
 The ArcweavePlayer is provided as an example of using an arcweave imported project and playing it similarily to the web app player. It is not required to utilize an arcweave imported project, but can be usefull in some of your projects as-is.
 
 **Properties**
@@ -218,6 +218,7 @@ The events above can be subscribed to. The demo ArcweavePlayerUI included makes 
 |Method Name  |Description  |
 |--|--|
 |`PlayProject ()`  |Plays the assigned arcweave project  |
-|`Save ()`  |Save the current element the variables (this is doe in PlayerPrefs).  |
+|`Save ()`  |Save the current element the variables (this is done in PlayerPrefs).  |
 |`Load ()`  |Loads the previously current element and the variables (from PlayerPrefs) and moves to that element  |
+
 
