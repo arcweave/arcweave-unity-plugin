@@ -183,3 +183,41 @@ Represents the path from an Element to the next possible Element if any, with th
 
  - `string label {get} // The last label that lead to the target element.`
  - `Element targetElement {get} // The element that this path will lead/lad to.`
+
+### Variable
+Defines an Arcweave variable.
+
+**Properties**
+
+ - `string name {get}`
+ - `object value {get}`
+ - `Type type {get}`
+
+**Methods**
+|Method Name  |Description  |
+|--|--|
+|`void ResetToDefaultValue ()`  |Reset the variable to its default value.  |
+
+### ArcweavePlayer
+The ArcweavePlayer is provided as an example of using an arcweave imported project and playing it similarily to the web app player. It is not required to utilize an arcweave imported project, but can be usefull in some of your projects as-is.
+
+**Properties**
+
+ - `ArcweaveProjectAsset aw`
+ - `bool autoStart`
+ - `event OnProjectStart onProjectStart`
+ - `event OnProjectFinish onProjectFinish`
+ - `event OnElementEnter onElementEnter`
+ - `event OnElementOptions onElementOptions`
+ - `event OnWaitInputNext onWaitInputNext`
+
+The events above can be subscribed to. The demo ArcweavePlayerUI included makes use of these events for example.
+
+**Methods**
+
+|Method Name  |Description  |
+|--|--|
+|`PlayProject ()`  |Plays the assigned arcweave project  |
+|`Save ()`  |Save the current element the variables (this is doe in PlayerPrefs).  |
+|`Load ()`  |Loads the previously current element and the variables (from PlayerPrefs) and moves to that element  |
+
