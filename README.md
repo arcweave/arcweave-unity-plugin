@@ -218,7 +218,7 @@ The events above can be subscribed to. The demo ArcweavePlayerUI included makes 
 |Method Name  |Description  |
 |--|--|
 |`PlayProject ()`  |Plays the assigned arcweave project  |
-|`Save ()`  |Save the current element the variables (this is done in PlayerPrefs).  |
-|`Load ()`  |Loads the previously current element and the variables (from PlayerPrefs) and moves to that element  |
+|`Save ()`  |Save the current element and all variables (this is done in PlayerPrefs).  |
+|`Load ()`  |Loads the previously current element and all variables (from PlayerPrefs) and moves to that element  |
 
 
