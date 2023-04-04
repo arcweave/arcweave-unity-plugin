@@ -182,7 +182,7 @@ Represents the path from an Element to the next possible Element if any, with th
 **Properties**
 
  - `string label {get} // The last label that lead to the target element.`
- - `Element targetElement {get} // The element that this path will lead/lad to.`
+ - `Element targetElement {get} // The element that this path will lead/land to.`
 
 ### - Variable
 Defines an Arcweave variable.
