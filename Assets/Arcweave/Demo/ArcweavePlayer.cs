@@ -21,7 +21,7 @@ namespace Arcweave
 
         private Element currentElement;
 
-        //events that that UI (or otherwise) can subscribe to get notified and act accordinhly.
+        //events that that UI (or otherwise) can subscribe to get notified and act accordingly.
         public event OnProjectStart onProjectStart;
         public event OnProjectFinish onProjectFinish;
         public event OnElementEnter onElementEnter;
@@ -44,18 +44,27 @@ namespace Arcweave
             Next(aw.project.startingElement);
         }
 
-        ///Moves to the next element
+        ///Moves to the next element through a path
+        void Next(Path path) {
+            path.ExecuteAppendedConnectionLabels();
+            Next(path.targetElement);
+        }
+
+        ///Moves to the next/an element directly
         void Next(Element element) {
             currentElement = element;
+            currentElement.visits++;
             if ( onElementEnter != null ) onElementEnter(element);
             var currentState = currentElement.GetState();
             if ( currentState.hasPaths ) {
                 if ( currentState.hasOptions ) {
-                    if ( onElementOptions != null ) onElementOptions(currentState, (index) => Next(currentState.paths[index].targetElement));
+                    if ( onElementOptions != null ) {
+                        onElementOptions(currentState, (index) => Next(currentState.paths[index]));
+                    }
                     return;
                 }
 
-                if ( onWaitInputNext != null ) onWaitInputNext(() => Next(currentState.paths[0].targetElement));
+                if ( onWaitInputNext != null ) onWaitInputNext(() => Next(currentState.paths[0]));
                 return;
             }
             currentElement = null;

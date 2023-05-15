@@ -14,12 +14,14 @@ namespace Arcweave
         public Connection output { get; private set; }
 
         private System.Func<Project, bool> runtimeScript { get; set; }
-        private Project project { get; set; }
+        public Project project { get; private set; }
 
         void INode.InitializeInProject(Project project) { this.project = project; }
-        Path INode.ResolvePath(Path p) => output != null && !string.IsNullOrEmpty(output.id) ? output.ResolvePath(p) : Path.Invalid;
-        //Remark: connections are not serialized by reference thus unity makes an instance and can't be null.
-        //Therefore we check if the connection is actually valid if it has an id.
+        Path INode.ResolvePath(Path p) {
+            //Remark: connections are not serialized by reference thus unity makes an instance and can't be null.
+            //Therefore we check if the connection is actually valid if it has an id.
+            return output != null && !string.IsNullOrEmpty(output.id) ? output.ResolvePath(p) : Path.Invalid;
+        }
 
         internal void Set(string id, Connection output, string script) {
             this.id = id;

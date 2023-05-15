@@ -12,7 +12,9 @@ namespace Arcweave
         [field: SerializeReference]
         public List<Condition> conditions { get; private set; }
 
-        void INode.InitializeInProject(Project project) { }
+        public Project project { get; private set; }
+
+        void INode.InitializeInProject(Project project) { this.project = project; }
         Path INode.ResolvePath(Path p) {
             var condition = GetTrueCondition();
             return condition != null ? ( condition as INode ).ResolvePath(p) : Path.Invalid;

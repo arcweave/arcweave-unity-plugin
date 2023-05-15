@@ -24,6 +24,9 @@ namespace Arcweave
         public Project project { get; private set; }
         private System.Func<Project, string> runtimeContentFunc { get; set; }
 
+        ///The number of visits to this element
+        public int visits { get; set; }
+
         void INode.InitializeInProject(Project project) { this.project = project; }
         Path INode.ResolvePath(Path p) {
             if ( string.IsNullOrEmpty(p.label) ) { p.label = title; }
@@ -56,7 +59,12 @@ namespace Arcweave
         ///----------------------------------------------------------------------------------------------
 
         ///<summary>Represents the state of the element with possible paths to next elements taking into account conditions, invalid jumper links, etc.</summary>
-        public State GetState() => new State(this);
+        public State GetState() {
+            var save = project.SaveVariables();
+            var state = new State(this);
+            project.LoadVariables(save);
+            return state;
+        }
 
         ///<summary>Has any content at all?</summary>
         public bool HasContent() => !string.IsNullOrEmpty(rawContent);

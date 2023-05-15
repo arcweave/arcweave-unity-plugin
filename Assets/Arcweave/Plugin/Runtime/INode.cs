@@ -4,6 +4,7 @@ namespace Arcweave
     public interface INode
     {
         string id { get; }
+        Project project { get; }
         void InitializeInProject(Project project);
         Path ResolvePath(Path path);
     }

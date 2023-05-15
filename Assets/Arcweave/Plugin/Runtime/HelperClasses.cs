@@ -40,7 +40,21 @@ namespace Arcweave
         public string label;
         ///<summary>The element that this path will lead/land to</summary>
         public Element targetElement;
+        private List<Connection> connections;
         internal bool isValid => targetElement != null;
         internal static Path Invalid => default(Path);
+
+        ///Appends a connection to the path. This is called from Connection when it resolves path
+        internal void AppendConnection(Connection connection) {
+            if ( connections == null ) { connections = new List<Connection>(); }
+            connections.Add(connection);
+        }
+
+        ///Executes the appended connection labels (and thus execute arcscript in those connections)
+        internal void ExecuteAppendedConnectionLabels() {
+            foreach ( var connection in connections ) {
+                connection.GetRuntimeLabel(); // we dont care what it returns, we just call to execute
+            }
+        }
     }
 }

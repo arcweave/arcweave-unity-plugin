@@ -37,9 +37,24 @@ namespace Arcweave
         ///<summary>Should be called once before using the project.</summary>
         public void Initialize() {
             ResetVariablesToDefaultValues();
+            ResetVisits();
             foreach ( var board in boards ) {
                 foreach ( var node in board.nodes ) {
                     node.InitializeInProject(this);
+                }
+            }
+        }
+
+        ///----------------------------------------------------------------------------------------------
+
+        ///<summary>Returns the number of visits of an element with id.</summary>
+        public int Visits(string id) { return ElementWithID(id).visits; }
+
+        ///<summary>Reset the number of visits to 0 for all elements.</summary>
+        public void ResetVisits() {
+            foreach ( var board in boards ) {
+                foreach ( var element in board.nodes.OfType<Element>() ) {
+                    element.visits = 0;
                 }
             }
         }
