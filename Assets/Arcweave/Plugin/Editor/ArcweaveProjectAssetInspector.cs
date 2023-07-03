@@ -20,7 +20,11 @@ namespace Arcweave
             GUI.enabled = !isImporting && ( fromJson || fromWeb );
             if ( GUILayout.Button(text) ) {
                 isImporting = true;
-                aw.ImportProject(() => { isImporting = false; });
+                aw.ImportProject(() =>
+                {
+                    isImporting = false;
+                    AssetDatabase.SaveAssetIfDirty(aw);
+                });
             }
             GUI.enabled = true;
 
