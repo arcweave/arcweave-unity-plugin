@@ -23,6 +23,7 @@ namespace Arcweave
                 aw.ImportProject(() =>
                 {
                     isImporting = false;
+                    EditorUtility.SetDirty(aw);
                     AssetDatabase.SaveAssetIfDirty(aw);
                 });
             }
