@@ -28,7 +28,7 @@ namespace Arcweave
         private Dictionary<string, INode> nodes;
         private Dictionary<string, Connection> connections;
         private Dictionary<string, Component> components;
-        private Dictionary<string, Component.Attribute> attributes;
+        private Dictionary<string, Attribute> attributes;
         private Dictionary<string, Variable> variables;
 
         public ProjectMaker(string json, ArcweaveProjectAsset projectAsset) {
@@ -52,7 +52,7 @@ namespace Arcweave
             this.nodes = new Dictionary<string, INode>();
             this.connections = new Dictionary<string, Connection>();
             this.components = new Dictionary<string, Component>();
-            this.attributes = new Dictionary<string, Component.Attribute>();
+            this.attributes = new Dictionary<string, Attribute>();
             this.variables = new Dictionary<string, Variable>();
         }
 
@@ -124,6 +124,7 @@ namespace Arcweave
                 foreach ( var connectionid in outputids.AsList ) {
                     outputs.Add(TryMakeConnection(connectionid.AsString));
                 }
+
                 var components = new List<Component>();
                 var componentids = GetProp(jelements, id, "components");
                 foreach ( var componentid in componentids.AsList ) {
@@ -131,8 +132,15 @@ namespace Arcweave
                     if ( component != null ) components.Add(component); //null = has children
                 }
 
+                var attributes = new List<Attribute>();
+                if ( HasProperty(jelements, id, "attributes", out var attributeids) ) {
+                    foreach ( var attributeid in attributeids.AsList ) {
+                        attributes.Add(TryMakeAttribute(attributeid.AsString));
+                    }
+                }
+
                 var cover = MakeCover(jelements, id);
-                ( node as Element ).Set(id, outputs, Utils.CleanString(title), Utils.CleanString(content), components, cover);
+                ( node as Element ).Set(id, outputs, Utils.CleanString(title), Utils.CleanString(content), components, attributes, cover);
             }
             return (Element)node;
         }
@@ -221,7 +229,7 @@ namespace Arcweave
 
                 components[id] = component = new Component();
                 var name = GetProp(jcomponents, id, "name")?.AsString;
-                var attributes = new List<Component.Attribute>();
+                var attributes = new List<Attribute>();
                 var attributeids = GetProp(jcomponents, id, "attributes").AsList;
                 foreach ( var attributeid in attributeids ) {
                     attributes.Add(TryMakeAttribute(attributeid.AsString));
@@ -233,20 +241,32 @@ namespace Arcweave
         }
 
         //...
-        Component.Attribute TryMakeAttribute(string id) {
+        Attribute TryMakeAttribute(string id) {
             if ( !attributes.TryGetValue(id, out var attribute) ) {
-                attributes[id] = attribute = new Component.Attribute();
+                attributes[id] = attribute = new Attribute();
                 var name = GetProp(jattributes, id, "name")?.AsString;
-                var jtype = GetProp(jattributes, id, "value.type")?.AsString;
-                Component.Attribute.DataType type = Component.Attribute.DataType.Undefined;
-                object data = null;
-                if ( jtype == "string" ) {
-                    type = Component.Attribute.DataType.String;
-                    data = GetProp(jattributes, id, "value.data")?.AsString;
 
+                var jcontainerType = GetProp(jattributes, id, "cType")?.AsString;
+                Attribute.ContainerType containerType = Attribute.ContainerType.Undefined;
+                if ( jcontainerType == "elements" ) { containerType = Attribute.ContainerType.Element; }
+                if ( jcontainerType == "components" ) { containerType = Attribute.ContainerType.Component; }
+
+                var containerId = GetProp(jattributes, id, "cId")?.AsString;
+
+                Attribute.DataType type = Attribute.DataType.Undefined;
+                object data = null;
+
+                var jtype = GetProp(jattributes, id, "value.type")?.AsString;
+                if ( jtype == "string" ) {
+                    type = Attribute.DataType.StringRichText;
+                    data = GetProp(jattributes, id, "value.data")?.AsString;
+                    if ( HasProperty(jattributes, id, "value.plain", out var isPlain) && isPlain.AsBool == true ) {
+                        type = Attribute.DataType.StringPlainText;
+                    }
                 }
+
                 if ( jtype == "component-list" ) {
-                    type = Component.Attribute.DataType.ComponentList;
+                    type = Attribute.DataType.ComponentList;
                     var componentList = new List<Component>();
                     var componentids = GetProp(jattributes, id, "value.data").AsList;
                     foreach ( var componentid in componentids ) {
@@ -255,7 +275,7 @@ namespace Arcweave
                     }
                     data = componentList;
                 }
-                attribute.Set(name, type, data);
+                attribute.Set(name, type, data, containerType, containerId);
             }
             return attribute;
         }

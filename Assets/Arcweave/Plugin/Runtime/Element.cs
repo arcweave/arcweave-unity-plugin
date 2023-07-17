@@ -17,6 +17,8 @@ namespace Arcweave
         [field: SerializeReference]
         public List<Component> components { get; private set; }
         [field: SerializeField]
+        public List<Attribute> attributes { get; private set; }
+        [field: SerializeField]
         public Cover cover { get; private set; }
         [field: SerializeField]
         public List<Connection> outputs { get; private set; }
@@ -34,12 +36,13 @@ namespace Arcweave
             return p;
         }
 
-        internal void Set(string id, List<Connection> outputs, string title, string content, List<Component> components, Cover cover) {
+        internal void Set(string id, List<Connection> outputs, string title, string content, List<Component> components, List<Attribute> attributes, Cover cover) {
             this.id = id;
             this.outputs = outputs;
             this.title = title;
             this.rawContent = content;
             this.components = components;
+            this.attributes = attributes;
             this.cover = cover;
         }
 
