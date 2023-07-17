@@ -225,16 +225,18 @@ Represents Arcweave components.
 |`Texture2D GetCoverImage ()`  |Returns the Texture2D cover image from a `Resources` folder.|
 
 
-### Component.Attribute class
+### Attribute class
 
-Defines the attribute of a component.
+Represents Arcweave attributes.
 
 
 #### Properties
 
  - `string name {get}`
- - `DataType type {get`
+ - `DataType type {get}`
  - `object data {get}`
+ - `ContainerType containerType {get}`
+ - `string containerId {get}`
 
 
 ### Connection class
@@ -291,7 +293,7 @@ Defines an Arcweave variable.
 
 ### ArcweavePlayer
 
-The ArcweavePlayer is provided as an example of using a project imported from Αrcweave and playing it similarily to the web app player. It is not required to utilize an arcweave imported project, but can be usefull in some of your projects as-is.
+The ArcweavePlayer is provided as an example of using a project imported from Αrcweave and playing it similarly to the web app player. It is not required to utilize an arcweave imported project, but can be useful in some of your projects as-is.
 
 #### Events
 
