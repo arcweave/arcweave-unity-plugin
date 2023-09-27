@@ -16,7 +16,6 @@ namespace Arcweave
 
         [field: SerializeField, HideInInspector]
         public Project project { get; private set; }
-        public bool isImporting { get; private set; }
 
         ///----------------------------------------------------------------------------------------------
 

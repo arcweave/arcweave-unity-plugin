@@ -1,3 +1,4 @@
+using Arcweave.Transpiler;
 using UnityEngine;
 
 namespace Arcweave
@@ -16,12 +17,13 @@ namespace Arcweave
         [field: SerializeReference]
         public INode target { get; private set; }
 
+        public bool isValid => !string.IsNullOrEmpty(id);
         public Project project => source.project;
-        private System.Func<Project, string> runtimeLabelFunc { get; set; }
+        // private System.Func<Project, string> runtimeLabelFunc { get; set; }
 
-        internal void Set(string id, string label, INode source, INode target) {
+        internal void Set(string id, string rawLabel, INode source, INode target) {
             this.id = id;
-            this.rawLabel = label;
+            this.rawLabel = rawLabel;
             this.source = source;
             this.target = target;
         }
@@ -39,13 +41,22 @@ namespace Arcweave
             if ( string.IsNullOrEmpty(rawLabel) ) {
                 return null;
             }
-            if ( runtimeLabelFunc == null ) {
-                var methodName = "Connection_" + id.Replace("-", "_").ToString();
-                var methodInfo = typeof(ArcscriptImplementations).GetMethod(methodName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-                Debug.Assert(methodInfo != null);
-                runtimeLabelFunc = (System.Func<Project, string>)System.Delegate.CreateDelegate(typeof(System.Func<Project, string>), null, methodInfo);
+            // if ( runtimeLabelFunc == null ) {
+            //     var methodName = "Connection_" + id.Replace("-", "_").ToString();
+            //     var methodInfo = typeof(ArcscriptImplementations).GetMethod(methodName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            //     Debug.Assert(methodInfo != null);
+            //     runtimeLabelFunc = (System.Func<Project, string>)System.Delegate.CreateDelegate(typeof(System.Func<Project, string>), null, methodInfo);
+            // }
+            // return Utils.CleanString(runtimeLabelFunc(project));
+
+            var i = new Interpreter(project);
+            var output = i.RunScript(rawLabel);
+            foreach ( var chage in output.changes ) {
+                // set variables
+                // Debug.Log(chage.Key);
+                // Debug.Log(chage.Value);
             }
-            return Utils.CleanString(runtimeLabelFunc(project));
+            return output.output;
         }
     }
 }

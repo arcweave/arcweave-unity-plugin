@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using Arcweave.Transpiler;
 
 namespace Arcweave
 {
@@ -11,9 +12,13 @@ namespace Arcweave
         [field: SerializeField]
         public string id { get; private set; }
         [field: SerializeField]
-        public string title { get; private set; }
+        public Vector2Int pos { get; private set; }
+        [field: SerializeField]
+        public string rawTitle { get; private set; }
         [field: SerializeField]
         public string rawContent { get; private set; }
+        [field: SerializeField]
+        public string colorTheme { get; private set; }
         [field: SerializeReference]
         public List<Component> components { get; private set; }
         [field: SerializeField]
@@ -24,39 +29,50 @@ namespace Arcweave
         public List<Connection> outputs { get; private set; }
 
         public Project project { get; private set; }
-        private System.Func<Project, string> runtimeContentFunc { get; set; }
+        // private System.Func<Project, string> runtimeContentFunc { get; set; }
 
         ///The number of visits to this element
         public int visits { get; set; }
 
         void INode.InitializeInProject(Project project) { this.project = project; }
         Path INode.ResolvePath(Path p) {
-            if ( string.IsNullOrEmpty(p.label) ) { p.label = title; }
+            if ( string.IsNullOrEmpty(p.label) ) { p.label = rawTitle; }
             p.targetElement = this;
             return p;
         }
 
-        internal void Set(string id, List<Connection> outputs, string title, string content, List<Component> components, List<Attribute> attributes, Cover cover) {
+        internal void Set(string id, Vector2Int pos, List<Connection> outputs, string rawTitle, string rawContent, List<Component> components, List<Attribute> attributes, Cover cover, string colorTheme) {
             this.id = id;
+            this.pos = pos;
             this.outputs = outputs;
-            this.title = title;
-            this.rawContent = content;
+            this.rawTitle = rawTitle;
+            this.rawContent = rawContent;
             this.components = components;
             this.attributes = attributes;
             this.cover = cover;
+            this.colorTheme = colorTheme;
         }
 
         ///----------------------------------------------------------------------------------------------
 
         ///<summary>Returns the runtime content taking into account and executing arcscript</summary>
         public string GetRuntimeContent() {
-            if ( runtimeContentFunc == null ) {
-                var methodName = "Element_" + id.Replace("-", "_").ToString();
-                var methodInfo = typeof(ArcscriptImplementations).GetMethod(methodName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-                Debug.Assert(methodInfo != null);
-                runtimeContentFunc = (System.Func<Project, string>)System.Delegate.CreateDelegate(typeof(System.Func<Project, string>), null, methodInfo);
+            // if ( runtimeContentFunc == null ) {
+            //     var methodName = "Element_" + id.Replace("-", "_").ToString();
+            //     var methodInfo = typeof(ArcscriptImplementations).GetMethod(methodName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+            //     Debug.Assert(methodInfo != null);
+            //     runtimeContentFunc = (System.Func<Project, string>)System.Delegate.CreateDelegate(typeof(System.Func<Project, string>), null, methodInfo);
+            // }
+            // return Utils.CleanString(runtimeContentFunc(project));
+
+            var i = new Interpreter(project, id);
+            var output = i.RunScript(rawContent);
+            foreach ( var chage in output.changes ) {
+                // set variables
+                // Debug.Log(chage.Key);
+                // Debug.Log(chage.Value);
             }
-            return Utils.CleanString(runtimeContentFunc(project));
+            return output.output;
         }
 
         ///----------------------------------------------------------------------------------------------

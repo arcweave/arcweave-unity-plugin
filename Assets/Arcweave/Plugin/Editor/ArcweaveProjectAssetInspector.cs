@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿#if UNITY_EDITOR
+
+using UnityEngine;
 using UnityEditor;
 
 namespace Arcweave
@@ -15,7 +17,7 @@ namespace Arcweave
 
             var fromJson = aw.importSource == ArcweaveProjectAsset.ImportSource.FromJson && aw.projectJsonFile != null;
             var fromWeb = aw.importSource == ArcweaveProjectAsset.ImportSource.FromWeb && !string.IsNullOrEmpty(aw.userAPIKey) && !string.IsNullOrEmpty(aw.projectHash);
-            var text = "Generate Project " + aw.importSource;
+            var text = "Import Project " + aw.importSource;
 
             GUI.enabled = !isImporting && ( fromJson || fromWeb );
             if ( GUILayout.Button(text) ) {
@@ -35,6 +37,8 @@ namespace Arcweave
             if ( isImporting ) { GUILayout.Label("Importing Project..."); }
             if ( isImporting || aw.project == null || string.IsNullOrEmpty(aw.project.name) ) { return; }
 
+            GUILayout.Space(5);
+
             GUILayout.BeginVertical("box");
             GUILayout.Label(string.Format("Arcweave Project: {0}", aw.project.name));
             GUILayout.Label("Global Variables:");
@@ -43,8 +47,16 @@ namespace Arcweave
                 EditorGUILayout.LabelField(variable.name, variable.value?.ToString());
             }
             EditorGUI.indentLevel--;
+
+            // if ( aw.project != null && GUILayout.Button("Debug View", GUILayout.Height(50)) ) {
+            //     ViewerWindow.Open(aw);
+            // }
+
             GUILayout.EndVertical();
+
             Repaint();
         }
     }
 }
+
+#endif

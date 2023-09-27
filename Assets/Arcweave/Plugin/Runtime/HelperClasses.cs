@@ -26,7 +26,7 @@ namespace Arcweave
 
             //NOTE: Trick to keep the aw player behaviour same in regards to single outputs
             if ( paths != null && paths.Length == 1 ) {
-                if ( paths[0].label == paths[0].targetElement.title ) {
+                if ( paths[0].label == paths[0].targetElement.rawTitle ) {
                     paths[0].label = null;
                 }
             }

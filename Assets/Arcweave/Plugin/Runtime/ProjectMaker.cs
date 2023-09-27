@@ -3,7 +3,6 @@ using System.Linq;
 using System.IO;
 using Arcweave.FullSerializer;
 
-
 namespace Arcweave
 {
     //Responsible for making the C# project from json (either directly or via web API)
@@ -117,8 +116,10 @@ namespace Arcweave
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !nodes.TryGetValue(id, out var node) ) {
                 nodes[id] = node = new Element();
+                var pos = new UnityEngine.Vector2Int((int)GetProp(jelements, id, "x").AsInt64, (int)GetProp(jelements, id, "y").AsInt64);
                 var title = GetProp(jelements, id, "title")?.AsString;
                 var content = GetProp(jelements, id, "content")?.AsString;
+                var theme = GetProp(jelements, id, "theme")?.AsString;
                 var outputs = new List<Connection>();
                 var outputids = GetProp(jelements, id, "outputs");
                 foreach ( var connectionid in outputids.AsList ) {
@@ -140,7 +141,7 @@ namespace Arcweave
                 }
 
                 var cover = MakeCover(jelements, id);
-                ( node as Element ).Set(id, outputs, Utils.CleanString(title), Utils.CleanString(content), components, attributes, cover);
+                ( node as Element ).Set(id, pos, outputs, title, content, components, attributes, cover, theme);
             }
             return (Element)node;
         }
@@ -150,9 +151,10 @@ namespace Arcweave
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !nodes.TryGetValue(id, out var node) ) {
                 nodes[id] = node = new Jumper();
+                var pos = new UnityEngine.Vector2Int((int)GetProp(jjumpers, id, "x").AsInt64, (int)GetProp(jjumpers, id, "y").AsInt64);
                 var elementId = GetProp(jjumpers, id, "elementId")?.AsString;
                 var target = TryMakeElement(elementId);
-                ( node as Jumper ).Set(id, target);
+                ( node as Jumper ).Set(id, pos, target);
             }
             return (Jumper)node;
         }
@@ -162,6 +164,7 @@ namespace Arcweave
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !nodes.TryGetValue(id, out var node) ) {
                 nodes[id] = node = new Branch();
+                var pos = new UnityEngine.Vector2Int((int)GetProp(jbranches, id, "x").AsInt64, (int)GetProp(jbranches, id, "y").AsInt64);
                 var conditions = new List<Condition>();
                 var ifConditionid = GetProp(jbranches, id, "conditions.ifCondition")?.AsString;
                 conditions.Add((Condition)TryMakeCondition(ifConditionid));
@@ -175,8 +178,8 @@ namespace Arcweave
                 if ( HasProperty(jbranches, id, "conditions.elseCondition", out var elseid) ) {
                     conditions.Add((Condition)TryMakeCondition(elseid.AsString));
                 }
-
-                ( node as Branch ).Set(id, conditions);
+                var theme = GetProp(jbranches, id, "theme")?.AsString;
+                ( node as Branch ).Set(id, pos, conditions, theme);
             }
             return (Branch)node;
         }
@@ -215,7 +218,7 @@ namespace Arcweave
                 if ( targetType == "branches" ) { target = TryMakeBranch(targetid); }
                 if ( targetType == "jumpers" ) { target = TryMakeJumper(targetid); }
                 if ( targetType == "conditions" ) { target = TryMakeCondition(targetid); } //not used?
-                connection.Set(id, Utils.CleanString(label), source, target);
+                connection.Set(id, label, source, target);
             }
             return connection;
         }
