@@ -10,7 +10,7 @@ namespace Arcweave.Transpiler
         private Project _project;
         private string elementId;
         private ArcscriptState state;
-        public Dictionary<string, Func<IList<ArcscriptVisitor.Argument>, object>> functions { get; private set; } = new Dictionary<string, Func<IList<ArcscriptVisitor.Argument>, object>>();
+        public Dictionary<string, Func<IList<object>, object>> functions { get; private set; } = new Dictionary<string, Func<IList<object>, object>>();
 
         public Dictionary<string, Type> returnTypes = new Dictionary<string, Type>()
         {
@@ -47,32 +47,37 @@ namespace Arcweave.Transpiler
             this.functions["visits"] = this.Visits;
         }
 
-        public object Sqrt(IList<ArcscriptVisitor.Argument> args) {
-            double n = (double)args[0].value;
+        public object Sqrt(IList<object> args) {
+            Expression e = args[0] as Expression;
+            double n = (double)e.Value;
             return Math.Sqrt(n);
         }
 
-        public object Sqr(IList<ArcscriptVisitor.Argument> args) {
-            double n = (double)args[0].value;
+        public object Sqr(IList<object> args) {
+            Expression e = args[0] as Expression;
+            double n = (double)e.Value;
             return n * n;
         }
 
-        public object Abs(IList<ArcscriptVisitor.Argument> args) {
-            double n = (double)args[0].value;
+        public object Abs(IList<object> args) {
+            Expression e = args[0] as Expression;
+            double n = (double)e.Value;
             return Math.Abs(n);
         }
 
-        public object Random(IList<ArcscriptVisitor.Argument> args) {
+        public object Random(IList<object> args) {
             lock ( _getrandom ) {
                 return _getrandom.NextDouble();
             }
         }
 
-        public object Roll(IList<ArcscriptVisitor.Argument> args) {
-            int maxRoll = (int)args[0].value;
+        public object Roll(IList<object> args) {
+            Expression e = args[0] as Expression;
+            int maxRoll = (int)e.Value;
             int numRolls = 1;
             if ( args.Count == 2 ) {
-                numRolls = (int)args[1].value;
+                Expression e2 = args[1] as Expression;
+                numRolls = (int)e2.Value;
             }
             int sum = 0;
             for ( int i = 0; i < numRolls; i++ ) {
@@ -82,29 +87,28 @@ namespace Arcweave.Transpiler
             return sum;
         }
 
-        public object Show(IList<ArcscriptVisitor.Argument> args) {
-            List<object> results = new List<object>();
-            foreach ( ArcscriptVisitor.Argument arg in args ) {
-                results.Add(arg.value.ToString());
+        public object Show(IList<object> args) {
+            List<string> results = new List<string>();
+            foreach (Expression arg in args ) {
+                results.Add(arg.Value.ToString());
             }
             string result = String.Join(' ', results.ToArray());
-            UnityEngine.Debug.Log(result);
+            //UnityEngine.Debug.Log(result);
             this.state.outputs.Add(result);
             return null;
         }
 
-        public object Reset(IList<ArcscriptVisitor.Argument> args) {
-            foreach ( ArcscriptVisitor.Argument argument in args ) {
-                Variable variable = argument.value as Variable;
-                variable.ResetToDefaultValue();
+        public object Reset(IList<object> args) {
+            foreach (Variable argument in args ) {
+                argument.ResetToDefaultValue();
             }
             return null;
         }
 
-        public object ResetAll(IList<ArcscriptVisitor.Argument> args) {
+        public object ResetAll(IList<object> args) {
             List<string> variableNames = new List<string>();
-            foreach ( ArcscriptVisitor.Argument argument in args ) {
-                variableNames.Add(( argument.value as Variable ).name);
+            foreach ( Variable argument in args ) {
+                variableNames.Add(argument.name);
             }
             foreach ( Variable variable in this._project.variables ) {
                 if ( !variableNames.Contains(variable.name) ) {
@@ -114,23 +118,24 @@ namespace Arcweave.Transpiler
             return null;
         }
 
-        public object Round(IList<ArcscriptVisitor.Argument> args) {
-            double n = (double)args[0].value;
+        public object Round(IList<object> args) {
+            Expression e = args[0] as Expression;
+            double n = (double)e.Value;
             return (int)Math.Round(n);
         }
 
-        public object Min(IList<ArcscriptVisitor.Argument> args) {
+        public object Min(IList<object> args) {
             return args.Min();
         }
 
-        public object Max(IList<ArcscriptVisitor.Argument> args) {
+        public object Max(IList<object> args) {
             return args.Max();
         }
 
-        public object Visits(IList<ArcscriptVisitor.Argument> args) {
+        public object Visits(IList<object> args) {
             string elementId = this.elementId;
             if ( args != null && args.Count == 1 ) {
-                ArcscriptVisitor.Mention mention = (ArcscriptVisitor.Mention)args[0].value;
+                ArcscriptVisitor.Mention mention = (ArcscriptVisitor.Mention)args[0];
                 elementId = mention.attrs["data-id"];
             }
             Element element = this._project.ElementWithID(elementId);

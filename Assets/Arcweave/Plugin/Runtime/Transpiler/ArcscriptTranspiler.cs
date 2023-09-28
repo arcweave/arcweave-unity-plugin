@@ -13,22 +13,21 @@ namespace Arcweave.Transpiler
             this.elementId = elementId;
         }
 
-        private IParseTree GetParseTree(string code) {
+        private ArcscriptParser.InputContext GetParseTree(string code) {
             ICharStream stream = CharStreams.fromString(code);
             ITokenSource lexer = new ArcscriptLexer(stream);
             ITokenStream tokens = new CommonTokenStream(lexer);
             ArcscriptParser parser = new ArcscriptParser(tokens);
             parser.SetProject(Project);
-            IParseTree tree = parser.input();
 
+            ArcscriptParser.InputContext tree = parser.input();
             return tree;
         }
 
         public TranspilerOutput RunScript(string code) {
-            IParseTree tree = this.GetParseTree(code);
+            ArcscriptParser.InputContext tree = this.GetParseTree(code);
             ArcscriptVisitor visitor = new ArcscriptVisitor(this.elementId, this.Project);
-            Dictionary<string, object> result = (Dictionary<string, object>)tree.Accept(visitor);
-
+            object result = tree.Accept(visitor);
 
             List<string> outputs = visitor.state.outputs;
             string outputResult = "";
@@ -41,7 +40,13 @@ namespace Arcweave.Transpiler
                 outputResult = Utils.CleanString(outputResult);
             }
 
-            return new TranspilerOutput(outputResult, visitor.state.VariableChanges, result);
+            bool isCondition = false;
+            if (tree.script() != null)
+            {
+                isCondition = true;
+            }
+
+            return new TranspilerOutput(outputResult, visitor.state.VariableChanges, result, isCondition);
         }
 
         public class TranspilerOutput
@@ -49,11 +54,13 @@ namespace Arcweave.Transpiler
             public string output { get; private set; }
             public Dictionary<string, object> changes { get; private set; }
             public object result { get; private set; }
-
-            public TranspilerOutput(string output, Dictionary<string, object> changes, object result) {
+            public bool IsCondition { get; private set; }
+            public TranspilerOutput(string output, Dictionary<string, object> changes, object result, bool isCondition = false)
+            {
                 this.result = result;
                 this.output = output;
                 this.changes = changes;
+                IsCondition = isCondition;
             }
         }
     }
