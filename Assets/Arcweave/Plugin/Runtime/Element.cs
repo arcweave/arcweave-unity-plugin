@@ -67,12 +67,10 @@ namespace Arcweave
 
             var i = new Interpreter(project, id);
             var output = i.RunScript(rawContent);
-            if (output.changes.Count > 0 )
-            {
+            if ( output.changes.Count > 0 ) {
                 foreach ( var change in output.changes ) {
-                    // set variables
+                    // project.SetVariable(change.Key, change.Value);
                     Debug.Log(change.Key + ": " + change.Value);
-                    // Debug.Log(change.Value);
                 }
             }
             return output.output;
