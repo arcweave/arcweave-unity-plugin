@@ -242,9 +242,9 @@ namespace Arcweave.Transpiler
             FloatValues flValues = GetFloatValues(first.Value, second);
             return flValues.Value1 <= flValues.Value2;
         }
-        public static bool operator !(Expression e)
+        public static Expression operator !(Expression e)
         {
-            return !GetBoolValue(e.Value);
+            return new Expression(!GetBoolValue(e));
         }
         public static bool operator true(Expression e)
         {
