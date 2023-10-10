@@ -14,11 +14,14 @@ namespace Arcweave
         public string name { get; private set; }
         [field: SerializeReference]
         public List<INode> nodes { get; private set; }
+        [field: SerializeField]
+        public List<Note> notes { get; private set; }
 
-        public Board(string id, string name, List<INode> nodes) {
+        public Board(string id, string name, List<INode> nodes, List<Note> notes) {
             this.id = id;
             this.name = name;
             this.nodes = nodes;
+            this.notes = notes;
         }
 
         ///<summary>Returns INode of type T with id.</summary>

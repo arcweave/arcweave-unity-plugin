@@ -6,11 +6,11 @@ using UnityEngine;
 
 namespace Arcweave
 {
-    public class ViewerWindow : EditorWindow
+    public class ProjectViewerWindow : EditorWindow
     {
-        private readonly Dictionary<string, Color> COLOR_THEMES = new()
+        private static readonly Dictionary<string, Color> COLOR_THEMES = new()
         {
-            { "default", new Color(0.38f,0.41f,0.41f) },
+            { "default", new Color(0.25f, 0.25f, 0.25f) },
             { "orange", new Color(0.52f, 0.19f, 0f) },
             { "brown", new Color(0.33f, 0.20f, 0f) },
             { "gold", new Color(0.40f, 0.39f, 0f) },
@@ -31,8 +31,11 @@ namespace Arcweave
         private readonly int BOTTOM_MARGIN = 5;
         private readonly int SIDE_MARGIN = 5;
         private readonly int GRID_SIZE = 20;
+        private readonly int MIN_NODE_WIDTH = 200;
+        private readonly int COVER_HEIGHT = 100;
+        private readonly int COMPONENT_ICON_SIZE = 40;
         private readonly Color NODE_BASE_COLOR = new Color(0.07f, 0.07f, 0.07f);
-        private readonly Color NODE_TITLE_COLOR = new Color(0.25f, 0.25f, 0.25f);
+        private readonly Color NODE_DEFAULT_COLOR = COLOR_THEMES["default"];
 
         private ArcweaveProjectAsset _asset;
         private int _assetID;
@@ -82,7 +85,7 @@ namespace Arcweave
 
         //...
         public static void Open(ArcweaveProjectAsset asset) {
-            var window = GetWindow<ViewerWindow>();
+            var window = GetWindow<ProjectViewerWindow>();
             window._asset = asset;
             window._assetID = asset.GetInstanceID();
             window._currentBoardIndex = 0;
@@ -91,6 +94,7 @@ namespace Arcweave
 
         ///----------------------------------------------------------------------------------------------
 
+        //...
         void OnEnable() {
             titleContent = new GUIContent("Arcweave Viewer");
             _nodeRects = new Dictionary<string, Rect>();
@@ -111,6 +115,7 @@ namespace Arcweave
             _labelStyle.fontSize = 9;
         }
 
+        //...
         void OnDisable() { }
 
         //...
@@ -123,7 +128,7 @@ namespace Arcweave
             _currentBoardIndex = Mathf.Clamp(_currentBoardIndex, 0, project.boards.Count - 1);
             _canvasRect = Rect.MinMaxRect(SIDE_MARGIN, TOP_MARGIN, position.width - SIDE_MARGIN, position.height - BOTTOM_MARGIN);
 
-            GUI.color = new Color(0.15f, 0.15f, 0.15f);
+            GUI.color = new Color(0.13f, 0.13f, 0.13f);
             GUI.DrawTexture(_canvasRect, Texture2D.whiteTexture);
             GUI.color = Color.white;
 
@@ -172,7 +177,7 @@ namespace Arcweave
         //...
         void ShowToolbar() {
             GUILayout.BeginHorizontal(EditorStyles.toolbar);
-            GUILayout.Space(5);
+            GUILayout.Space(SIDE_MARGIN);
             GUILayout.Label(project.name + " ");
             if ( GUILayout.Button(project.boards[_currentBoardIndex].name, EditorStyles.toolbarDropDown, GUILayout.Width(200)) ) {
                 var menu = new GenericMenu();
@@ -187,7 +192,7 @@ namespace Arcweave
             if ( GUILayout.Button("Re-Import", EditorStyles.toolbarButton) ) {
                 asset.ImportProject(null);
             }
-            GUILayout.Space(5);
+            GUILayout.Space(SIDE_MARGIN);
             GUILayout.EndHorizontal();
         }
 
@@ -203,28 +208,34 @@ namespace Arcweave
                     var e = node as Element;
                     var coverImage = e.cover?.ResolveImage();
 
-                    var title = string.Format("<size=14><b>{0}</b></size>", ( e.id == project.startingElement.id ? "★ " : string.Empty ) + Utils.CleanString(e.rawTitle));
+                    var title = string.Format("<size=14><b>{0}</b></size>", ( e.id == project.startingElement.id ? "<color=#db841e>★</color> " : string.Empty ) + Utils.CleanString(e.rawTitle));
                     var content = string.Format("<size=11>{0}</size>", Utils.CleanString(e.rawContent));
 
                     var titleSize = _contentStyle.CalcSize(new GUIContent(title));
-                    titleSize.x = Mathf.Max(titleSize.x, 200);
-                    var coverHeight = coverImage != null ? 100 : 0;
-                    var contentHeight = _contentStyle.CalcHeight(new GUIContent(content), titleSize.x);
-                    var size = new Vector2(titleSize.x, titleSize.y + coverHeight + contentHeight);
+                    titleSize.x = Mathf.Max(titleSize.x, MIN_NODE_WIDTH);
+                    titleSize.x = Mathf.CeilToInt(titleSize.x / GRID_SIZE) * GRID_SIZE;
 
-                    var rect = new Rect(node.pos.x, node.pos.y, size.x, size.y);
+                    var rect = new Rect(node.pos.x, node.pos.y, titleSize.x, titleSize.y);
 
                     var titleRect = rect;
-                    titleRect.height = titleSize.y;
 
                     var coverRect = rect;
-                    coverRect.y = titleRect.yMax + 5;
+                    coverRect.y = titleRect.yMax + ( coverImage != null ? 5 : 0 );
                     coverRect.xMin += 5; coverRect.xMax -= 5;
-                    coverRect.height = coverHeight - 5;
+                    coverRect.height = coverImage != null ? COVER_HEIGHT : 0;
+
+                    var componentsRect = rect;
+                    componentsRect.y = coverRect.yMax + ( e.components.Count > 0 ? 5 : 0 );
+                    componentsRect.xMin += 15; componentsRect.xMax -= 15;
+                    var xCountFit = Mathf.FloorToInt(componentsRect.width / COMPONENT_ICON_SIZE);
+                    var rowsCount = Mathf.CeilToInt(e.components.Count / (float)xCountFit);
+                    componentsRect.height = rowsCount * COMPONENT_ICON_SIZE;
 
                     var contentRect = rect;
-                    contentRect.y += titleSize.y + coverHeight;
-                    contentRect.height = contentHeight;
+                    contentRect.y = componentsRect.yMax;
+                    contentRect.height = _contentStyle.CalcHeight(new GUIContent(content), rect.width);
+
+                    rect.yMax = Mathf.CeilToInt(contentRect.yMax / GRID_SIZE) * GRID_SIZE;
 
                     _nodeRects[node.id] = rect;
 
@@ -237,6 +248,17 @@ namespace Arcweave
                         GUI.color = Color.white;
                         GUI.Label(titleRect, title, _contentStyle);
                         if ( coverImage != null ) { GUI.DrawTexture(coverRect, coverImage, ScaleMode.ScaleToFit); }
+                        var row = -1;
+                        var col = -1;
+                        for ( var i = 0; i < e.components.Count; i++ ) {
+                            if ( i % xCountFit == 0 ) {
+                                row++;
+                                col = 0;
+                            }
+                            var cr = new Rect(componentsRect.x + ( col * COMPONENT_ICON_SIZE ), componentsRect.y + ( row * COMPONENT_ICON_SIZE ), COMPONENT_ICON_SIZE - 2, COMPONENT_ICON_SIZE - 2);
+                            GUI.DrawTexture(cr, e.components[i].cover?.ResolveImage(), ScaleMode.ScaleAndCrop);
+                            col++;
+                        }
                         GUI.Label(contentRect, content, _contentStyle);
                     };
                 }
@@ -247,7 +269,7 @@ namespace Arcweave
                     string content = string.Empty;
                     for ( var i = 0; i < b.conditions.Count; i++ ) {
                         var script = b.conditions[i].script;
-                        script = string.IsNullOrEmpty(script) ? "..." : script;
+                        script = string.IsNullOrEmpty(script) ? "..." : Utils.CleanString(script);
                         if ( i == 0 ) {
                             content += "<b><color=#eeeeee>if</color></b> " + script;
                         } else if ( i == b.conditions.Count - 1 ) {
@@ -295,11 +317,26 @@ namespace Arcweave
                         GUI.DrawTexture(rect, Texture2D.whiteTexture);
                         GUI.color = Color.white;
                         GUI.Label(rect, content, _contentStyle);
-                        Handles.color = NODE_TITLE_COLOR;
+                        Handles.color = NODE_DEFAULT_COLOR;
                         Handles.DrawAAConvexPolygon(new Vector2(rect.x, rect.y), new Vector2(rect.x + 5, rect.y), new Vector2(rect.x + 10, rect.center.y), new Vector2(rect.x + 5, rect.yMax), new Vector2(rect.x, rect.yMax));
                         Handles.color = Color.white;
                     };
                 }
+            }
+
+            ///----------------------------------------------------------------------------------------------
+
+            foreach ( var note in project.boards[_currentBoardIndex].notes ) {
+                var content = Utils.CleanString(note.rawContent);
+                var rect = new Rect(note.pos.x, note.pos.y, 220, _contentStyle.CalcHeight(new GUIContent(content), 220));
+                rect.yMax = Mathf.CeilToInt(rect.yMax / GRID_SIZE) * GRID_SIZE;
+                delayDraw += () =>
+                {
+                    GUI.color = COLOR_THEMES[note.colorTheme];
+                    GUI.DrawTexture(rect, Texture2D.whiteTexture);
+                    GUI.color = Color.white;
+                    GUI.Label(rect, content, _contentStyle);
+                };
             }
 
             ///----------------------------------------------------------------------------------------------
@@ -405,7 +442,7 @@ namespace Arcweave
                 var labelRect = new Rect(0, 0, size.x, size.y);
                 var midPos = GetPosAlongCurve(s, t, ts, tt, 0.5f);
                 labelRect.center = midPos;
-                GUI.color = NODE_TITLE_COLOR;
+                GUI.color = NODE_DEFAULT_COLOR;
                 GUI.DrawTexture(labelRect, Texture2D.whiteTexture);
                 GUI.color = Color.white;
                 GUI.Label(labelRect, label, _labelStyle);

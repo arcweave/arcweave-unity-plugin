@@ -29,14 +29,16 @@ namespace Arcweave
         public List<Connection> outputs { get; private set; }
 
         public Project project { get; private set; }
-        // private System.Func<Project, string> runtimeContentFunc { get; set; }
+
+        public string displayTitle => Utils.CleanString(rawTitle);
+        public string displayContent => Utils.CleanString(rawContent);
 
         ///The number of visits to this element
         public int visits { get; set; }
 
         void INode.InitializeInProject(Project project) { this.project = project; }
         Path INode.ResolvePath(Path p) {
-            if ( string.IsNullOrEmpty(p.label) ) { p.label = rawTitle; }
+            if ( string.IsNullOrEmpty(p.label) ) { p.label = displayTitle; }
             p.targetElement = this;
             return p;
         }
@@ -57,20 +59,11 @@ namespace Arcweave
 
         ///<summary>Returns the runtime content taking into account and executing arcscript</summary>
         public string GetRuntimeContent() {
-            // if ( runtimeContentFunc == null ) {
-            //     var methodName = "Element_" + id.Replace("-", "_").ToString();
-            //     var methodInfo = typeof(ArcscriptImplementations).GetMethod(methodName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-            //     Debug.Assert(methodInfo != null);
-            //     runtimeContentFunc = (System.Func<Project, string>)System.Delegate.CreateDelegate(typeof(System.Func<Project, string>), null, methodInfo);
-            // }
-            // return Utils.CleanString(runtimeContentFunc(project));
-
             var i = new Interpreter(project, id);
             var output = i.RunScript(rawContent);
             if ( output.changes.Count > 0 ) {
                 foreach ( var change in output.changes ) {
-                    // project.SetVariable(change.Key, change.Value);
-                    Debug.Log(change.Key + ": " + change.Value);
+                    project.SetVariable(change.Key, change.Value);
                 }
             }
             return output.output;

@@ -48,8 +48,8 @@ namespace Arcweave
             }
             EditorGUI.indentLevel--;
 
-            if ( aw.project != null && GUILayout.Button("Open Viewer", GUILayout.Height(50)) ) {
-                ViewerWindow.Open(aw);
+            if ( aw.project != null && GUILayout.Button("Open Project Viewer", GUILayout.Height(50)) ) {
+                ProjectViewerWindow.Open(aw);
             }
 
             GUILayout.EndVertical();

@@ -50,8 +50,6 @@ namespace Arcweave
                 project = maker.MakeProject();
             });
 
-            Debug.Log("Making ArcscriptImplementations C# file...");
-            maker.MakeArcscriptFile(this);
             Debug.Log("Done");
             if ( callback != null ) { callback(); }
         }

@@ -24,7 +24,7 @@ namespace Arcweave.Transpiler
             }
 
             Expression comp_cond = (Expression)this.VisitCompound_condition_or(context.compound_condition_or());
-            return comp_cond.Value;
+            return Expression.GetBoolValue(comp_cond.Value);
         }
 
         public override object VisitScript_section([NotNull] ArcscriptParser.Script_sectionContext context) {
@@ -52,11 +52,9 @@ namespace Arcweave.Transpiler
             if ( if_section.Clause ) {
                 return if_section.Script;
             }
-            foreach(ArcscriptParser.Else_if_sectionContext else_if_context in context.else_if_section())
-            {
+            foreach ( ArcscriptParser.Else_if_sectionContext else_if_context in context.else_if_section() ) {
                 ConditionalSection elif_section = (ConditionalSection)this.VisitElse_if_section(else_if_context);
-                if (elif_section.Clause )
-                {
+                if ( elif_section.Clause ) {
                     return elif_section.Script;
                 }
             }
@@ -192,8 +190,7 @@ namespace Arcweave.Transpiler
             if ( conditional_operator_context.ISKEYWORD() != null ) {
                 if ( conditional_operator_context.NOTKEYWORD() != null ) {
                     result = exp0 != exp1;
-                } else
-                {
+                } else {
                     result = exp0 == exp1;
                 }
             }
@@ -274,23 +271,18 @@ namespace Arcweave.Transpiler
             }
             return this.VisitCompound_condition_or(context.compound_condition_or());
         }
-        public override object VisitVoid_function_call([NotNull] ArcscriptParser.Void_function_callContext context)
-        {
+        public override object VisitVoid_function_call([NotNull] ArcscriptParser.Void_function_callContext context) {
             string fname = "";
             IList<object> argument_list_result = null;
-            if (context.VFNAME() != null)
-            {
+            if ( context.VFNAME() != null ) {
                 fname = context.VFNAME().GetText();
-                if (context.argument_list() != null)
-                {
+                if ( context.argument_list() != null ) {
                     argument_list_result = (IList<object>)this.VisitArgument_list(context.argument_list());
                 }
             }
-            if (context.VFNAMEVARS() != null)
-            {
+            if ( context.VFNAMEVARS() != null ) {
                 fname = context.VFNAMEVARS().GetText();
-                if (context.variable_list() != null)
-                {
+                if ( context.variable_list() != null ) {
                     argument_list_result = (IList<object>)this.VisitVariable_list(context.variable_list());
                 }
             }
@@ -314,11 +306,9 @@ namespace Arcweave.Transpiler
             return returnValue;
         }
 
-        public override object VisitVariable_list([NotNull] ArcscriptParser.Variable_listContext context)
-        {
+        public override object VisitVariable_list([NotNull] ArcscriptParser.Variable_listContext context) {
             List<object> variables = new List<object>();
-            foreach (ITerminalNode variable in context.VARIABLE())
-            {
+            foreach ( ITerminalNode variable in context.VARIABLE() ) {
                 Variable varObject = this.state.GetVariable(variable.GetText());
                 variables.Add(varObject);
             }

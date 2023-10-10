@@ -89,7 +89,7 @@ namespace Arcweave.Transpiler
 
         public object Show(IList<object> args) {
             List<string> results = new List<string>();
-            foreach (Expression arg in args ) {
+            foreach ( Expression arg in args ) {
                 results.Add(arg.Value.ToString());
             }
             string result = String.Join(' ', results.ToArray());
@@ -99,7 +99,7 @@ namespace Arcweave.Transpiler
         }
 
         public object Reset(IList<object> args) {
-            foreach (Variable argument in args ) {
+            foreach ( Variable argument in args ) {
                 argument.ResetToDefaultValue();
             }
             return null;
@@ -139,7 +139,6 @@ namespace Arcweave.Transpiler
                 elementId = mention.attrs["data-id"];
             }
             Element element = this._project.ElementWithID(elementId);
-            UnityEngine.Debug.Log(element.visits);
             return element.visits;
         }
     }

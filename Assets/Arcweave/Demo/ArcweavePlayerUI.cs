@@ -86,7 +86,8 @@ namespace Arcweave
         void OnElementOptions(State s, System.Action<int> callback) {
             for ( var i = 0; i < s.paths.Length; i++ ) {
                 var _i = i; //local var for the delegate
-                var button = MakeButton(s.paths[i].label, () => callback(_i));
+                var text = !string.IsNullOrEmpty(s.paths[i].label) ? s.paths[i].label : "<i>[ N/A ]</i>";
+                var button = MakeButton(text, () => callback(_i));
                 var pos = button.transform.position;
                 pos.y += buttonTemplate.GetComponent<RectTransform>().rect.height * ( s.paths.Length - 1 - i );
                 button.transform.position = pos;

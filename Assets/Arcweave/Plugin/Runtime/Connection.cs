@@ -11,15 +11,14 @@ namespace Arcweave
         public string id { get; private set; }
         [field: SerializeField]
         public string rawLabel { get; private set; }
-
         [field: SerializeReference]
         public INode source { get; private set; }
         [field: SerializeReference]
         public INode target { get; private set; }
 
+        public string displayLabel => Utils.CleanString(rawLabel);
         public bool isValid => !string.IsNullOrEmpty(id);
         public Project project => source.project;
-        // private System.Func<Project, string> runtimeLabelFunc { get; set; }
 
         internal void Set(string id, string rawLabel, INode source, INode target) {
             this.id = id;
@@ -41,20 +40,13 @@ namespace Arcweave
             if ( string.IsNullOrEmpty(rawLabel) ) {
                 return null;
             }
-            // if ( runtimeLabelFunc == null ) {
-            //     var methodName = "Connection_" + id.Replace("-", "_").ToString();
-            //     var methodInfo = typeof(ArcscriptImplementations).GetMethod(methodName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-            //     Debug.Assert(methodInfo != null);
-            //     runtimeLabelFunc = (System.Func<Project, string>)System.Delegate.CreateDelegate(typeof(System.Func<Project, string>), null, methodInfo);
-            // }
-            // return Utils.CleanString(runtimeLabelFunc(project));
 
             var i = new Interpreter(project);
             var output = i.RunScript(rawLabel);
-            foreach ( var chage in output.changes ) {
-                // set variables
-                // Debug.Log(chage.Key);
-                // Debug.Log(chage.Value);
+            if ( output.changes.Count > 0 ) {
+                foreach ( var chage in output.changes ) {
+                    project.SetVariable(chage.Key, chage.Value);
+                }
             }
             return output.output;
         }

@@ -22,6 +22,7 @@ namespace Arcweave
         private fsData jcomponents;
         private fsData jattributes;
         private fsData jvariables;
+        private fsData jnotes;
 
         private Dictionary<string, Board> boards;
         private Dictionary<string, INode> nodes;
@@ -29,6 +30,7 @@ namespace Arcweave
         private Dictionary<string, Component> components;
         private Dictionary<string, Attribute> attributes;
         private Dictionary<string, Variable> variables;
+        private Dictionary<string, Note> notes;
 
         public ProjectMaker(string json, ArcweaveProjectAsset projectAsset) {
 
@@ -46,6 +48,7 @@ namespace Arcweave
             this.jcomponents = jproject.AsDictionary["components"];
             this.jattributes = jproject.AsDictionary["attributes"];
             this.jvariables = jproject.AsDictionary["variables"];
+            this.jnotes = jproject.AsDictionary["notes"];
 
             this.boards = new Dictionary<string, Board>();
             this.nodes = new Dictionary<string, INode>();
@@ -53,6 +56,7 @@ namespace Arcweave
             this.components = new Dictionary<string, Component>();
             this.attributes = new Dictionary<string, Attribute>();
             this.variables = new Dictionary<string, Variable>();
+            this.notes = new Dictionary<string, Note>();
         }
 
         public Project MakeProject() {
@@ -77,18 +81,6 @@ namespace Arcweave
             return new Project(name, startElement, projBoards, projComponents, projVariables);
         }
 
-        //...
-        public void MakeArcscriptFile(ArcweaveProjectAsset projectAsset) {
-#if UNITY_EDITOR
-            if ( jarcscript == null ) { return; }
-            var assetPath = UnityEditor.AssetDatabase.GetAssetPath(projectAsset);
-            assetPath = assetPath.Remove(assetPath.LastIndexOf('/')) + "/" + ARCSCRIPT_CODE_JSON_KEY + ".cs";
-            var fullPath = UnityEngine.Application.dataPath.Remove(UnityEngine.Application.dataPath.LastIndexOf('/')) + '/' + assetPath;
-            File.WriteAllText(fullPath, jarcscript.AsString);
-            UnityEditor.AssetDatabase.Refresh();
-#endif
-        }
-
         ///----------------------------------------------------------------------------------------------
 
         //...
@@ -108,7 +100,23 @@ namespace Arcweave
                 }
             }
 
-            return boards[id] = new Board(id, name, boardNodes);
+            var boardNotes = new List<Note>();
+            foreach ( var key in GetProp(jboards, id, "notes").AsList ) { boardNotes.Add(TryMakeNote(key.AsString)); }
+
+            return boards[id] = new Board(id, name, boardNodes, boardNotes);
+        }
+
+        //..
+        Note TryMakeNote(string id) {
+            if ( string.IsNullOrEmpty(id) ) { return null; }
+            if ( !notes.TryGetValue(id, out var note) ) {
+                notes[id] = note = new Note();
+                var pos = new UnityEngine.Vector2Int((int)GetProp(jnotes, id, "x").AsInt64, (int)GetProp(jnotes, id, "y").AsInt64);
+                var content = GetProp(jnotes, id, "content")?.AsString;
+                var theme = GetProp(jnotes, id, "theme")?.AsString;
+                note.Set(id, pos, content, theme);
+            }
+            return note;
         }
 
         //...
