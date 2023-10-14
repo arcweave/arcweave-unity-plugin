@@ -22,7 +22,7 @@ Feature available to Pro and Team account holders. In Arcweave, go to **Share & 
 You get a .zip file containing 2 items: 
 
 * `Json.txt`: contains all the data of your Arcweave project, minus any arcscript implementations.
-* `ArcscriptImplementation.cs`: contains all arcscript implementations of your Arcweave project.
+* `ArcscriptImplementation.cs`: contains all arcscript implementations of your Arcweave project. (OBSOLETE: NO LONGER REQUIRED)
 
 Place those 2 files into any subfolder within your Unity project's `Assets` folder.
 
@@ -51,11 +51,11 @@ Open its inspector. You will see the option to import either `From Json` or `Fro
 
 Click **Generate Project** to begin the import and generation process. 
 
-Once the process is completed succesfully, the inspector will show the imported project name along with its global variables. This monitoring is useful for runtime debugging. 
+Once the process is completed successfully, the inspector will show the imported project name along with its global variables. This monitoring is useful for runtime debugging. 
 
-If you import from Web, a C# file called `ArcscriptImplementations.cs` will be generated automatically alongside the `ArcweaveProjectAsset` file.
+You can also click the **"Open Project Viewer"** button to open up a window to view your imported project (all boards, elements, connection, etc.) in a visual editor.
 
-Note: associating Arcweave projects with `ArcweaveProjectAsset` files allows you to import as many Arcweave projects as you like, withing the same Unity project.
+Note: associating Arcweave projects with `ArcweaveProjectAsset` files allows you to import as many Arcweave projects as you like, within the same Unity project.
 
 
 ## What now?
@@ -151,7 +151,9 @@ Represents Arcweave elements.
 
  - `string id {get}`
  - `string title {get}`
+ - `string rawTitle {get}`
  - `string rawContent {get}`
+ - `int visits {get}`
  - `List<Component> components {get}`
  - `Cover cover {get}`
  - `List<Connection> outputs {get}`
@@ -246,9 +248,15 @@ Defines an Arcweave connection.
 #### Properties
 
  - `string id {get}`
- - `string label {get}`
+ - `string rawLabel {get}`
  - `INode source {get}`
  - `INode target {get}`
+
+#### Methods
+
+| Method Name | Description |
+|-------------|-------------|
+|`GetRuntimeLabel ()`  |Returns the arcscript processed label.|
 
 ### State class
 
