@@ -6,7 +6,7 @@ using UnityEditor;
 namespace Arcweave
 {
     [CustomEditor(typeof(ArcweaveProjectAsset))]
-    public class ArcweaveProjectAssetInspector : Editor
+    public class ArcweaveProjectAssetInspector : UnityEditor.Editor
     {
         private ArcweaveProjectAsset aw => target as ArcweaveProjectAsset;
 
