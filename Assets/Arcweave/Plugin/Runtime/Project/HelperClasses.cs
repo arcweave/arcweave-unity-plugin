@@ -18,9 +18,12 @@ namespace Arcweave.Project
         public Options(Element element) {
             Element = element;
             var validPaths = new List<Path>();
-            foreach ( var output in element.Outputs ) {
+            foreach ( var output in element.Outputs )
+            {
+                var save = Element.Project.SaveVariables();
                 var path = output.ResolvePath(new Path());
-                if ( path.isValid ) { validPaths.Add(path); }
+                if ( path != null && path.isValid ) { validPaths.Add(path); }
+                Element.Project.LoadVariables(save);
             }
             Paths = validPaths.Count > 0 ? validPaths : null;
 

@@ -13,7 +13,7 @@ namespace Arcweave.Project
         [field: SerializeField]
         public Vector2Int Pos { get; private set; }
         [field: SerializeReference]
-        public List<Condition> conditions { get; private set; }
+        public List<Condition> Conditions { get; private set; }
         [field: SerializeField]
         public string colorTheme { get; private set; }
 
@@ -28,13 +28,13 @@ namespace Arcweave.Project
         internal void Set(string id, Vector2Int pos, List<Condition> conditions, string colorTheme) {
             Id = id;
             Pos = pos;
-            this.conditions = conditions;
+            this.Conditions = conditions;
             this.colorTheme = colorTheme;
         }
 
         ///<summary>Returns the true condition.</summary>
         Condition GetTrueCondition() {
-            foreach ( var condition in conditions ) {
+            foreach ( var condition in Conditions ) {
                 if ( condition.Evaluate() ) { return condition; }
             }
             return null;

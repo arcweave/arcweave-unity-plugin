@@ -78,12 +78,9 @@ namespace Arcweave.Project
         ///----------------------------------------------------------------------------------------------
 
         ///<summary>Represents the state of the element with possible paths to next elements taking into account conditions, invalid jumper links, etc.</summary>
-        public Options GetOptions() {
-            var save = Project.SaveVariables();
-            Debug.Log(save);
-            var state = new Options(this);
-            Project.LoadVariables(save);
-            return state;
+        public Options GetOptions()
+        {
+            return new Options(this);
         }
         
         /// <summary>

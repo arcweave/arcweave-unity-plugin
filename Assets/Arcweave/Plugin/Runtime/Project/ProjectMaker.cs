@@ -95,7 +95,7 @@ namespace Arcweave.Project
             foreach ( var key in GetProp(jboards, id, "jumpers").AsList ) { boardNodes.Add(TryMakeJumper(key.AsString)); }
 
             foreach ( var branch in boardNodes.OfType<Branch>().ToArray() ) {
-                foreach ( var condition in branch.conditions ) {
+                foreach ( var condition in branch.Conditions ) {
                     boardNodes.Add(condition);
                 }
             }

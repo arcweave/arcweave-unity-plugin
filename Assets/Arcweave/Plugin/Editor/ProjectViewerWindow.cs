@@ -268,12 +268,12 @@ namespace Arcweave
 
                     var b = node as Branch;
                     string content = string.Empty;
-                    for ( var i = 0; i < b.conditions.Count; i++ ) {
-                        var script = b.conditions[i].Script;
+                    for ( var i = 0; i < b.Conditions.Count; i++ ) {
+                        var script = b.Conditions[i].Script;
                         script = string.IsNullOrEmpty(script) ? "..." : Interpreter.Utils.CleanString(script);
                         if ( i == 0 ) {
                             content += "<b><color=#eeeeee>if</color></b> " + script;
-                        } else if ( i == b.conditions.Count - 1 ) {
+                        } else if ( i == b.Conditions.Count - 1 ) {
                             content += "\n\n<b><color=#eeeeee>else</color></b>";
                         } else {
                             content += "\n\n<b><color=#eeeeee>elseIf</color></b> " + script;
@@ -292,8 +292,8 @@ namespace Arcweave
                         GUI.DrawTexture(rect, Texture2D.whiteTexture);
                         GUI.color = COLOR_THEMES[b.colorTheme];
                         GUI.DrawTexture(new Rect(rect.x, rect.y, 10, rect.height), Texture2D.whiteTexture);
-                        for ( var i = 1; i < b.conditions.Count; i++ ) {
-                            var sep = new Rect(rect.x, rect.y + 0 + ( ( rect.height / b.conditions.Count ) * i ), rect.width, 1);
+                        for ( var i = 1; i < b.Conditions.Count; i++ ) {
+                            var sep = new Rect(rect.x, rect.y + 0 + ( ( rect.height / b.Conditions.Count ) * i ), rect.width, 1);
                             GUI.DrawTexture(sep, Texture2D.whiteTexture);
                         }
                         GUI.color = Color.white;
@@ -357,10 +357,10 @@ namespace Arcweave
 
                     var rect = _nodeRects[node.Id];
                     var b = node as Branch;
-                    for ( var i = 0; i < b.conditions.Count; i++ ) {
-                        var connection = b.conditions[i].Output;
+                    for ( var i = 0; i < b.Conditions.Count; i++ ) {
+                        var connection = b.Conditions[i].Output;
                         var x = rect.xMax;
-                        var y = rect.y + 15 + ( ( rect.height / b.conditions.Count ) * i );
+                        var y = rect.y + 15 + ( ( rect.height / b.Conditions.Count ) * i );
                         DrawCircle(new Vector2(x, y), connection.isValid);
                         if ( connection.isValid ) {
                             DrawConnection(connection, new Rect(x, y, 0, 0), _nodeRects[connection.Target.Id], Vector2.right);
