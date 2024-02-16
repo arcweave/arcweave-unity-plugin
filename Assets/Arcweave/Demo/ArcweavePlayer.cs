@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-
+using Arcweave.Project;
 
 namespace Arcweave
 {
@@ -7,10 +7,10 @@ namespace Arcweave
     public class ArcweavePlayer : MonoBehaviour
     {
         //Delegates for the events.
-        public delegate void OnProjectStart(Project project);
-        public delegate void OnProjectFinish(Project project);
+        public delegate void OnProjectStart(Project.Project project);
+        public delegate void OnProjectFinish(Project.Project project);
         public delegate void OnElementEnter(Element element);
-        public delegate void OnElementOptions(State state, System.Action<int> next);
+        public delegate void OnElementOptions(Options options, System.Action<int> next);
         public delegate void OnWaitingInputNext(System.Action next);
 
         public const string SAVE_KEY = "arcweave_save";
@@ -39,44 +39,44 @@ namespace Arcweave
                 return;
             }
 
-            aw.project.Initialize();
-            if ( onProjectStart != null ) onProjectStart(aw.project);
-            Next(aw.project.startingElement);
+            aw.Project.Initialize();
+            if ( onProjectStart != null ) onProjectStart(aw.Project);
+            Next(aw.Project.StartingElement);
         }
 
         ///Moves to the next element through a path
         void Next(Path path) {
             path.ExecuteAppendedConnectionLabels();
-            Next(path.targetElement);
+            Next(path.TargetElement);
         }
 
         ///Moves to the next/an element directly
         void Next(Element element) {
             currentElement = element;
-            currentElement.visits++;
+            currentElement.Visits++;
             if ( onElementEnter != null ) onElementEnter(element);
-            var currentState = currentElement.GetState();
+            var currentState = currentElement.GetOptions();
             if ( currentState.hasPaths ) {
                 if ( currentState.hasOptions ) {
                     if ( onElementOptions != null ) {
-                        onElementOptions(currentState, (index) => Next(currentState.paths[index]));
+                        onElementOptions(currentState, (index) => Next(currentState.Paths[index]));
                     }
                     return;
                 }
 
-                if ( onWaitInputNext != null ) onWaitInputNext(() => Next(currentState.paths[0]));
+                if ( onWaitInputNext != null ) onWaitInputNext(() => Next(currentState.Paths[0]));
                 return;
             }
             currentElement = null;
-            if ( onProjectFinish != null ) onProjectFinish(aw.project);
+            if ( onProjectFinish != null ) onProjectFinish(aw.Project);
         }
 
         ///----------------------------------------------------------------------------------------------
 
         ///Save the current element and the variables.
         public void Save() {
-            var id = currentElement.id;
-            var variables = aw.project.SaveVariables();
+            var id = currentElement.Id;
+            var variables = aw.Project.SaveVariables();
             var save = string.Join("^", id, variables);
             PlayerPrefs.SetString(SAVE_KEY, save);
         }
@@ -85,8 +85,8 @@ namespace Arcweave
         public void Load() {
             var save = PlayerPrefs.GetString(SAVE_KEY);
             var split = save.Split('^');
-            var element = aw.project.ElementWithID(split[0]);
-            aw.project.LoadVariables(split[1]);
+            var element = aw.Project.ElementWithId(split[0]);
+            aw.Project.LoadVariables(split[1]);
             Next(element);
         }
     }

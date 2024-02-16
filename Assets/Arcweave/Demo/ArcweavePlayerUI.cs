@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Arcweave.Project;
 
 namespace Arcweave
 {
@@ -56,7 +57,12 @@ namespace Arcweave
 
         void OnElementEnter(Element e) {
             componentCover.gameObject.SetActive(false);
-            content.text = e.HasContent() ? e.GetRuntimeContent() : "<i>[ No Content ]</i>";
+            content.text = "<i>[ No Content ]</i>";
+            if (e.HasContent())
+            {
+                e.RunContentScript();
+                content.text = e.RuntimeContent;
+            }
             content.canvasRenderer.SetAlpha(0);
             content.CrossFadeAlpha(1f, CROSSFADE_TIME, false);
 
@@ -83,13 +89,13 @@ namespace Arcweave
             }
         }
 
-        void OnElementOptions(State s, System.Action<int> callback) {
-            for ( var i = 0; i < s.paths.Length; i++ ) {
+        void OnElementOptions(Options options, System.Action<int> callback) {
+            for ( var i = 0; i < options.Paths.Count; i++ ) {
                 var _i = i; //local var for the delegate
-                var text = !string.IsNullOrEmpty(s.paths[i].label) ? s.paths[i].label : "<i>[ N/A ]</i>";
+                var text = !string.IsNullOrEmpty(options.Paths[i].label) ? options.Paths[i].label : "<i>[ N/A ]</i>";
                 var button = MakeButton(text, () => callback(_i));
                 var pos = button.transform.position;
-                pos.y += buttonTemplate.GetComponent<RectTransform>().rect.height * ( s.paths.Length - 1 - i );
+                pos.y += buttonTemplate.GetComponent<RectTransform>().rect.height * ( options.Paths.Count - 1 - i );
                 button.transform.position = pos;
             }
         }
@@ -98,7 +104,7 @@ namespace Arcweave
             MakeButton("...", callback);
         }
 
-        void OnProjectFinish(Project p) {
+        void OnProjectFinish(Project.Project p) {
             MakeButton("Restart", player.PlayProject);
         }
 

@@ -15,17 +15,17 @@ namespace Arcweave
         public string projectHash;
 
         [field: SerializeField, HideInInspector]
-        public Project project { get; private set; }
+        public Project.Project Project { get; private set; }
 
         ///----------------------------------------------------------------------------------------------
 
         [ContextMenu("Clear Data")]
-        void ClearData() => project = null;
+        void ClearData() => Project = null;
 
         //...
         protected void OnEnable() {
-            if ( project != null ) {
-                project.Initialize();
+            if ( Project != null ) {
+                Project.Initialize();
             }
         }
 
@@ -41,13 +41,13 @@ namespace Arcweave
 
         //...
         async void MakeProject(string json, System.Action callback) {
-            ProjectMaker maker = null;
+            Project.ProjectMaker maker = null;
             await System.Threading.Tasks.Task.Run(() =>
             {
                 Debug.Log("Parsing Json...");
-                maker = new ProjectMaker(json, this);
+                maker = new Project.ProjectMaker(json, this);
                 Debug.Log("Making Project...");
-                project = maker.MakeProject();
+                Project = maker.MakeProject();
             });
 
             Debug.Log("Done");

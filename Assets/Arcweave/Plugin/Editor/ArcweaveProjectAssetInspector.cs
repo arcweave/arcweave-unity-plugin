@@ -35,20 +35,20 @@ namespace Arcweave
             ///----------------------------------------------------------------------------------------------
 
             if ( isImporting ) { GUILayout.Label("Importing Project..."); }
-            if ( isImporting || aw.project == null || string.IsNullOrEmpty(aw.project.name) ) { return; }
+            if ( isImporting || aw.Project == null || string.IsNullOrEmpty(aw.Project.name) ) { return; }
 
             GUILayout.Space(5);
 
             GUILayout.BeginVertical("box");
-            GUILayout.Label(string.Format("Arcweave Project: {0}", aw.project.name));
+            GUILayout.Label(string.Format("Arcweave Project: {0}", aw.Project.name));
             GUILayout.Label("Global Variables:");
             EditorGUI.indentLevel++;
-            foreach ( var variable in aw.project.variables ) {
-                EditorGUILayout.LabelField(variable.name, variable.value?.ToString());
+            foreach ( var variable in aw.Project.Variables ) {
+                EditorGUILayout.LabelField(variable.Name, variable.Value?.ToString());
             }
             EditorGUI.indentLevel--;
 
-            if ( aw.project != null && GUILayout.Button("Open Project Viewer", GUILayout.Height(50)) ) {
+            if ( aw.Project != null && GUILayout.Button("Open Project Viewer", GUILayout.Height(50)) ) {
                 ProjectViewerWindow.Open(aw);
             }
 

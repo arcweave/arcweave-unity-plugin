@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using Arcweave.Project;
 
 namespace Arcweave
 {
@@ -65,7 +66,7 @@ namespace Arcweave
             }
         }
 
-        private Project project => asset?.project;
+        private Project.Project project => asset?.Project;
 
         ///----------------------------------------------------------------------------------------------
 
@@ -89,7 +90,7 @@ namespace Arcweave
             window._asset = asset;
             window._assetID = asset.GetInstanceID();
             window._currentBoardIndex = 0;
-            window.PanTo(asset.project.boards[0].nodes[0].pos - new Vector2(100, 100));
+            window.PanTo(asset.Project.boards[0].Nodes[0].Pos - new Vector2(100, 100));
         }
 
         ///----------------------------------------------------------------------------------------------
@@ -179,11 +180,11 @@ namespace Arcweave
             GUILayout.BeginHorizontal(EditorStyles.toolbar);
             GUILayout.Space(SIDE_MARGIN);
             GUILayout.Label(project.name + " ");
-            if ( GUILayout.Button(project.boards[_currentBoardIndex].name, EditorStyles.toolbarDropDown, GUILayout.Width(200)) ) {
+            if ( GUILayout.Button(project.boards[_currentBoardIndex].Name, EditorStyles.toolbarDropDown, GUILayout.Width(200)) ) {
                 var menu = new GenericMenu();
                 for ( var i = 0; i < project.boards.Count; i++ ) {
                     var _i = i;
-                    var boardName = project.boards[_i].name;
+                    var boardName = project.boards[_i].Name;
                     menu.AddItem(new GUIContent(boardName), _i == _currentBoardIndex, () => _currentBoardIndex = _i);
                 }
                 menu.ShowAsContext();
@@ -201,21 +202,21 @@ namespace Arcweave
 
             System.Action delayDraw = null;
 
-            foreach ( var node in project.boards[_currentBoardIndex].nodes ) {
+            foreach ( var node in project.boards[_currentBoardIndex].Nodes ) {
 
                 if ( node is Element ) {
 
                     var e = node as Element;
                     var coverImage = e.cover?.ResolveImage();
 
-                    var title = string.Format("<size=14><b>{0}</b></size>", ( e.id == project.startingElement.id ? "<color=#db841e>★</color> " : string.Empty ) + Utils.CleanString(e.rawTitle));
-                    var content = string.Format("<size=11>{0}</size>", Utils.CleanString(e.rawContent));
+                    var title = string.Format("<size=14><b>{0}</b></size>", ( e.Id == project.StartingElement.Id ? "<color=#db841e>★</color> " : string.Empty ) + Interpreter.Utils.CleanString(e.Title));
+                    var content = string.Format("<size=11>{0}</size>", Interpreter.Utils.CleanString(e.RawContent));
 
                     var titleSize = _contentStyle.CalcSize(new GUIContent(title));
                     titleSize.x = Mathf.Max(titleSize.x, MIN_NODE_WIDTH);
                     titleSize.x = Mathf.CeilToInt(titleSize.x / GRID_SIZE) * GRID_SIZE;
 
-                    var rect = new Rect(node.pos.x, node.pos.y, titleSize.x, titleSize.y);
+                    var rect = new Rect(node.Pos.x, node.Pos.y, titleSize.x, titleSize.y);
 
                     var titleRect = rect;
 
@@ -225,10 +226,10 @@ namespace Arcweave
                     coverRect.height = coverImage != null ? COVER_HEIGHT : 0;
 
                     var componentsRect = rect;
-                    componentsRect.y = coverRect.yMax + ( e.components.Count > 0 ? 5 : 0 );
+                    componentsRect.y = coverRect.yMax + ( e.Components.Count > 0 ? 5 : 0 );
                     componentsRect.xMin += 15; componentsRect.xMax -= 15;
                     var xCountFit = Mathf.FloorToInt(componentsRect.width / COMPONENT_ICON_SIZE);
-                    var rowsCount = Mathf.CeilToInt(e.components.Count / (float)xCountFit);
+                    var rowsCount = Mathf.CeilToInt(e.Components.Count / (float)xCountFit);
                     componentsRect.height = rowsCount * COMPONENT_ICON_SIZE;
 
                     var contentRect = rect;
@@ -237,26 +238,26 @@ namespace Arcweave
 
                     rect.yMax = Mathf.CeilToInt(contentRect.yMax / GRID_SIZE) * GRID_SIZE;
 
-                    _nodeRects[node.id] = rect;
+                    _nodeRects[node.Id] = rect;
 
                     delayDraw += () =>
                     {
                         GUI.color = NODE_BASE_COLOR;
                         GUI.DrawTexture(rect, Texture2D.whiteTexture);
-                        GUI.color = COLOR_THEMES[e.colorTheme];
+                        GUI.color = COLOR_THEMES[e.ColorTheme];
                         GUI.DrawTexture(titleRect, Texture2D.whiteTexture);
                         GUI.color = Color.white;
                         GUI.Label(titleRect, title, _contentStyle);
                         if ( coverImage != null ) { GUI.DrawTexture(coverRect, coverImage, ScaleMode.ScaleToFit); }
                         var row = -1;
                         var col = -1;
-                        for ( var i = 0; i < e.components.Count; i++ ) {
+                        for ( var i = 0; i < e.Components.Count; i++ ) {
                             if ( i % xCountFit == 0 ) {
                                 row++;
                                 col = 0;
                             }
                             var cr = new Rect(componentsRect.x + ( col * COMPONENT_ICON_SIZE ), componentsRect.y + ( row * COMPONENT_ICON_SIZE ), COMPONENT_ICON_SIZE - 2, COMPONENT_ICON_SIZE - 2);
-                            GUI.DrawTexture(cr, e.components[i].cover?.ResolveImage(), ScaleMode.ScaleAndCrop);
+                            GUI.DrawTexture(cr, e.Components[i].cover?.ResolveImage(), ScaleMode.ScaleAndCrop);
                             col++;
                         }
                         GUI.Label(contentRect, content, _contentStyle);
@@ -268,8 +269,8 @@ namespace Arcweave
                     var b = node as Branch;
                     string content = string.Empty;
                     for ( var i = 0; i < b.conditions.Count; i++ ) {
-                        var script = b.conditions[i].script;
-                        script = string.IsNullOrEmpty(script) ? "..." : Utils.CleanString(script);
+                        var script = b.conditions[i].Script;
+                        script = string.IsNullOrEmpty(script) ? "..." : Interpreter.Utils.CleanString(script);
                         if ( i == 0 ) {
                             content += "<b><color=#eeeeee>if</color></b> " + script;
                         } else if ( i == b.conditions.Count - 1 ) {
@@ -282,8 +283,8 @@ namespace Arcweave
                     var size = _contentStyle.CalcSize(new GUIContent(content));
                     size.x = Mathf.Max(size.x, 200);
 
-                    var rect = new Rect(node.pos.x, node.pos.y, size.x, size.y);
-                    _nodeRects[node.id] = rect;
+                    var rect = new Rect(node.Pos.x, node.Pos.y, size.x, size.y);
+                    _nodeRects[node.Id] = rect;
 
                     delayDraw += () =>
                     {
@@ -303,13 +304,13 @@ namespace Arcweave
                 if ( node is Jumper ) {
 
                     var j = node as Jumper;
-                    var content = string.Format("<size=14><b>↪ {0}</b></size>", ( j.target != null ? Utils.CleanString(j.target.rawTitle) : "..." ));
+                    var content = string.Format("<size=14><b>↪ {0}</b></size>", ( j.Target != null ? Interpreter.Utils.CleanString(j.Target.Title) : "..." ));
 
                     var size = _contentStyle.CalcSize(new GUIContent(content));
                     size.x = Mathf.Max(size.x, 100);
 
-                    var rect = new Rect(node.pos.x, node.pos.y, size.x, size.y);
-                    _nodeRects[node.id] = rect;
+                    var rect = new Rect(node.Pos.x, node.Pos.y, size.x, size.y);
+                    _nodeRects[node.Id] = rect;
 
                     delayDraw += () =>
                     {
@@ -326,13 +327,13 @@ namespace Arcweave
 
             ///----------------------------------------------------------------------------------------------
 
-            foreach ( var note in project.boards[_currentBoardIndex].notes ) {
-                var content = Utils.CleanString(note.rawContent);
-                var rect = new Rect(note.pos.x, note.pos.y, 220, _contentStyle.CalcHeight(new GUIContent(content), 220));
+            foreach ( var note in project.boards[_currentBoardIndex].Notes ) {
+                var content = Interpreter.Utils.CleanString(note.RawContent);
+                var rect = new Rect(note.Pos.x, note.Pos.y, 220, _contentStyle.CalcHeight(new GUIContent(content), 220));
                 rect.yMax = Mathf.CeilToInt(rect.yMax / GRID_SIZE) * GRID_SIZE;
                 delayDraw += () =>
                 {
-                    GUI.color = COLOR_THEMES[note.colorTheme];
+                    GUI.color = COLOR_THEMES[note.ColorTheme];
                     GUI.DrawTexture(rect, Texture2D.whiteTexture);
                     GUI.color = Color.white;
                     GUI.Label(rect, content, _contentStyle);
@@ -341,28 +342,28 @@ namespace Arcweave
 
             ///----------------------------------------------------------------------------------------------
 
-            foreach ( var node in project.boards[_currentBoardIndex].nodes ) {
+            foreach ( var node in project.boards[_currentBoardIndex].Nodes ) {
 
                 if ( node is Element ) {
 
-                    var rect = _nodeRects[node.id];
+                    var rect = _nodeRects[node.Id];
                     var e = node as Element;
-                    foreach ( var connection in e.outputs ) {
-                        DrawConnection(connection, rect, _nodeRects[connection.target.id]);
+                    foreach ( var connection in e.Outputs ) {
+                        DrawConnection(connection, rect, _nodeRects[connection.Target.Id]);
                     }
                 }
 
                 if ( node is Branch ) {
 
-                    var rect = _nodeRects[node.id];
+                    var rect = _nodeRects[node.Id];
                     var b = node as Branch;
                     for ( var i = 0; i < b.conditions.Count; i++ ) {
-                        var connection = b.conditions[i].output;
+                        var connection = b.conditions[i].Output;
                         var x = rect.xMax;
                         var y = rect.y + 15 + ( ( rect.height / b.conditions.Count ) * i );
                         DrawCircle(new Vector2(x, y), connection.isValid);
                         if ( connection.isValid ) {
-                            DrawConnection(connection, new Rect(x, y, 0, 0), _nodeRects[connection.target.id], Vector2.right);
+                            DrawConnection(connection, new Rect(x, y, 0, 0), _nodeRects[connection.Target.Id], Vector2.right);
                         }
                     }
                 }
@@ -436,7 +437,7 @@ namespace Arcweave
             DrawCircle(s);
             DrawArrow(t, dir);
 
-            var label = Utils.CleanString(connection.rawLabel);
+            var label = Interpreter.Utils.CleanString(connection.RawLabel);
             if ( !string.IsNullOrEmpty(label) ) {
                 var size = _labelStyle.CalcSize(new GUIContent(label));
                 var labelRect = new Rect(0, 0, size.x, size.y);
