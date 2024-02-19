@@ -72,7 +72,7 @@ namespace Arcweave.Project
                 }
             }
 
-            RuntimeContent = output.Output;
+            RuntimeContent = Utils.CleanString(output.Output);
         }
 
         ///----------------------------------------------------------------------------------------------

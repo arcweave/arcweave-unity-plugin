@@ -18,22 +18,30 @@ namespace Arcweave.Project
 
         [SerializeReference]
         private object _defaultValue;
+        public object DefaultValue
+        {
+            get => _defaultValue;
+            set
+            {
+                _defaultValue = value;
+            }
+        }
 
         public System.Type Type => System.Type.GetType(_typeName);
 
         public Variable(string name, object value) {
             this.Name = name;
             this.Value = value;
-            this._defaultValue = value;
+            this.DefaultValue = value;
             this._typeName = value.GetType().FullName;
         }
 
         ///<summary>Reset the variable to its default value.</summary>
         public void ResetToDefaultValue() {
-            if ( Type == typeof(string) ) { this.Value = (string)_defaultValue; }
-            if ( Type == typeof(int) ) { this.Value = (int)_defaultValue; }
-            if ( Type == typeof(float) ) { this.Value = (float)_defaultValue; }
-            if ( Type == typeof(bool) ) { this.Value = (bool)_defaultValue; }
+            if ( Type == typeof(string) ) { this.Value = (string)DefaultValue; }
+            if ( Type == typeof(int) ) { this.Value = (int)DefaultValue; }
+            if ( Type == typeof(double) ) { this.Value = (double)DefaultValue; }
+            if ( Type == typeof(bool) ) { this.Value = (bool)DefaultValue; }
         }
     }
 }
