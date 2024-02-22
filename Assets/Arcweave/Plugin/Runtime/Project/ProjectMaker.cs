@@ -36,7 +36,7 @@ namespace Arcweave.Project
 
             this.jproject = fsJsonParser.Parse(json);
             if ( jproject.AsDictionary.TryGetValue(SUB_PROJECT_JSON_KEY, out var project) ) {
-                this.jproject = fsJsonParser.Parse(project.AsString);
+                this.jproject = project;
             }
 
             this.jboards = jproject.AsDictionary["boards"];
