@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Arcweave.Interpreter.INodes;
-using UnityEngine;
 
 namespace Arcweave.Project
 {
@@ -108,8 +107,9 @@ namespace Arcweave.Project
         ///<summary>Returns a string of the saved variables that can be loaded later.</summary>
         public string SaveVariables() {
             var list = new List<string>();
-            foreach ( var variable in Variables ) {
-                list.Add(string.Format("{0}-{1}-{2}", variable.Name, variable.Value.ToString(), variable.Type.FullName));
+            foreach (Variable variable in Variables ) 
+            {
+                list.Add($"{variable.Name};{variable.Value.ToString()};{variable.Type.FullName}");
             }
             var save = string.Join("|", list);
             return save;
@@ -119,7 +119,7 @@ namespace Arcweave.Project
         public void LoadVariables(string save) {
             var list = save.Split('|');
             foreach ( var s in list ) {
-                var split = s.Split('-');
+                var split = s.Split(';');
                 var sName = split[0];
                 var sValue = split[1];
                 var sType = split[2];
