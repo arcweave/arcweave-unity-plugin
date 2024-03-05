@@ -3,6 +3,7 @@ using System.Linq;
 using System.IO;
 using Arcweave.FullSerializer;
 using Arcweave.Interpreter.INodes;
+
 namespace Arcweave.Project
 {
     //Responsible for making the C# project from json (either directly or via web API)
@@ -111,7 +112,7 @@ namespace Arcweave.Project
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !notes.TryGetValue(id, out var note) ) {
                 notes[id] = note = new Note();
-                var pos = new UnityEngine.Vector2Int((int)GetProp(jnotes, id, "x").AsInt64, (int)GetProp(jnotes, id, "y").AsInt64);
+                var pos = GetPos(GetProp(jnotes, id, "x"), GetProp(jnotes, id, "y"));
                 var content = GetProp(jnotes, id, "content")?.AsString;
                 var theme = GetProp(jnotes, id, "theme")?.AsString;
                 note.Set(id, pos, content, theme);
@@ -124,7 +125,7 @@ namespace Arcweave.Project
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !nodes.TryGetValue(id, out var node) ) {
                 nodes[id] = node = new Element();
-                var pos = new UnityEngine.Vector2Int((int)GetProp(jelements, id, "x").AsInt64, (int)GetProp(jelements, id, "y").AsInt64);
+                var pos = GetPos(GetProp(jelements, id, "x"), GetProp(jelements, id, "y"));
                 var title = GetProp(jelements, id, "title")?.AsString;
                 var content = GetProp(jelements, id, "content")?.AsString;
                 var theme = GetProp(jelements, id, "theme")?.AsString;
@@ -159,7 +160,7 @@ namespace Arcweave.Project
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !nodes.TryGetValue(id, out var node) ) {
                 nodes[id] = node = new Jumper();
-                var pos = new UnityEngine.Vector2Int((int)GetProp(jjumpers, id, "x").AsInt64, (int)GetProp(jjumpers, id, "y").AsInt64);
+                var pos = GetPos(GetProp(jjumpers, id, "x"), GetProp(jjumpers, id, "y"));
                 var elementId = GetProp(jjumpers, id, "elementId")?.AsString;
                 var target = TryMakeElement(elementId);
                 ( node as Jumper ).Set(id, pos, target);
@@ -172,7 +173,7 @@ namespace Arcweave.Project
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !nodes.TryGetValue(id, out var node) ) {
                 nodes[id] = node = new Branch();
-                var pos = new UnityEngine.Vector2Int((int)GetProp(jbranches, id, "x").AsInt64, (int)GetProp(jbranches, id, "y").AsInt64);
+                var pos = GetPos(GetProp(jbranches, id, "x"), GetProp(jbranches, id, "y"));
                 var conditions = new List<Condition>();
                 var ifConditionid = GetProp(jbranches, id, "conditions.ifCondition")?.AsString;
                 conditions.Add((Condition)TryMakeCondition(ifConditionid));
@@ -344,6 +345,14 @@ namespace Arcweave.Project
         bool HasProperty(fsData source, string id, string propertyPath, out fsData result) {
             result = source[id + '.' + propertyPath];
             return result != null;
+        }
+
+        UnityEngine.Vector2Int GetPos(fsData x, fsData y)
+        {
+            var xValue = x.Type == fsDataType.Double ? (int)x.AsDouble : (int)x.AsInt64;
+            var yValue = y.Type == fsDataType.Double ? (int)y.AsDouble : (int)y.AsInt64;
+
+            return new UnityEngine.Vector2Int(xValue, yValue);
         }
     }
 }
