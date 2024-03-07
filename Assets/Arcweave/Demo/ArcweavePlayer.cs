@@ -77,16 +77,16 @@ namespace Arcweave
         public void Save() {
             var id = currentElement.Id;
             var variables = aw.Project.SaveVariables();
-            var save = string.Join("^", id, variables);
-            PlayerPrefs.SetString(SAVE_KEY, save);
+            PlayerPrefs.SetString(SAVE_KEY+"_currentElement", id);
+            PlayerPrefs.SetString(SAVE_KEY+"_variables", variables);
         }
 
         ///Loads the prviously current element and the variables and moves Next to that element.
         public void Load() {
-            var save = PlayerPrefs.GetString(SAVE_KEY);
-            var split = save.Split('^');
-            var element = aw.Project.ElementWithId(split[0]);
-            aw.Project.LoadVariables(split[1]);
+            var id = PlayerPrefs.GetString(SAVE_KEY+"_currentElement");
+            var variables = PlayerPrefs.GetString(SAVE_KEY+"_variables");
+            var element = aw.Project.ElementWithId(id);
+            aw.Project.LoadVariables(variables);
             Next(element);
         }
     }

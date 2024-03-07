@@ -106,30 +106,25 @@ namespace Arcweave.Project
         }
 
         ///<summary>Returns a string of the saved variables that can be loaded later.</summary>
-        public string SaveVariables() {
-            var list = new List<string>();
-            foreach ( var variable in Variables ) {
-                list.Add(string.Format("{0}-{1}-{2}", variable.Name, variable.Value.ToString(), variable.Type.FullName));
-            }
-            var save = string.Join("|", list);
-            return save;
+        public string SaveVariables()
+        {
+            var state = new State(Variables);
+            return state.ToJson();
         }
 
         ///<summary>Loads a previously saved string made with SaveVariables.</summary>
-        public void LoadVariables(string save) {
-            var list = save.Split('|');
-            foreach ( var s in list ) {
-                var split = s.Split('-');
-                var sName = split[0];
-                var sValue = split[1];
-                var sType = split[2];
-                var type = System.Type.GetType(sType);
+        public void LoadVariables(string save)
+        {
+            State.VariableState[] variableStates = State.FromJson(save).GetVariables();
+            foreach (var variableState in variableStates)
+            {
+                var type = System.Type.GetType(variableState.type);
                 object value = null;
-                if ( type == typeof(string) ) { value = sValue; }
-                if ( type == typeof(int) ) { value = int.Parse(sValue); }
-                if ( type == typeof(float) ) { value = float.Parse(sValue); }
-                if ( type == typeof(bool) ) { value = bool.Parse(sValue); }
-                SetVariable(sName, value);
+                if (type == typeof(string)) { value = variableState.value; }
+                if ( type == typeof(int) ) { value = int.Parse(variableState.value); }
+                if ( type == typeof(float) ) { value = float.Parse(variableState.value); }
+                if ( type == typeof(bool) ) { value = bool.Parse(variableState.value); }
+                SetVariable(variableState.name, value);
             }
         }
     }
