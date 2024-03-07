@@ -4,19 +4,20 @@ namespace Arcweave.Project
 {
     //...
     [System.Serializable]
-    public partial class Variable
+    public partial class Variable : ISerializationCallbackReceiver
     {
         [field: SerializeField]
         public string Name { get; set; }
-        [field: SerializeReference]
         public object Value { get; set; }
+
+        [SerializeField, HideInInspector]
+        private string valueSerialized;
 
         public object ObjectValue => Value;
 
         [SerializeField]
         private string _typeName;
 
-        [SerializeReference]
         private object _defaultValue;
         public object DefaultValue
         {
@@ -26,6 +27,9 @@ namespace Arcweave.Project
                 _defaultValue = value;
             }
         }
+        
+        [SerializeField, HideInInspector]
+        private string defaultValueSerialized;
 
         public System.Type Type => System.Type.GetType(_typeName);
 
@@ -42,6 +46,64 @@ namespace Arcweave.Project
             if ( Type == typeof(int) ) { this.Value = (int)DefaultValue; }
             if ( Type == typeof(double) ) { this.Value = (double)DefaultValue; }
             if ( Type == typeof(bool) ) { this.Value = (bool)DefaultValue; }
+        }
+
+        private string GetSerializedValue(object value)
+        {
+            if (value == null)
+            {
+                return "n";
+            }
+            var type = value.GetType();
+            if (type == typeof(string))
+            {
+                return "s" + value;
+            }
+            if (type == typeof(int))
+            {
+                return "i" + value;
+            }
+            if (type == typeof(double))
+            {
+                return "d" + value;
+            }
+            if (type == typeof(bool))
+            {
+                return "b" + value;
+            }
+
+            return "";
+        }
+
+        private object DeserializeValue(string stringValue)
+        {
+            if (stringValue.Length == 0)
+            {
+                return default;
+            }
+            
+            var type = stringValue[0];
+            return type switch
+            {
+                'n' => null,
+                's' => valueSerialized[1..],
+                'i' => int.Parse(valueSerialized[1..]),
+                'd' => double.Parse(valueSerialized[1..]),
+                'b' => bool.Parse(valueSerialized[1..]),
+                _ => default
+            };
+        }
+        
+        public void OnBeforeSerialize()
+        {
+            valueSerialized = GetSerializedValue(Value);
+            defaultValueSerialized = GetSerializedValue(_defaultValue);
+        }
+
+        public void OnAfterDeserialize()
+        {
+            Value = DeserializeValue(valueSerialized);
+            _defaultValue = DeserializeValue(defaultValueSerialized);
         }
     }
 }
