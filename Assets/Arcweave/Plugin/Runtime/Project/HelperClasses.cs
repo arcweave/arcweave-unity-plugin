@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Arcweave.Interpreter;
 
 namespace Arcweave.Project
 {
@@ -41,6 +42,23 @@ namespace Arcweave.Project
     {
         ///<summary>The last label that lead to the target element</summary>
         public string label { get; set; }
+
+        public string text
+        {
+            get
+            {
+                if (!string.IsNullOrEmpty(label)) return label;
+                if (!string.IsNullOrEmpty(TargetElement.Title))
+                {
+                    var i = new AwInterpreter(TargetElement.Project, TargetElement.Id);
+                    var output = i.RunScript(TargetElement.Title);
+                    return Utils.CleanString(output.Output);
+                }
+
+                return null;
+            }
+        }
+
         ///<summary>The element that this path will lead/land to</summary>
         public Element TargetElement { get; set; }
         public List<Connection> _connections { get; set; }

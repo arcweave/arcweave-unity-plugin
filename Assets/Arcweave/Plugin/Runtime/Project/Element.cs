@@ -39,12 +39,6 @@ namespace Arcweave.Project
 
         void INode.InitializeInProject(Project project) { Project = project; }
         Path INode.ResolvePath(Path p) {
-            if (string.IsNullOrEmpty(p.label))
-            {
-                var i = new AwInterpreter(Project, Id);
-                var output = i.RunScript(Title);
-                p.label = Utils.CleanString(output.Output);
-            }
             p.TargetElement = this;
             return p;
         }
