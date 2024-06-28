@@ -37,7 +37,14 @@ namespace Arcweave.Project
         ///The number of visits to this element
         public int Visits { get; set; }
 
-        void INode.InitializeInProject(Project project) { Project = project; }
+        void INode.InitializeInProject(Project project)
+        {
+            Project = project;
+            foreach (var attribute in Attributes)    
+            {
+                attribute.InitializeInProject(project);
+            }
+        }
         Path INode.ResolvePath(Path p) {
             p.TargetElement = this;
             return p;
