@@ -45,6 +45,11 @@ namespace Arcweave.Project
                     node.InitializeInProject(this);
                 }
             }
+
+            foreach (var component in components)
+            {
+                component.InitializeInProject(this);
+            }
         }
 
         ///----------------------------------------------------------------------------------------------

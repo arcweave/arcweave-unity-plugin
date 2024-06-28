@@ -19,6 +19,14 @@ namespace Arcweave.Project
             Attributes.Add(attribute);
         }
 
+        public void InitializeInProject(Project project)
+        {
+            foreach (var attribute in Attributes)
+            {
+                attribute.InitializeInProject(project);
+            }
+        }
+
         [field: SerializeField]
         public Cover cover { get; private set; }
 
