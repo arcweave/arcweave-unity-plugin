@@ -17,14 +17,16 @@ There are 2 ways you can transfer your project's data and access them with the A
 
 ### 1\. Export for Unity
 
-Feature available to Pro and Team account holders. In Arcweave, go to **Share & Export > Export > Engine > Export for Unity**.
+In Arcweave, go to **Export project > Engine > Export for Unity**.
 
-You get a .zip file containing 2 items: 
+You get a .zip file containing the following: 
 
-* `Json.txt`: contains all the data of your Arcweave project, minus any arcscript implementations.
-* `ArcscriptImplementation.cs`: contains all arcscript implementations of your Arcweave project. (OBSOLETE: NO LONGER REQUIRED)
+* `project.json`: contains all the data of your Arcweave project.
+* (Optional) `cover/cover.jpg`: the project cover image.
+* (Optional) `assets/Audio/`: contains all project audio assets.
+* (Optional) `assets/Images/`: contains all project image assets.
 
-Place those 2 files into any subfolder within your Unity project's `Assets` folder.
+Place those files & folders into any subfolder within your Unity project's `Assets` folder.
 
 
 ### 2\. Use Arcweave's Web API
@@ -33,8 +35,8 @@ Feature available to Team account holders only. You can fetch your Arcweave proj
 
 To do this, you will need:
 
-* your **API key** as an Arcweave user.
-* your **project's hash**.
+* your Team workspace **API key** (found in Workspace Settings).
+* your **project's hash** (Found in Project Properties in the top bar of the project.
 
 [This chapter](https://arcweave.com/docs/1.0/api) in the Arcweave Documentation explains where to find both of them.
 
