@@ -1,330 +1,622 @@
 # Arcweave Plugin for Unity
 
-This plugin is for importing [Arcweave](https://arcweave.com/) projects into Unity. It uses the Arcweave data exported from **Share & export > Export > Engine > Export for Unity** (available to all Arcweave users) or fetched via Arcweave's web API (available only to Team users).
+This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It supports data exported from **Share & export > Export > Engine > Export for Unity** (available to all users) or fetched via Arcweave's web API (Team users only).
 
+---
 
-## Plugin installation
+## Table of Contents
 
-To install the Arcweave Plugin for Unity:
+- [Installation](#installation)
+- [Getting Data from Arcweave](#getting-data-from-arcweave)
+- [Creating an ArcweaveProjectAsset](#creating-an-arcweaveprojectasset)
+- [Using the Demo Scene](#using-the-demo-scene)
+- [How the Demo Works](#how-the-demo-works)
+- [Plugin Documentation](#plugin-documentation)
+- [Important Notes](#important-notes)
+- [Troubleshooting](#troubleshooting)
 
-1. download the plugin from the Unity Assets Store or this repository.
-2. open a project in Unity.
-3. add the plugin's `/arcweave` subfolder to the project's `Assets` folder.
+---
+
+## Installation
+
+1. Download the plugin from the Unity Asset Store or this repository.
+2. Open your Unity project.
+3. Add the plugin's `/Arcweave` folder to your project's `Assets` folder.
+
+---
 
 ## Getting Data from Arcweave
 
-There are 2 ways you can transfer your project's data and access them with the Arcweave Plugin for Unity:
-
-### 1\. Export for Unity
+### Option 1: Export for Unity
 
 In Arcweave, go to **Export project > Engine > Export for Unity**.
 
-You get a .zip file containing the following: 
+You will get a `.zip` file containing:
 
-* `project.json`: contains all the data of your Arcweave project.
-* (Optional) `cover/cover.jpg`: the project cover image.
-* (Optional) `assets/Audio/`: contains all project audio assets.
-* (Optional) `assets/Images/`: contains all project image assets.
+- `project.json`: all data of your Arcweave project.
+- (Optional) `assets/Images/`: project image assets.
+- (Optional) `assets/Audio/`: project audio assets.
+- (Optional) `cover/cover.jpg`: the project cover image.
 
-Place those files & folders into any subfolder within your Unity project's `Assets` folder.
+**File placement:**
+- Place `project.json` anywhere in your Unity project's `Assets` folder.
+- **For this demo project, images must go in a `Resources` folder** (create one if it doesn't exist) or they won't load at runtime.
 
+### Option 2: Use Arcweave's Web API
 
-### 2\. Use Arcweave's Web API
+Available to **Team account holders only**.
 
-Feature available to Team account holders only. You can fetch your Arcweave project's data from within Unity, via Arcweave's web API.
+You will need:
+- Your Team workspace **API key** (found in Workspace Settings).
+- Your **project hash** (found in Project Properties).
 
-To do this, you will need:
+See the [Arcweave API Documentation](https://docs.arcweave.com/integrations/web-api) for details.
 
-* your Team workspace **API key** (found in Workspace Settings).
-* your **project's hash** (Found in Project Properties in the top bar of the project.
-
-[This chapter](https://arcweave.com/docs/1.0/api) in the Arcweave Documentation explains where to find both of them.
-
+---
 
 ## Creating an ArcweaveProjectAsset
 
-Either way, to import your data into Unity, you must create an **ArcweaveProjectAsset** in your Unity project. To do this, right-click on your Unity Assets tab and navigate to **Create > Arcweave > Project Asset**. Name the new `.asset` file as you prefer.
+To import your data into Unity:
 
-Open its inspector. You will see the option to import either `From Json` or `From Web`.
+1. Right-click in the Unity Assets panel.
+2. Navigate to **Create > Arcweave > Project Asset**.
+3. Name the new `.asset` file as you prefer.
+4. Select it to open the Inspector.
 
-* **Importing from JSON**: assign the `json.txt` file you got via "Export for Unity (see above).
+### Import Settings
 
-* **Importing from web**: paste your **user API key** and **project hash** in the respective fields (see above).
+Choose your import source:
 
-Click **Generate Project** to begin the import and generation process. 
+- **From Json**: Drag your `project.json` file into the "Project Json File" field.
+- **From Web**: Enter your **API Key** and **Project Hash**.
 
-Once the process is completed successfully, the inspector will show the imported project name along with its global variables. This monitoring is useful for runtime debugging. 
+Click the **Import Project** button to begin the import.
 
-You can also click the **"Open Project Viewer"** button to open up a window to view your imported project (all boards, elements, connection, etc.) in a visual editor.
+After successful import, the Inspector displays:
+- The project name
+- All global variables and their values
+- An **"Open Project Viewer"** button for visual editing
 
-Note: associating Arcweave projects with `ArcweaveProjectAsset` files allows you to import as many Arcweave projects as you like, within the same Unity project.
 
-
-## What now?
-
-Your project is now imported and converted to C#. 
-
-The `ArcweaveProjectAsset` contains a `public Project project {get}` property which points to the actual project, to which the `ArcweaveProjectAsset` acts as a wrapper. 
-
-You can use the `ArcweaveProjectAsset` according to your project's needs. See **Plugin Documentation**, below.
-
+---
 
 ## Using the Demo Scene
 
-Included in the plugin's package is also a `Demo` folder; a scene recreating Arcweave's Play Mode environment.
+The plugin includes a `Demo` folder with a complete example scene.
 
 ### Running the Demo
 
-To see the Unity Arcweave Player demo scene in action:
+1. Open **ArcweaveDemoScene** from the Demo folder.
+2. Select the **ArcweavePlayer** GameObject in the hierarchy.
+3. Assign your imported project asset to the `AW` field.
+4. Press **Play**.
 
- 1. open the **ArcweaveDemoScene**.
- 2. select the **ArcweavePlayer** game object in the hierarchy.
- 3. assign your previously imported project asset into the `AW` field.
- 4. hit **Play**.
+### Adding Image Assets
 
+If your Arcweave project uses images:
 
-### Adding Arcweave's image assets
+1. Create a `Resources` folder in your Unity project (if it doesn't exist).
+2. Copy your image files into the `Resources` folder.
+3. Ensure image filenames match those in Arcweave (without extension).
+4. Set each image's **Texture Type** to **Default** in Import Settings.
 
-If your Arcweave project includes image assets, the plugin can match their filenames with respective image files in any of your Unity project `Resources` folders and load them dynamically on demand.
+The plugin loads images dynamically using `Resources.Load()`.
 
-If your project does not have a folder named `Resources`, just create one in its root folder.
+---
 
-The demo ArcweavePlayerUI demonstrates this dynamic image loading process.
+## How the Demo Works
 
-Note: images imported in Unity for this purpose have to be set to the **Default** Texture Type, in the image import settings, for the ArcweavePlayerUI to be able to use them.
+The demo consists of two main components that work together:
 
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      ArcweavePlayer                              │
+│  (Handles narrative logic, traversal, and state management)      │
+├─────────────────────────────────────────────────────────────────┤
+│  Events:                                                         │
+│  ├── onProjectStart    → Fired when narrative begins             │
+│  ├── onElementEnter    → Fired when entering any element         │
+│  ├── onElementOptions  → Fired when multiple choices available   │
+│  ├── onWaitInputNext   → Fired when single path (continue)       │
+│  └── onProjectFinish   → Fired when narrative ends               │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ subscribes to events
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     ArcweavePlayerUI                             │
+│  (Handles all visual display and user interaction)               │
+├─────────────────────────────────────────────────────────────────┤
+│  Responsibilities:                                               │
+│  ├── Display dialogue text (RuntimeContent)                      │
+│  ├── Display cover images and character portraits                │
+│  ├── Create choice buttons dynamically                           │
+│  ├── Handle button clicks → invoke callbacks                     │
+│  └── Manage Save/Load UI                                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Event Flow Diagram
+
+```
+         PlayProject()
+              │
+              ▼
+    ┌─────────────────┐
+    │   Initialize    │ ← Resets all variables and visits
+    │     Project     │
+    └────────┬────────┘
+              │
+              ▼
+    ┌─────────────────┐
+    │ onProjectStart  │ ← UI can show "Game Started" message
+    └────────┬────────┘
+              │
+              ▼
+    ┌─────────────────┐
+    │  Enter Element  │ ← element.Visits++ (incremented)
+    │                 │
+    └────────┬────────┘
+              │
+              ▼
+    ┌─────────────────┐
+    │ onElementEnter  │ ← UI displays content and images
+    └────────┬────────┘
+              │
+              ▼
+    ┌─────────────────┐
+    │  GetOptions()   │ ← Evaluates all branch conditions
+    └────────┬────────┘
+              │
+      ┌───────┴───────┐
+      │               │
+      ▼               ▼
+┌───────────┐   ┌───────────┐   ┌───────────┐
+│ Multiple  │   │  Single   │   │ No Paths  │
+│  Paths    │   │   Path    │   │  (End)    │
+└─────┬─────┘   └─────┬─────┘   └─────┬─────┘
+      │               │               │
+      ▼               ▼               ▼
+┌───────────┐   ┌───────────┐   ┌───────────┐
+│onElement- │   │onWaitInput│   │onProject- │
+│  Options  │   │   Next    │   │  Finish   │
+└─────┬─────┘   └─────┬─────┘   └───────────┘
+      │               │
+      │  callback(i)  │  callback()
+      │               │
+      └───────┬───────┘
+              │
+              ▼
+    ┌─────────────────┐
+    │ Execute Path    │ ← Runs Arcscript in connection labels
+    │ Connection      │
+    │ Labels          │
+    └────────┬────────┘
+              │
+              ▼
+         Enter Next
+          Element
+           (loop)
+```
+
+### Key Methods Used in Demo
+
+| Method | Class | Purpose |
+|--------|-------|---------|
+| `Project.Initialize()` | Project | Reset variables and visits before starting |
+| `element.Visits++` | Element | Track how many times element was visited |
+| `element.GetOptions()` | Element | Get available paths from current element |
+| `element.RuntimeContent` | Element | Get evaluated dialogue text |
+| `element.RunContentScript()` | Element | Execute Arcscript and update RuntimeContent |
+| `element.GetCoverOrFirstComponentImage()` | Element | Get element's cover or first component image |
+| `path.ExecuteAppendedConnectionLabels()` | Path | Run Arcscript in connection labels |
+| `path.text` | Path | Get label text or target element title |
+| `options.Paths` | Options | List of valid paths to choose from |
+| `options.hasPaths` | Options | Check if any paths exist |
+| `options.hasOptions` | Options | Check if multiple choices available |
+
+---
 
 ## Plugin Documentation
 
+### Project
 
-### Project class
-
-You can access the Project class through the `ArcweaveProjectAsset.project` property. It is the root of an imported Arcweave project.
-
+The root container for an imported Arcweave project. Access via `ArcweaveProjectAsset.Project`.
 
 #### Properties
 
-- `string name {get}`
-- `List<Board> boards {get}`
-- `List<Component> components {get}`
-- `List<Variable> variables {get}`
-- `Element startingElement {get}`
+| Property | Type | Description |
+|----------|------|-------------|
+| `name` | string | Project name |
+| `boards` | List\<Board\> | All boards in the project |
+| `components` | List\<Component\> | All components (characters/entities) |
+| `Variables` | List\<Variable\> | All global variables |
+| `StartingElement` | Element | Entry point for the narrative |
 
 #### Methods
 
-| Method Name | Description |
-|-------------|-------------|
-|`void Initialize ()`  |Should be called once before using the project.  |
-|`Board BoardWithID (string id)`  |Returns the Board with id.  |
-|`Board BoardWithName (string name)`  |Returns the Board with name.  |
-|`T GetNodeWithID<T> (string id)`  |Returns the INode of type T with id.   |
-|`T GetVariable<T> (string name)`  |Returns the variable value of type T with name.  |
-|`object GetVariable (string name)`  |Returns the variable object value with name.  |
-|`bool SetVariable (string name, object value)`  |Sets the variable with name to a new value. |
-|`void ResetVariablesToDefaultValues ()`  |Reset all variables to their default value.  |
-|`string SaveVariables ()`  |Returns a string of the saved variables that can be loaded later.  |
-|`void LoadVariables (string save)`  |Loads a previously saved string made with SaveVariables.  |
+| Method | Description |
+|--------|-------------|
+| `void Initialize()` | **Must call before use.** Resets all variables and visit counts. |
+| `Board BoardWithID(string id)` | Get board by ID |
+| `Board BoardWithName(string name)` | Get board by name |
+| `Element ElementWithId(string id)` | Get element by ID |
+| `T GetNodeWithID<T>(string id)` | Get any node by ID and type |
+| `Variable GetVariable(string name)` | Get Variable object by name |
+| `bool SetVariable(string name, object value)` | Set variable value |
+| `void ResetVariablesToDefaultValues()` | Reset all variables to defaults |
+| `string SaveVariables()` | Serialize current variable state to JSON |
+| `void LoadVariables(string json)` | Restore variable state from JSON |
+| `int Visits(string elementId)` | Get visit count for an element |
+| `void ResetVisits()` | Reset all visit counts to 0 |
 
+---
 
-### Board class
+### Board
 
-Represents Arcweave boards.
+Container for narrative nodes.
 
 #### Properties
 
- - `string id {get}`
- - `string name {get}`
- - `List<INode> nodes {get}`
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | string | Unique identifier |
+| `Name` | string | Board name |
+| `Nodes` | List\<INode\> | All nodes (Elements, Branches, Jumpers) |
+| `Notes` | List\<Note\> | Annotation notes |
 
 #### Methods
 
-| Method Name | Description |
-|-------------|-------------|
-|`T NodeWithID<T> (string id)`  |Returns the INode of type T with id.  |
-|`Element ElementWithID (string id)`  |Returns the Element with id.  |
+| Method | Description |
+|--------|-------------|
+| `T NodeWithID<T>(string id)` | Get node by ID and type |
+| `Element ElementWithID(string id)` | Get element by ID |
 
+---
 
-### Element class
+### Element
 
-Represents Arcweave elements.
-
+A narrative node containing dialogue content.
 
 #### Properties
 
- - `string id {get}`
- - `string title {get}`
- - `string rawTitle {get}`
- - `string rawContent {get}`
- - `int visits {get}`
- - `List<Component> components {get}`
- - `Cover cover {get}`
- - `List<Connection> outputs {get}`
-
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | string | Unique identifier |
+| `Title` | string | Element title (may contain Arcscript) |
+| `RawContent` | string | Original content with Arcscript markup |
+| `RuntimeContent` | string | Evaluated content (**call RunContentScript() first!**) |
+| `Visits` | int | Visit counter (get/set) |
+| `Components` | List\<Component\> | Attached characters/entities |
+| `Attributes` | List\<Attribute\> | Custom metadata |
+| `Outputs` | List\<Connection\> | Outgoing connections |
+| `cover` | Cover | Cover image reference |
 
 #### Methods
 
-| Method Name | Description |
-|-------------|-------------|
-|`string GetRuntimeContent ()`  |Returns the arcscript processed content.  |
-|`State GetState ()`  |Returns information about possible outgoing paths taking into account conditions.  |
-|`bool HasContent ()`  |Does the Element has any content at all?  |
-|`bool HasComponent ()`  |Does the Element has any Component?  |
-|`bool TryGetComponent (string name, out Component component)`  |Try get a Component by name.  |
-|`Texture2D GetCoverImage ()`  |Returns the Texture2D cover image from a `Resources` folder.  |
-|`Texture2D GetFirstComponentCoverImage ()`  |Returns the Texture2D of the first component cover from a `Resources` folder.  |
+| Method | Description |
+|--------|-------------|
+| `void RunContentScript()` | Evaluate Arcscript in content → updates RuntimeContent |
+| `Options GetOptions()` | Get available paths (evaluates branch conditions) |
+| `bool HasContent()` | Check if element has content |
+| `bool HasComponent(string name)` | Check if element has component by name |
+| `bool TryGetComponent(string name, out Component c)` | Try to get component by name |
+| `Texture2D GetCoverImage()` | Load cover image from Resources |
+| `Texture2D GetFirstComponentCoverImage()` | Load first component's cover image |
+| `Texture2D GetCoverOrFirstComponentImage()` | Get cover or fallback to component image |
 
+#### Code Example
 
-### Branch class
+```csharp
+// WRONG - RuntimeContent will be empty/outdated
+string text = element.RuntimeContent;  // ❌ Don't do this!
 
-Represents Arcweave branches.
+// CORRECT - Always call RunContentScript() first
+element.RunContentScript();            // ✅ Evaluates Arcscript
+string text = element.RuntimeContent;  // ✅ Now it's updated
 
+// Get available choices
+Options options = element.GetOptions();
+if (options.hasPaths) {
+    foreach (Path path in options.Paths) {
+        Debug.Log("Choice: " + path.text);
+    }
+}
+```
+
+---
+
+### Connection
+
+Link between nodes with optional label.
 
 #### Properties
 
- - `string id {get}`
- - `List<Condition> conditions {get}`
-
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | string | Unique identifier |
+| `RawLabel` | string | Original label with Arcscript |
+| `RuntimeLabel` | string | Evaluated label (**call RunLabelScript() first!**) |
+| `Source` | INode | Source node |
+| `Target` | INode | Target node |
+| `isValid` | bool | True if connection has valid ID |
 
 #### Methods
 
-| Method Name | Description |
-|-------------|-------------|
-|`Condition GetTrueCondition ()`  |Returns the true condition.  |
-|`Connection GetTrueConditionOutput ()`  |Returns the Connection of the true condition. |
+| Method | Description |
+|--------|-------------|
+| `void RunLabelScript()` | Evaluate Arcscript → updates RuntimeLabel |
 
+---
 
-### Condition class
+### Branch
 
-Represents Arcweave conditions (expressions used in Arcweave branches).
-
+Conditional branching node with if/elseif/else logic.
 
 #### Properties
 
- - `string id {get}`
- - `string script {get}`
- - `Connection output {get}`
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | string | Unique identifier |
+| `Conditions` | List\<Condition\> | Ordered conditions (first true wins) |
+| `colorTheme` | string | Visual theme color |
 
+---
+
+### Condition
+
+Single condition in a branch.
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | string | Unique identifier |
+| `Script` | string | Arcscript condition expression |
+| `Output` | Connection | Output connection if true |
 
 #### Methods
 
-| Method Name | Description |
-|-------------|-------------|
-|`bool Evaluate ()`   |Evaluates the condition (invalid scripts return true)  |
+| Method | Description |
+|--------|-------------|
+| `bool Evaluate()` | Evaluate condition (empty scripts return true) |
 
-### Component class
+---
 
-Represents Arcweave components.
+### Jumper
+
+Navigation shortcut to another element.
 
 #### Properties
 
- - `string id {get}`
- - `string name {get}`
- - `List<Attribute> attributes {get}`
- - `Cover cover {get}`
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | string | Unique identifier |
+| `Target` | Element | Target element to jump to |
+
+---
+
+### Component
+
+Character or entity definition. **Not a Unity MonoBehaviour.**
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | string | Unique identifier |
+| `Name` | string | Component name |
+| `Attributes` | List\<Attribute\> | Custom attributes |
+| `cover` | Cover | Cover image reference |
 
 #### Methods
 
-| Method Name | Description |
-|-------------|-------------|
-|`Texture2D GetCoverImage ()`  |Returns the Texture2D cover image from a `Resources` folder.|
+| Method | Description |
+|--------|-------------|
+| `Texture2D GetCoverImage()` | Load cover image from Resources |
 
+---
 
-### Attribute class
+### Attribute
 
-Represents Arcweave attributes.
-
-
-#### Properties
-
- - `string name {get}`
- - `DataType type {get}`
- - `object data {get}`
- - `ContainerType containerType {get}`
- - `string containerId {get}`
-
-
-### Connection class
-
-Defines an Arcweave connection.
+Custom metadata on elements or components.
 
 #### Properties
 
- - `string id {get}`
- - `string rawLabel {get}`
- - `INode source {get}`
- - `INode target {get}`
+| Property | Type | Description |
+|----------|------|-------------|
+| `Name` | string | Attribute name |
+| `Type` | DataType | StringPlainText, StringRichText, or ComponentList |
+| `data` | object | Attribute data (lazy-evaluated for RichText) |
+| `containerType` | ContainerType | Element or Component |
+| `containerId` | string | ID of the container |
+
+---
+
+### Variable
+
+Global state variable. Supports: `int`, `double`, `bool`, `string`.
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Name` | string | Variable name |
+| `Value` | object | Current value |
+| `DefaultValue` | object | Initial value |
+| `Type` | Type | System.Type of the value |
 
 #### Methods
 
-| Method Name | Description |
-|-------------|-------------|
-|`GetRuntimeLabel ()`  |Returns the arcscript processed label.|
+| Method | Description |
+|--------|-------------|
+| `void ResetToDefaultValue()` | Reset to default value |
 
-### State class
+---
 
-Represents the current state of an Element with possible outgoing paths. Can be used to control the arcweave flow easier. You can create the State of an element with the `Element.GetState()` method.
+### Cover
 
-#### Properties
-
- - `Element element {get}`: the element this state was generated from.
- - `Path[] paths {get}`: the possible paths outgoing the element.
- - `bool hasPaths {get}`: checks if there are any paths.
- - `bool hasOptions {get}`: checks if there are any options.
-
-### Path class
-
-Used by the State class (see above). Represents the path from a source element to a target element—if any. 
-
-It also grants access to the valid connection's label—if any. You can use labels as option texts for the player choices.
-
-Note: the label closest to the target element overrides the ones before it.
-
+Image or video reference.
 
 #### Properties
 
- - `string label {get}`: the valid label.
- - `Element targetElement {get}`: the target element.
-
-### Variable class
-
-Defines an Arcweave variable.
-
-#### Properties
-
- - `string name {get}`
- - `object value {get}`
- - `Type type {get}`
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | Cover.Type | Image, Youtube, or Undefined |
+| `filePath` | string | Asset filename |
 
 #### Methods
 
-| Method Name | Description |
-|-------------|-------------|
-|`void ResetToDefaultValue ()`  |Reset the variable to its default value.  |
+| Method | Description |
+|--------|-------------|
+| `Texture2D ResolveImage()` | Load image from Resources folder |
+
+---
+
+### Options
+
+Available paths from an element. Created by `Element.GetOptions()`.
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Element` | Element | Source element |
+| `Paths` | List\<Path\> | Valid paths to next elements |
+| `hasPaths` | bool | True if any paths exist |
+| `hasOptions` | bool | True if multiple paths OR path has label |
+
+---
+
+### Path
+
+Resolved path to a target element.
+
+#### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `label` | string | Connection label (if any) |
+| `text` | string | Label or target element's title |
+| `TargetElement` | Element | Destination element |
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `void ExecuteAppendedConnectionLabels()` | Run Arcscript in all connection labels along path |
+
+---
 
 ### ArcweavePlayer
 
-The ArcweavePlayer is provided as an example of using a project imported from Αrcweave and playing it similarly to the web app player. It is not required to utilize an arcweave imported project, but can be useful in some of your projects as-is.
+Event-driven narrative player (demo helper class).
+
+#### Inspector Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `aw` | ArcweaveProjectAsset | The project to play |
+| `autoStart` | bool | Auto-start on scene load |
 
 #### Events
 
-You can subscribe the events below to your game's methods.
-
- - `ArcweaveProjectAsset aw`
- - `bool autoStart`
- - `event OnProjectStart onProjectStart`
- - `event OnProjectFinish onProjectFinish`
- - `event OnElementEnter onElementEnter`
- - `event OnElementOptions onElementOptions`
- - `event OnWaitInputNext onWaitInputNext`
-
-See the included demo *ArcweavePlayerUI* for examples of their use.
+| Event | Signature | Description |
+|-------|-----------|-------------|
+| `onProjectStart` | `(Project)` | Narrative started |
+| `onProjectFinish` | `(Project)` | Narrative ended |
+| `onElementEnter` | `(Element)` | Entered new element |
+| `onElementOptions` | `(Options, Action<int>)` | Multiple choices available |
+| `onWaitInputNext` | `(Action)` | Single path, waiting for continue |
 
 #### Methods
 
-| Method Name | Description |
-|-------------|-------------|
-|`PlayProject ()`  |Plays the assigned arcweave project  |
-|`Save ()`  |Save the current element the variables (this is done in PlayerPrefs).  |
-|`Load ()`  |Loads the previously current element and the variables (from PlayerPrefs) and moves to that element  |
+| Method | Description |
+|--------|-------------|
+| `void PlayProject()` | Start or restart the narrative |
+| `void Save()` | Save current state to PlayerPrefs |
+| `void Load()` | Load and restore saved state |
 
+---
 
+## Important Notes
+
+1. **RuntimeContent requires RunContentScript()**: The `RuntimeContent` property is not automatically evaluated. You must call `RunContentScript()` before reading it.
+
+2. **GetOptions() has side effects**: This method internally saves and restores variable state while evaluating branch conditions.
+
+3. **Initialize() resets everything**: Calling `Project.Initialize()` resets all variables to defaults and all visit counts to 0.
+
+4. **Images must be in Resources folder**: Cover images are loaded via `Resources.Load()`. Place them in any `Resources` folder and ensure filenames match (without extension).
+
+5. **Components are not MonoBehaviours**: Arcweave Components represent characters/entities in your narrative, not Unity components.
+
+6. **Visit tracking is manual**: The `Visits` property must be incremented manually (or use ArcweavePlayer which does it automatically).
+
+---
+
+## Troubleshooting
+
+### Images not loading?
+
+**Problem:** `GetCoverImage()` returns null.
+
+**Solution:**
+- Ensure images are in a folder named exactly `Resources` (case-sensitive)
+- Verify the filename matches (without extension)
+- Check the image's Texture Type is set to **Default** in Import Settings
+
+### RuntimeContent is empty or shows Arcscript markup?
+
+**Problem:** Seeing `{variable_name}` or `if/endif` blocks in text.
+
+**Solution:**
+```csharp
+// Always call this before reading RuntimeContent
+element.RunContentScript();
+```
+
+### "NullReferenceException" when accessing variables?
+
+**Problem:** Variables are null or throw errors.
+
+**Solution:**
+```csharp
+// Call Initialize() once before using the project
+project.Initialize();
+```
+
+### Choices/paths not appearing?
+
+**Problem:** `GetOptions()` returns no paths or wrong paths.
+
+**Solution:**
+- Check your branch conditions in Arcweave - they might all be evaluating to false
+- Verify variable values are correct: `Debug.Log(project.GetVariable("varName").Value);`
+- Use the Project Viewer in Unity to visually inspect connections
+
+### Save/Load not working?
+
+**Problem:** `Load()` doesn't restore the correct state.
+
+**Solution:**
+- Ensure you called `Save()` before `Load()`
+- PlayerPrefs persists between sessions - use `PlayerPrefs.DeleteAll()` to clear if testing
+- Check the save keys exist: `PlayerPrefs.HasKey("arcweave_save_currentElement")`
+
+### Import button is disabled?
+
+**Problem:** Can't click "Import Project" button.
+
+**Solution:**
+- **From Json mode:** Drag a TextAsset (.json file) into the "Project Json File" field
+- **From Web mode:** Fill in both API Key AND Project Hash fields
+- Ensure the JSON file is valid (open it in a text editor to verify it's not corrupted)
+
+---
+
+## License
+
+See the LICENSE file for details.
