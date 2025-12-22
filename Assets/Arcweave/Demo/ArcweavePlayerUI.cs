@@ -36,6 +36,8 @@ namespace Arcweave
         public Button loadButton;
 
         [Header("Animation")]
+        [Tooltip("Enable fade in/out animations")]
+        public bool enableFade = true;
         [Range(0.1f, 2f)]
         [Tooltip("Duration of fade in/out animations")]
         public float crossfadeTime = 0.5f;
@@ -43,17 +45,14 @@ namespace Arcweave
         private List<Button> tempButtons = new List<Button>();
 
         void OnEnable() {
-            // Hide template and initialize UI elements
             buttonTemplate.gameObject.SetActive(false);
             InitializeImage(cover);
             InitializeImage(componentCover);
 
-            // Setup save/load buttons
             saveButton.onClick.AddListener(Save);
             loadButton.onClick.AddListener(Load);
             loadButton.gameObject.SetActive(PlayerPrefs.HasKey(ArcweavePlayer.SAVE_KEY));
 
-            // Subscribe to player events
             player.onElementEnter += OnElementEnter;
             player.onElementOptions += OnElementOptions;
             player.onWaitInputNext += OnWaitInputNext;
@@ -61,7 +60,6 @@ namespace Arcweave
         }
 
         void OnDisable() {
-            // Unsubscribe from player events
             player.onElementEnter -= OnElementEnter;
             player.onElementOptions -= OnElementOptions;
             player.onWaitInputNext -= OnWaitInputNext;
@@ -83,20 +81,16 @@ namespace Arcweave
         ///----------------------------------------------------------------------------------------------
 
         void OnElementEnter(Element e) {
-            // Display element content
             DisplayContent(e);
-
-            // Display cover image (element's cover or first component image)
             DisplayImage(cover, e.GetCoverOrFirstComponentImage());
 
-            // Display component cover image (character/entity portrait)
-            DisplayImage(componentCover, e.GetFirstComponentCoverImage());
+            var elementHasCover = e.GetCoverImage() != null;
+            DisplayImage(componentCover, elementHasCover ? e.GetFirstComponentCoverImage() : null);
         }
 
         void OnElementOptions(Options options, System.Action<int> callback) {
-            // Create a button for each available choice
             for (var i = 0; i < options.Paths.Count; i++) {
-                var index = i; // Capture index for closure
+                var index = i;
                 var text = !string.IsNullOrEmpty(options.Paths[i].text) ? options.Paths[i].text : emptyOptionText;
                 MakeButton(text, () => callback(index));
             }
@@ -115,31 +109,44 @@ namespace Arcweave
         ///----------------------------------------------------------------------------------------------
 
         void DisplayContent(Element e) {
-            content.text = e.HasContent() ? e.RuntimeContent : noContentText;
             if (e.HasContent()) {
                 e.RunContentScript();
             }
+            content.text = e.HasContent() ? e.RuntimeContent : noContentText;
 
-            // Fade in content text
-            content.canvasRenderer.SetAlpha(0);
-            content.CrossFadeAlpha(1f, crossfadeTime, false);
+            if (enableFade) {
+                content.canvasRenderer.SetAlpha(0);
+                content.CrossFadeAlpha(1f, crossfadeTime, false);
+            } else {
+                content.canvasRenderer.SetAlpha(1);
+            }
         }
 
         void DisplayImage(RawImage image, Texture2D texture) {
             if (image == null) return;
+            StartCoroutine(FadeImage(image, texture));
+        }
+
+        System.Collections.IEnumerator FadeImage(RawImage image, Texture2D texture) {
+            if (enableFade && image.gameObject.activeSelf && image.texture != texture) {
+                image.CrossFadeAlpha(0f, crossfadeTime, false);
+                yield return new WaitForSeconds(crossfadeTime);
+            }
 
             if (texture != null) {
-                // Show image with fade-in if it changed
                 image.gameObject.SetActive(true);
-                if (image.texture != texture) {
-                    image.texture = texture;
-                    UpdateAspectRatio(image, texture);
+                image.texture = texture;
+                UpdateAspectRatio(image, texture);
+
+                if (enableFade) {
                     image.canvasRenderer.SetAlpha(0);
                     image.CrossFadeAlpha(1f, crossfadeTime, false);
+                } else {
+                    image.canvasRenderer.SetAlpha(1);
                 }
             } else {
-                // Fade out if no image
-                image.CrossFadeAlpha(0f, crossfadeTime, false);
+                image.gameObject.SetActive(false);
+                image.texture = null;
             }
         }
 
@@ -162,24 +169,25 @@ namespace Arcweave
         ///----------------------------------------------------------------------------------------------
 
         Button MakeButton(string label, System.Action onClick) {
-            // Create button from template
             var button = Instantiate(buttonTemplate, buttonTemplate.transform.parent, false);
             button.transform.localPosition = buttonTemplate.transform.localPosition;
             button.gameObject.SetActive(true);
             tempButtons.Add(button);
 
-            // Set label
             var text = button.GetComponentInChildren<Text>();
             text.text = label;
 
-            // Fade in button and text
             var image = button.GetComponent<Image>();
-            text.canvasRenderer.SetAlpha(0);
-            text.CrossFadeAlpha(1f, crossfadeTime, false);
-            image.canvasRenderer.SetAlpha(0);
-            image.CrossFadeAlpha(1f, crossfadeTime, false);
+            if (enableFade) {
+                text.canvasRenderer.SetAlpha(0);
+                text.CrossFadeAlpha(1f, crossfadeTime, false);
+                image.canvasRenderer.SetAlpha(0);
+                image.CrossFadeAlpha(1f, crossfadeTime, false);
+            } else {
+                text.canvasRenderer.SetAlpha(1);
+                image.canvasRenderer.SetAlpha(1);
+            }
 
-            // Add click handler
             button.onClick.AddListener(() => {
                 ClearTempButtons();
                 onClick();

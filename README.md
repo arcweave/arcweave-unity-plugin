@@ -1,6 +1,6 @@
 # Arcweave Plugin for Unity
 
-This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It supports data exported from **Share & export > Export > Engine > Export for Unity** (available to all users) or fetched via Arcweave's web API (Team users only).
+This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It supports data exported from **Arcweave Project > Export > Engine > Export for Unity** (available to all users) or fetched via Arcweave's web API (Team users only).
 
 ---
 
@@ -19,9 +19,22 @@ This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It su
 
 ## Installation
 
-1. Download the plugin from the Unity Asset Store or this repository.
-2. Open your Unity project.
-3. Add the plugin's `/Arcweave` folder to your project's `Assets` folder.
+Choose one of the following methods:
+
+### Method 1: Manual Installation from GitHub - Recommended
+
+1. Download this repository as a ZIP file from [GitHub](https://github.com/arcweave/arcweave-unity-plugin/archive/refs/heads/main.zip)
+2. Extract the ZIP file
+3. Copy the `/Assets/Arcweave` folder into your Unity project's `Assets` folder
+
+### Method 2: Unity Asset Store
+
+1. Get the asset from the [Unity Asset Store](https://assetstore.unity.com/packages/tools/integration/arcweave-for-unity-148326)
+2. Open Unity and go to **Window > Package Manager**
+3. Select **My Assets** from the dropdown
+4. Find **Arcweave for Unity** and click **Download**, then **Import**
+
+**Note:** This repository is not structured as a UPM (Unity Package Manager) package and cannot be installed via Git URL.
 
 ---
 
@@ -29,14 +42,20 @@ This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It su
 
 ### Option 1: Export for Unity
 
-In Arcweave, go to **Export project > Engine > Export for Unity**.
+In Arcweave:
+
+1. Open your project
+2. Click the **Export** icon in the top bar
+3. Go to the **Engine** tab
+4. Click **Export for Unity**
+5. Check **Include Assets** if your project uses images or audio
 
 You will get a `.zip` file containing:
 
-- `project.json`: all data of your Arcweave project.
-- (Optional) `assets/Images/`: project image assets.
-- (Optional) `assets/Audio/`: project audio assets.
-- (Optional) `cover/cover.jpg`: the project cover image.
+- `project.json`: all data of your Arcweave project
+- (Optional) `assets/Images/`: project image assets (if "Include Assets" was checked)
+- (Optional) `assets/Audio/`: project audio assets (if "Include Assets" was checked)
+- (Optional) `cover/cover.jpg`: the project cover image
 
 **File placement:**
 - Place `project.json` anywhere in your Unity project's `Assets` folder.
@@ -58,7 +77,7 @@ See the [Arcweave API Documentation](https://docs.arcweave.com/integrations/web-
 
 To import your data into Unity:
 
-1. Right-click in the Unity Assets panel.
+1. Right-click in the Unity Project Window.
 2. Navigate to **Create > Arcweave > Project Asset**.
 3. Name the new `.asset` file as you prefer.
 4. Select it to open the Inspector.
@@ -75,7 +94,7 @@ Click the **Import Project** button to begin the import.
 After successful import, the Inspector displays:
 - The project name
 - All global variables and their values
-- An **"Open Project Viewer"** button for visual editing
+- An **"Open Project Viewer"** button for viewing the project flowchart
 
 
 ---
@@ -90,6 +109,17 @@ The plugin includes a `Demo` folder with a complete example scene.
 2. Select the **ArcweavePlayer** GameObject in the hierarchy.
 3. Assign your imported project asset to the `AW` field.
 4. Press **Play**.
+
+### Unity 6+ Input System Fix
+
+**If you're using Unity 6 or newer**, you need to update the Input System module:
+
+1. In the Hierarchy, select the **EventSystem** GameObject
+2. In the Inspector, find the **Standalone Input Module** component
+3. Click the **Replace with InputSystemUIInputModule** button
+4. This upgrades the legacy Input Manager to the new Input System
+
+Without this step, UI interactions (buttons, clicks) will not work in Unity 6+.
 
 ### Adding Image Assets
 
@@ -543,21 +573,35 @@ Event-driven narrative player (demo helper class).
 
 ## Important Notes
 
-1. **RuntimeContent requires RunContentScript()**: The `RuntimeContent` property is not automatically evaluated. You must call `RunContentScript()` before reading it.
+1. **Unity 6+ requires Input System update**: If using Unity 6 or newer, the EventSystem must use the new Input System module. Select EventSystem in Hierarchy, find Standalone Input Module in Inspector, and click "Replace with InputSystemUIInputModule". Without this, UI buttons won't respond to clicks. See [Unity 6+ Input System Fix](#unity-6-input-system-fix).
 
-2. **GetOptions() has side effects**: This method internally saves and restores variable state while evaluating branch conditions.
+2. **RuntimeContent requires RunContentScript()**: The `RuntimeContent` property is not automatically evaluated. You must call `RunContentScript()` before reading it.
 
-3. **Initialize() resets everything**: Calling `Project.Initialize()` resets all variables to defaults and all visit counts to 0.
+3. **GetOptions() has side effects**: This method internally saves and restores variable state while evaluating branch conditions.
 
-4. **Images must be in Resources folder**: Cover images are loaded via `Resources.Load()`. Place them in any `Resources` folder and ensure filenames match (without extension).
+4. **Initialize() resets everything**: Calling `Project.Initialize()` resets all variables to defaults and all visit counts to 0.
 
-5. **Components are not MonoBehaviours**: Arcweave Components represent characters/entities in your narrative, not Unity components.
+5. **Images must be in Resources folder**: Cover images are loaded via `Resources.Load()`. Place them in any `Resources` folder and ensure filenames match (without extension).
 
-6. **Visit tracking is manual**: The `Visits` property must be incremented manually (or use ArcweavePlayer which does it automatically).
+6. **Components are not MonoBehaviours**: Arcweave Components represent characters/entities in your narrative, not Unity components.
+
+7. **Visit tracking is manual**: The `Visits` property must be incremented manually (or use ArcweavePlayer which does it automatically).
 
 ---
 
 ## Troubleshooting
+
+### Buttons not responding in Unity 6+?
+
+**Problem:** UI buttons don't respond to clicks in Unity 6 or newer versions.
+
+**Solution:**
+1. Select **EventSystem** in the Hierarchy
+2. In the Inspector, locate **Standalone Input Module**
+3. Click **Replace with InputSystemUIInputModule**
+4. This migrates from the legacy Input Manager to the new Input System
+
+Unity 6 requires the new Input System for UI interactions.
 
 ### Images not loading?
 
