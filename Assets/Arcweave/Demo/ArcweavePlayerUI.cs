@@ -1,34 +1,57 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using Arcweave.Project;
 
 namespace Arcweave
 {
-    ///A default example GUI for the ArcweavePlayer player
+    /// <summary>
+    /// Default example GUI for the ArcweavePlayer.
+    /// Displays narrative content, cover images, and interactive choice buttons.
+    /// </summary>
     public class ArcweavePlayerUI : MonoBehaviour
     {
-        [Header("References")]
+        [Header("Core")]
         public ArcweavePlayer player;
+
+        [Header("Text Display")]
         public Text content;
+        [Tooltip("Text shown when element has no content")]
+        public string noContentText = "<i>[ No Content ]</i>";
+        [Tooltip("Text shown for empty options")]
+        public string emptyOptionText = "<i>[ N/A ]</i>";
+        [Tooltip("Text shown for continue button")]
+        public string continueButtonText = "Continue";
+        [Tooltip("Text shown for restart button")]
+        public string restartButtonText = "Restart";
+
+        [Header("Images")]
         public RawImage cover;
+        [Tooltip("Optional: Character/entity portrait image")]
+        public RawImage componentCover;
+
+        [Header("Buttons")]
         public Button buttonTemplate;
         public Button saveButton;
         public Button loadButton;
-        public RawImage componentCover;
 
-        private const float CROSSFADE_TIME = 0.3f;
+        [Header("Animation")]
+        [Tooltip("Enable fade in/out animations")]
+        public bool enableFade = true;
+        [Range(0.1f, 2f)]
+        [Tooltip("Duration of fade in/out animations")]
+        public float crossfadeTime = 0.5f;
 
         private List<Button> tempButtons = new List<Button>();
 
         void OnEnable() {
-            componentCover.gameObject.SetActive(false);
             buttonTemplate.gameObject.SetActive(false);
+            InitializeImage(cover);
+            InitializeImage(componentCover);
+
             saveButton.onClick.AddListener(Save);
             loadButton.onClick.AddListener(Load);
-            if ( !PlayerPrefs.HasKey(ArcweavePlayer.SAVE_KEY) ) {
-                loadButton.gameObject.SetActive(false);
-            }
+            loadButton.gameObject.SetActive(PlayerPrefs.HasKey(ArcweavePlayer.SAVE_KEY));
 
             player.onElementEnter += OnElementEnter;
             player.onElementOptions += OnElementOptions;
@@ -54,90 +77,128 @@ namespace Arcweave
         }
 
         ///----------------------------------------------------------------------------------------------
+        /// Event Handlers
+        ///----------------------------------------------------------------------------------------------
 
         void OnElementEnter(Element e) {
-            componentCover.gameObject.SetActive(false);
-            content.text = "<i>[ No Content ]</i>";
-            if (e.HasContent())
-            {
-                e.RunContentScript();
-                content.text = e.RuntimeContent;
-            }
-            content.canvasRenderer.SetAlpha(0);
-            content.CrossFadeAlpha(1f, CROSSFADE_TIME, false);
+            DisplayContent(e);
+            DisplayImage(cover, e.GetCoverOrFirstComponentImage());
 
-            var image = e.GetCoverOrFirstComponentImage();
-            if ( cover.texture != image && image != null ) {
-                cover.texture = image;
-                cover.canvasRenderer.SetAlpha(0);
-                cover.CrossFadeAlpha(1f, CROSSFADE_TIME, false);
-            }
-            if ( image == null ) {
-                cover.canvasRenderer.SetAlpha(1);
-                cover.CrossFadeAlpha(0f, CROSSFADE_TIME, false);
-            }
-
-            var compImage = e.GetFirstComponentCoverImage();
-            if ( componentCover.texture != compImage && compImage != null ) {
-                componentCover.texture = compImage;
-                componentCover.canvasRenderer.SetAlpha(0);
-                componentCover.CrossFadeAlpha(1f, CROSSFADE_TIME, false);
-            }
-            if ( compImage == null ) {
-                componentCover.canvasRenderer.SetAlpha(1);
-                componentCover.CrossFadeAlpha(0f, CROSSFADE_TIME, false);
-            }
+            var elementHasCover = e.GetCoverImage() != null;
+            DisplayImage(componentCover, elementHasCover ? e.GetFirstComponentCoverImage() : null);
         }
 
         void OnElementOptions(Options options, System.Action<int> callback) {
-            for ( var i = 0; i < options.Paths.Count; i++ ) {
-                var _i = i; //local var for the delegate
-                var text = !string.IsNullOrEmpty(options.Paths[i].text) ? options.Paths[i].text : "<i>[ N/A ]</i>";
-                var button = MakeButton(text, () => callback(_i));
-                var pos = button.transform.position;
-                pos.y += buttonTemplate.GetComponent<RectTransform>().rect.height * ( options.Paths.Count - 1 - i );
-                button.transform.position = pos;
+            for (var i = 0; i < options.Paths.Count; i++) {
+                var index = i;
+                var text = !string.IsNullOrEmpty(options.Paths[i].text) ? options.Paths[i].text : emptyOptionText;
+                MakeButton(text, () => callback(index));
             }
         }
 
         void OnWaitInputNext(System.Action callback) {
-            MakeButton("...", callback);
+            MakeButton(continueButtonText, callback);
         }
 
         void OnProjectFinish(Project.Project p) {
-            MakeButton("Restart", player.PlayProject);
+            MakeButton(restartButtonText, player.PlayProject);
         }
 
         ///----------------------------------------------------------------------------------------------
+        /// UI Display Methods
+        ///----------------------------------------------------------------------------------------------
 
-        Button MakeButton(string name, System.Action call) {
-            var button = Instantiate<Button>(buttonTemplate);
+        void DisplayContent(Element e) {
+            if (e.HasContent()) {
+                e.RunContentScript();
+            }
+            content.text = e.HasContent() ? e.RuntimeContent : noContentText;
+
+            if (enableFade) {
+                content.canvasRenderer.SetAlpha(0);
+                content.CrossFadeAlpha(1f, crossfadeTime, false);
+            } else {
+                content.canvasRenderer.SetAlpha(1);
+            }
+        }
+
+        void DisplayImage(RawImage image, Texture2D texture) {
+            if (image == null) return;
+            StartCoroutine(FadeImage(image, texture));
+        }
+
+        System.Collections.IEnumerator FadeImage(RawImage image, Texture2D texture) {
+            if (enableFade && image.gameObject.activeSelf && image.texture != texture) {
+                image.CrossFadeAlpha(0f, crossfadeTime, false);
+                yield return new WaitForSeconds(crossfadeTime);
+            }
+
+            if (texture != null) {
+                image.gameObject.SetActive(true);
+                image.texture = texture;
+                UpdateAspectRatio(image, texture);
+
+                if (enableFade) {
+                    image.canvasRenderer.SetAlpha(0);
+                    image.CrossFadeAlpha(1f, crossfadeTime, false);
+                } else {
+                    image.canvasRenderer.SetAlpha(1);
+                }
+            } else {
+                image.gameObject.SetActive(false);
+                image.texture = null;
+            }
+        }
+
+        void InitializeImage(RawImage image) {
+            if (image != null) {
+                image.gameObject.SetActive(false);
+                image.canvasRenderer.SetAlpha(0);
+            }
+        }
+
+        void UpdateAspectRatio(RawImage image, Texture2D texture) {
+            var fitter = image.GetComponent<AspectRatioFitter>();
+            if (fitter != null) {
+                fitter.aspectRatio = (float)texture.width / texture.height;
+            }
+        }
+
+        ///----------------------------------------------------------------------------------------------
+        /// Button Management
+        ///----------------------------------------------------------------------------------------------
+
+        Button MakeButton(string label, System.Action onClick) {
+            var button = Instantiate(buttonTemplate, buttonTemplate.transform.parent, false);
+            button.transform.localPosition = buttonTemplate.transform.localPosition;
+            button.gameObject.SetActive(true);
             tempButtons.Add(button);
 
             var text = button.GetComponentInChildren<Text>();
+            text.text = label;
+
             var image = button.GetComponent<Image>();
-            text.text = name;
-            button.transform.SetParent(buttonTemplate.transform.parent);
-            button.transform.position = buttonTemplate.transform.position;
-            button.gameObject.SetActive(true);
+            if (enableFade) {
+                text.canvasRenderer.SetAlpha(0);
+                text.CrossFadeAlpha(1f, crossfadeTime, false);
+                image.canvasRenderer.SetAlpha(0);
+                image.CrossFadeAlpha(1f, crossfadeTime, false);
+            } else {
+                text.canvasRenderer.SetAlpha(1);
+                image.canvasRenderer.SetAlpha(1);
+            }
 
-            text.canvasRenderer.SetAlpha(0);
-            text.CrossFadeAlpha(1f, CROSSFADE_TIME, false);
-            image.canvasRenderer.SetAlpha(0);
-            image.CrossFadeAlpha(1f, CROSSFADE_TIME, false);
-
-            button.onClick.AddListener(() =>
-            {
+            button.onClick.AddListener(() => {
                 ClearTempButtons();
-                call();
+                onClick();
             });
 
             return button;
         }
 
         void ClearTempButtons() {
-            foreach ( var b in tempButtons ) {
-                Destroy(b.gameObject);
+            foreach (var button in tempButtons) {
+                Destroy(button.gameObject);
             }
             tempButtons.Clear();
         }

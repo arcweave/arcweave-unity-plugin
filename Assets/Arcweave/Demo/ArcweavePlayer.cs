@@ -3,10 +3,10 @@ using Arcweave.Project;
 
 namespace Arcweave
 {
-    ///This is not required to utilize an arweave project but can be helpful for some projects as well as a learning example.
+    /// This is not required to utilize an Arcweave project but can be helpful for some projects as well as a learning example.
     public class ArcweavePlayer : MonoBehaviour
     {
-        //Delegates for the events.
+        // Delegates for the events
         public delegate void OnProjectStart(Project.Project project);
         public delegate void OnProjectFinish(Project.Project project);
         public delegate void OnElementEnter(Element element);
@@ -21,17 +21,15 @@ namespace Arcweave
 
         private Element currentElement;
 
-        //events that that UI (or otherwise) can subscribe to get notified and act accordingly.
+        // Events that the UI (or otherwise) can subscribe to get notified and act accordingly
         public event OnProjectStart onProjectStart;
         public event OnProjectFinish onProjectFinish;
         public event OnElementEnter onElementEnter;
         public event OnElementOptions onElementOptions;
         public event OnWaitingInputNext onWaitInputNext;
 
-        //...
         void Start() { if ( autoStart ) PlayProject(); }
 
-        //...
         public void PlayProject() {
 
             if ( aw == null ) {
@@ -44,13 +42,13 @@ namespace Arcweave
             Next(aw.Project.StartingElement);
         }
 
-        ///Moves to the next element through a path
+        /// Moves to the next element through a path
         void Next(Path path) {
             path.ExecuteAppendedConnectionLabels();
             Next(path.TargetElement);
         }
 
-        ///Moves to the next/an element directly
+        /// Moves to the next element directly
         void Next(Element element) {
             currentElement = element;
             currentElement.Visits++;
@@ -73,7 +71,7 @@ namespace Arcweave
 
         ///----------------------------------------------------------------------------------------------
 
-        ///Save the current element and the variables.
+        /// Saves the current element and the variables
         public void Save() {
             var id = currentElement.Id;
             var variables = aw.Project.SaveVariables();
@@ -81,7 +79,7 @@ namespace Arcweave
             PlayerPrefs.SetString(SAVE_KEY+"_variables", variables);
         }
 
-        ///Loads the prviously current element and the variables and moves Next to that element.
+        /// Loads the previously saved element and the variables and moves to that element
         public void Load() {
             var id = PlayerPrefs.GetString(SAVE_KEY+"_currentElement");
             var variables = PlayerPrefs.GetString(SAVE_KEY+"_variables");
