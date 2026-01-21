@@ -79,7 +79,6 @@ namespace Arcweave
                 }
             }
             var requestUrl = builder.ToString();
-            Debug.Log("Request URL: " + requestUrl);
             var request = UnityWebRequest.Get(requestUrl);
             request.SetRequestHeader("Authorization", string.Format("Bearer {0}", userAPIKey));
             request.SetRequestHeader("Accept", "application/json");
