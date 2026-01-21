@@ -1,5 +1,6 @@
 ﻿#if UNITY_EDITOR
 
+using System;
 using UnityEngine;
 using UnityEditor;
 
@@ -19,6 +20,27 @@ namespace Arcweave
             var fromWeb = aw.importSource == ArcweaveProjectAsset.ImportSource.FromWeb && !string.IsNullOrEmpty(aw.userAPIKey) && !string.IsNullOrEmpty(aw.projectHash);
             var text = "Import Project " + aw.importSource;
 
+            using (var group = new EditorGUILayout.FadeGroupScope(aw.importSource == ArcweaveProjectAsset.ImportSource.FromWeb ? 1f : 0f))
+            {
+                if (group.visible)
+                {
+                    aw.userAPIKey = EditorGUILayout.TextField(new GUIContent("User API Key", "Your Arcweave User API Key"), aw.userAPIKey);
+                    aw.projectHash = EditorGUILayout.TextField(new GUIContent("Project Hash", "The Arcweave Project Hash"), aw.projectHash);
+                    aw.locale = EditorGUILayout.TextField(new GUIContent("Language ISO", "The ISO of the language"), aw.locale);
+                    
+                    GUIContent content = new GUIContent("Fallback Content", "Enable to use fallback content when a string is not available in the specified language.");
+                    aw.fallbackLocales = EditorGUILayout.Toggle(content, aw.fallbackLocales);
+                }
+            }
+            
+            using (var group = new EditorGUILayout.FadeGroupScope(aw.importSource == ArcweaveProjectAsset.ImportSource.FromJson ? 1f : 0f))
+            {
+                if (group.visible)
+                {
+                    aw.projectJsonFile = (TextAsset)EditorGUILayout.ObjectField(new GUIContent("Project JSON File", "The Arcweave project JSON file"), aw.projectJsonFile, typeof(TextAsset), false);
+                }
+            }
+
             GUI.enabled = !isImporting && ( fromJson || fromWeb );
             if ( GUILayout.Button(text) ) {
                 isImporting = true;
@@ -27,6 +49,10 @@ namespace Arcweave
                     isImporting = false;
                     EditorUtility.SetDirty(aw);
                     AssetDatabase.SaveAssetIfDirty(aw);
+                },
+                (error) =>
+                {
+                    isImporting = false;
                 });
             }
             GUI.enabled = true;

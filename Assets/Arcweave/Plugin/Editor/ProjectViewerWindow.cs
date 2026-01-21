@@ -191,7 +191,7 @@ namespace Arcweave
             }
             GUILayout.FlexibleSpace();
             if ( GUILayout.Button("Re-Import", EditorStyles.toolbarButton) ) {
-                asset.ImportProject(null);
+                asset.ImportProject();
             }
             GUILayout.Space(SIDE_MARGIN);
             GUILayout.EndHorizontal();
