@@ -1,6 +1,6 @@
 # Arcweave Plugin for Unity
 
-This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It supports data exported from **Arcweave Project > Export > Engine > Export for Unity** (available to all users) or fetched via Arcweave's web API (Team users only).
+This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It supports data exported from **Arcweave Project > Export > Engine > Export for Unity** (available to all users) or fetched via Arcweave's web API (available to Team workspaces only).
 
 ---
 
@@ -63,10 +63,10 @@ You will get a `.zip` file containing:
 
 ### Option 2: Use Arcweave's Web API
 
-Available to **Team account holders only**.
+Available to **Team workspaces**.
 
 You will need:
-- Your Team workspace **API key** (found in Workspace Settings).
+- Your Team workspace **API key** (found in your Workspace's API section).
 - Your **project hash** (found in Project Properties).
 
 See the [Arcweave API Documentation](https://docs.arcweave.com/integrations/web-api) for details.
