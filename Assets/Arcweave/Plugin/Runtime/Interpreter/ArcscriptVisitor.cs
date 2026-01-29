@@ -1,6 +1,8 @@
-using Antlr4.Runtime.Misc;
-using System.Collections.Generic;
+#nullable enable
 using System;
+using System.Collections.Generic;
+using Antlr4.Runtime.Misc;
+using System.Globalization;
 using Antlr4.Runtime.Tree;
 using Arcweave.Interpreter.INodes;
 
@@ -12,11 +14,20 @@ namespace Arcweave.Interpreter
         public readonly ArcscriptState state;
         public string elementId;
         private readonly Functions _functions;
-        public ArcscriptVisitor(string elementId, IProject project) {
+        private System.Action<string> _emit;
+        public ArcscriptVisitor(string elementId, IProject project, System.Action<string>? emit = null) {
             this.elementId = elementId;
             this.project = project;
-            this.state = new ArcscriptState(elementId, project);
+            this.state = new ArcscriptState(elementId, project, emit);
             this._functions = new Functions(elementId, project, this.state);
+            if (emit != null)
+            {
+                _emit = emit;
+            }
+            else
+            {
+                _emit = (string eventName) => {  };
+            }
         }
 
         public override object VisitInput([NotNull] ArcscriptParser.InputContext context) {
@@ -30,7 +41,7 @@ namespace Arcweave.Interpreter
 
         public override object VisitScript_section([NotNull] ArcscriptParser.Script_sectionContext context) {
             if ( context == null ) {
-                return null;
+                return null!;
             }
 
             var blockquoteContexts = context.blockquote();
@@ -113,7 +124,7 @@ namespace Arcweave.Interpreter
                 return elseSection.Script;
             }
             this.state.Outputs.AddScriptOutput(null);
-            return null;
+            return null!;
         }
 
         public override object VisitIf_section([NotNull] ArcscriptParser.If_sectionContext context) {
@@ -150,12 +161,11 @@ namespace Arcweave.Interpreter
 
         public override object VisitStatement_assignment([NotNull] ArcscriptParser.Statement_assignmentContext context) {
             string variableName = context.VARIABLE().GetText();
-            IVariable variable = this.state.GetVariable(variableName);
 
             Expression compound_condition_or = (Expression)this.VisitCompound_condition_or(context.compound_condition_or());
             if ( context.ASSIGN() != null ) {
                 this.state.SetVarValue(variableName, compound_condition_or.Value);
-                return null;
+                return null!;
             }
 
             Expression variableValue = new Expression(this.state.GetVarValue(variableName));
@@ -168,10 +178,12 @@ namespace Arcweave.Interpreter
                 variableValue *= compound_condition_or;
             } else if ( context.ASSIGNDIV() != null ) {
                 variableValue /= compound_condition_or;
+            } else if (context.ASSIGNMOD() != null) {
+                variableValue %= compound_condition_or;
             }
 
             this.state.SetVarValue(variableName, variableValue.Value);
-            return null;
+            return null!;
         }
 
         public override object VisitCompound_condition_or([NotNull] ArcscriptParser.Compound_condition_orContext context) {
@@ -282,8 +294,13 @@ namespace Arcweave.Interpreter
                 if ( context.MUL() != null ) {
                     return result * signed_unary_num_expr;
                 }
-                // Else DIV
-                return result / signed_unary_num_expr;
+
+                if (context.DIV() != null)
+                {
+                    return result / signed_unary_num_expr;
+                }
+                // Else MOD
+                return result % signed_unary_num_expr;
             }
 
             return (Expression)this.VisitSigned_unary_numeric_expression(context.signed_unary_numeric_expression());
@@ -305,22 +322,26 @@ namespace Arcweave.Interpreter
 
         public override object VisitUnary_numeric_expression([NotNull] ArcscriptParser.Unary_numeric_expressionContext context) {
             if ( context.FLOAT() != null ) {
-                return new Expression(double.Parse(context.FLOAT().GetText()));
+                return new Expression(double.Parse(context.FLOAT().GetText(), CultureInfo.InvariantCulture));
             }
             if ( context.INTEGER() != null ) {
                 return new Expression(int.Parse(context.INTEGER().GetText()));
             }
-            if ( context.VARIABLE() != null ) {
-                string variableName = context.VARIABLE().GetText();
-                return new Expression(this.state.GetVarValue(variableName));
-            }
-            if ( context.STRING() != null ) {
+
+            if (context.STRING() != null)
+            {
                 string result = context.STRING().GetText();
                 result = result.Substring(1, result.Length - 2);
                 return new Expression(result);
             }
-            if ( context.BOOLEAN() != null ) {
+
+            if (context.BOOLEAN() != null)
+            {
                 return new Expression(context.BOOLEAN().GetText() == "true");
+            }
+            if ( context.VARIABLE() != null ) {
+                string variableName = context.VARIABLE().GetText();
+                return new Expression(this.state.GetVarValue(variableName));
             }
 
             if ( context.function_call() != null )
@@ -337,7 +358,7 @@ namespace Arcweave.Interpreter
         public override object VisitVoid_function_call([NotNull] ArcscriptParser.Void_function_callContext context)
         {
             string fname = "";
-            IList<object> argument_list_result = null;
+            IList<object>? argument_list_result = null;
             if (context.VFNAME() != null)
             {
                 fname = context.VFNAME().GetText();
@@ -361,7 +382,7 @@ namespace Arcweave.Interpreter
         }
 
         public override object VisitFunction_call([NotNull] ArcscriptParser.Function_callContext context) {
-            IList<object> argument_list_result = null;
+            IList<object>? argument_list_result = null;
             if ( context.argument_list() != null ) {
                 argument_list_result = (IList<object>)this.VisitArgument_list(context.argument_list());
             }
@@ -379,8 +400,11 @@ namespace Arcweave.Interpreter
             List<object> variables = new List<object>();
             foreach (ITerminalNode variable in context.VARIABLE())
             {
-                IVariable varObject = this.state.GetVariable(variable.GetText());
-                variables.Add(varObject);
+                var varObject = this.state.GetVariable(variable.GetText());
+                if (varObject != null)
+                {
+                    variables.Add(varObject);
+                }
             }
             return variables;
         }
@@ -426,7 +450,7 @@ namespace Arcweave.Interpreter
             object value = true;
             if ( ctxvalue != null ) {
                 string strvalue = ctxvalue.GetText();
-                if ( ( strvalue.StartsWith('"') && strvalue.EndsWith('"') ) ||
+                if ( ( strvalue.StartsWith("\"") && strvalue.EndsWith("\"") ) ||
                     ( strvalue.StartsWith("'") && strvalue.EndsWith("'") ) ) {
                     strvalue = strvalue.Substring(1, strvalue.Length - 2);
                 }

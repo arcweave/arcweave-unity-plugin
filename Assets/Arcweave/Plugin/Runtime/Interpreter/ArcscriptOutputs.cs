@@ -28,7 +28,15 @@ namespace Arcweave.Interpreter
         {
             if (text.Length > 0)
             {
-                this._text += ' ' + text;
+                if (_text.Length > 0)
+                {
+                    this._text += ' ' + text;                    
+                }
+                else
+                {
+                    this._text = text;
+                }
+                
             }
         }
 

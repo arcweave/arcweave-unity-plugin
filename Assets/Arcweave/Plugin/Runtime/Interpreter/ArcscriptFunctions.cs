@@ -26,7 +26,8 @@ namespace Arcweave.Interpreter
             { "round", typeof (int) },
             { "min", typeof (double) },
             { "max", typeof (double) },
-            { "visits", typeof (int) }
+            { "visits", typeof (int) },
+            { "resetVisits", typeof (void) },
         };
 
         public Functions(string elementId, IProject project, ArcscriptState state) {
@@ -46,6 +47,7 @@ namespace Arcweave.Interpreter
             this.functions["min"] = this.Min;
             this.functions["max"] = this.Max;
             this.functions["visits"] = this.Visits;
+            this.functions["resetVisits"] = this.ResetVisits;
         }
 
         public object Sqrt(IList<object> args) {
@@ -62,7 +64,12 @@ namespace Arcweave.Interpreter
             {
                 n = (double)e.Value;
             }
-            return Math.Sqrt(n);
+            var result = Math.Sqrt(n);
+            if (double.IsNaN(result))
+            {
+                throw new InvalidOperationException("Cannot compute square root of a negative number.");
+            }
+            return result;
         }
 
         public object Sqr(IList<object> args) {
@@ -124,11 +131,21 @@ namespace Arcweave.Interpreter
         public object Show(IList<object> args) {
             List<string> results = new List<string>();
             foreach (Expression arg in args ) {
-                results.Add(arg.Value.ToString());
+                results.Add(arg.ToString());
             }
             string result = String.Join("", results.ToArray());
-            //UnityEngine.Debug.Log(result);
-            // this.state.outputs.Add(result);
+            // Replace escaped sequences with their actual characters
+            result = result
+                .Replace("\\a", "\a")
+                .Replace("\\b", "\b")
+                .Replace("\\f", "\f")
+                .Replace("\\n", "\n")
+                .Replace("\\r", "\r")
+                .Replace("\\t", "\t")
+                .Replace("\\v", "\v")
+                .Replace("\\'", "'")
+                .Replace("\\\"", "\"")
+                .Replace("\\\\", "\\");
             this.state.Outputs.AddScriptOutput(result);
             return null;
         }
@@ -178,6 +195,11 @@ namespace Arcweave.Interpreter
             }
             IElement element = this._project.ElementWithId(elementId);
             return element.Visits;
+        }
+        
+        public object ResetVisits(IList<object> args) {
+            this.state.ResetVisits();
+            return null;
         }
     }
 }

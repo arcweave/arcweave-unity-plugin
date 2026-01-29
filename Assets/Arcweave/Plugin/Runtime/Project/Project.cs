@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Arcweave.Interpreter.INodes;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Arcweave.Project
 {
@@ -11,8 +12,9 @@ namespace Arcweave.Project
     {
         [field: UnityEngine.SerializeField]
         public string name { get; private set; }
+        [field: FormerlySerializedAs("<boards>k__BackingField")]
         [field: UnityEngine.SerializeReference]
-        public List<Board> boards { get; private set; }
+        public List<Board> Boards { get; private set; }
         [field: UnityEngine.SerializeReference]
         public List<Component> components { get; private set; }
         [field: UnityEngine.SerializeReference]
@@ -29,7 +31,7 @@ namespace Arcweave.Project
         public Project(string name, Element startingElement, List<Board> boards, List<Component> components, List<Variable> variables) {
             this.name = name;
             this.StartingElement = startingElement;
-            this.boards = boards;
+            this.Boards = boards;
             this.components = components;
             Variables = variables;
         }
@@ -40,7 +42,7 @@ namespace Arcweave.Project
         public void Initialize() {
             ResetVariablesToDefaultValues();
             ResetVisits();
-            foreach ( var board in boards ) {
+            foreach ( var board in Boards ) {
                 foreach ( var node in board.Nodes ) {
                     node.InitializeInProject(this);
                 }
@@ -59,7 +61,7 @@ namespace Arcweave.Project
 
         ///<summary>Reset the number of visits to 0 for all elements.</summary>
         public void ResetVisits() {
-            foreach ( var board in boards ) {
+            foreach ( var board in Boards ) {
                 foreach ( var element in board.Nodes.OfType<Element>() ) {
                     element.Visits = 0;
                 }
@@ -69,16 +71,16 @@ namespace Arcweave.Project
         ///----------------------------------------------------------------------------------------------
 
         ///<summary>Returns the Board with id.</summary>
-        public Board BoardWithID(string id) => boards.FirstOrDefault(x => x.Id == id);
+        public Board BoardWithID(string id) => Boards.FirstOrDefault(x => x.Id == id);
         ///<summary>Returns the Board with name.</summary>
-        public Board BoardWithName(string name) => boards.FirstOrDefault(x => x.Name == name);
+        public Board BoardWithName(string name) => Boards.FirstOrDefault(x => x.Name == name);
         ///<summary>Returns the Element with id.</summary>
         public Element ElementWithId(string id) => GetNodeWithID<Element>(id);
 
         ///<summary>Returns the INode of type T with id.</summary>
         public T GetNodeWithID<T>(string id) where T : INode {
             T result = default(T);
-            foreach ( var board in boards ) {
+            foreach ( var board in Boards ) {
                 result = board.NodeWithID<T>(id);
                 if ( result != null ) { return result; }
             }
