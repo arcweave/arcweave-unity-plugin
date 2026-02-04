@@ -9,7 +9,6 @@
             {
                 s = s.Replace("<strong>", "{bold}").Replace("</strong>", "{/bold}");
                 s = s.Replace("<em>", "{italic}").Replace("</em>", "{/italic}");
-                s = s.Replace("&lt;", string.Empty).Replace("&gt;", string.Empty);
                 s = s.Replace("</p>", "\n\n");
                 s = s.Replace("<br>", "\n");
                 s = s.Replace("<code>", "{code}");
@@ -19,6 +18,8 @@
                 s = s.Replace("{italic}", "<i>").Replace("{/italic}", "</i>");
                 s = s.Replace("{code}", string.Format("<color={0}>", CODE_HEX_COLOR));
                 s = s.Replace("{/code}", "</color>\n");
+                s = s.Replace("&lt;", "<").Replace("&gt;", ">");
+                s = s.Replace("&amp;", "&").Replace("&quot;", "\"").Replace("&nbsp;", " ").Replace("&apos;", "'");
                 s = s.TrimEnd();
                 return s;
             }
