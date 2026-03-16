@@ -32,7 +32,6 @@ namespace Arcweave.Project
 
         // Reference to the loaded AudioClip
         private AudioClip _audioClip;
-        private string audioId;
 
         // Volume level for the audio asset
         [field: SerializeField]
@@ -44,7 +43,7 @@ namespace Arcweave.Project
 
         public AudioAsset(string audioId, string mode, string asset, float delay, string name, float volume)
         {
-            this.audioId = audioId;
+            this.id = audioId;
             this.asset = asset;
             this.delay = delay;
             this.name = name;
@@ -66,6 +65,12 @@ namespace Arcweave.Project
         /// <returns>The loaded AudioClip, or null if not found.</returns>
         public AudioClip TryGetAudioClip()
         {
+            
+            if (string.IsNullOrEmpty(name))
+            {
+                return null;
+            }
+
             string nameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(name);
             if (!string.IsNullOrEmpty(nameWithoutExtension))
             {

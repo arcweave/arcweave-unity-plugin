@@ -150,9 +150,9 @@ namespace Arcweave.Project
                 }
 
                 var cover = MakeCover(jelements, id);
-                AudioAsset[] audioAsset = MakeAudioAssets(jelements, id);
+                AudioAsset[] audioAssets = MakeAudioAssets(jelements, id);
 
-                (node as Element).Set(id, pos, outputs, title, content, components, attributes, cover, theme, audioAsset);
+                (node as Element).Set(id, pos, outputs, title, content, components, attributes, cover, theme, audioAssets);
             }
             return (Element)node;
         }

@@ -29,7 +29,7 @@ namespace Arcweave.Project
         [field: SerializeField]
         public Cover cover { get; private set; }
         [field: SerializeField]
-        public AudioAsset[] AudioAsset { get; private set; }
+        public AudioAsset[] AudioAssets { get; private set; }
         [field: SerializeField]
         public List<Connection> Outputs { get; private set; }
 
@@ -62,7 +62,7 @@ namespace Arcweave.Project
             List<Attribute> attributes,
             Cover cover,
             string colorTheme,
-            AudioAsset[] audioAsset)
+            AudioAsset[] audioAssets)
         {
             Id = id;
             Pos = pos;
@@ -73,7 +73,7 @@ namespace Arcweave.Project
             Attributes = attributes;
             this.cover = cover;
             ColorTheme = colorTheme;
-            AudioAsset = audioAsset;
+            AudioAssets = audioAssets;
         }
 
         ///----------------------------------------------------------------------------------------------
@@ -131,7 +131,7 @@ namespace Arcweave.Project
 
         public AudioAsset[] GetAudioAssets()
         {
-            return AudioAsset;
+            return AudioAssets;
         }
     }
 }
