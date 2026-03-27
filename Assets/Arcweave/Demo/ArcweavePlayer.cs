@@ -37,6 +37,12 @@ namespace Arcweave
                 return;
             }
 
+            if (aw.Project == null || aw.Project.StartingElement == null)
+            {
+                Debug.LogWarning("The Arcweave Project Asset assigned in the inspector but has not been imported yet..importing it now");
+                aw.ImportProject(() => PlayProject(), (error) => Debug.LogError($"Failed to import Arcweave project: {error}"));
+                return;
+            }
             aw.Project.Initialize();
             if ( onProjectStart != null ) onProjectStart(aw.Project);
             Next(aw.Project.StartingElement);
