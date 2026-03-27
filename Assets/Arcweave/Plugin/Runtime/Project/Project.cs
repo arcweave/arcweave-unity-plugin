@@ -1,6 +1,6 @@
+using Arcweave.Interpreter.INodes;
 using System.Collections.Generic;
 using System.Linq;
-using Arcweave.Interpreter.INodes;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -23,12 +23,14 @@ namespace Arcweave.Project
         [UnityEngine.SerializeField] private string _startingElementId;
         [System.NonSerialized] private Element _startingElement;
 
-        public Element StartingElement {
+        public Element StartingElement
+        {
             get { return _startingElement != null ? _startingElement : _startingElement = GetNodeWithID<Element>(_startingElementId); }
             set { _startingElementId = value.Id; _startingElement = value; }
         }
 
-        public Project(string name, Element startingElement, List<Board> boards, List<Component> components, List<Variable> variables) {
+        public Project(string name, Element startingElement, List<Board> boards, List<Component> components, List<Variable> variables)
+        {
             this.name = name;
             this.StartingElement = startingElement;
             this.Boards = boards;
@@ -39,11 +41,15 @@ namespace Arcweave.Project
         ///----------------------------------------------------------------------------------------------
 
         ///<summary>Should be called once before using the project.</summary>
-        public void Initialize() {
+        public void Initialize()
+        {
             ResetVariablesToDefaultValues();
             ResetVisits();
-            foreach ( var board in Boards ) {
-                foreach ( var node in board.Nodes ) {
+
+            foreach (var board in Boards)
+            {
+                foreach (var node in board.Nodes)
+                {
                     node.InitializeInProject(this);
                 }
             }
@@ -60,9 +66,12 @@ namespace Arcweave.Project
         public int Visits(string id) { return ElementWithId(id).Visits; }
 
         ///<summary>Reset the number of visits to 0 for all elements.</summary>
-        public void ResetVisits() {
-            foreach ( var board in Boards ) {
-                foreach ( var element in board.Nodes.OfType<Element>() ) {
+        public void ResetVisits()
+        {
+            foreach (var board in Boards)
+            {
+                foreach (var element in board.Nodes.OfType<Element>())
+                {
                     element.Visits = 0;
                 }
             }
@@ -78,11 +87,13 @@ namespace Arcweave.Project
         public Element ElementWithId(string id) => GetNodeWithID<Element>(id);
 
         ///<summary>Returns the INode of type T with id.</summary>
-        public T GetNodeWithID<T>(string id) where T : INode {
+        public T GetNodeWithID<T>(string id) where T : INode
+        {
             T result = default(T);
-            foreach ( var board in Boards ) {
+            foreach (var board in Boards)
+            {
                 result = board.NodeWithID<T>(id);
-                if ( result != null ) { return result; }
+                if (result != null) { return result; }
             }
             return result;
         }
