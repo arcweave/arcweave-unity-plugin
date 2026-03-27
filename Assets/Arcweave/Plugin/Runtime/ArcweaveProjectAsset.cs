@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Networking;
 using Debug = UnityEngine.Debug;
@@ -33,24 +32,31 @@ namespace Arcweave
         void ClearData() => Project = null;
 
         //...
-        protected void OnEnable() {
-            if ( Project != null ) {
+        protected void OnEnable()
+        {
+            if (Project != null)
+            {
                 Project.Initialize();
+                return;
             }
         }
 
         ///<summary>Import project from json text file or web and get callback when finished.</summary>
-        public void ImportProject(System.Action callback = null, System.Action<string> onError = null) {
-            if ( importSource == ImportSource.FromJson && projectJsonFile != null ) {
+        public void ImportProject(System.Action callback = null, System.Action<string> onError = null)
+        {
+            if (importSource == ImportSource.FromJson && projectJsonFile != null)
+            {
                 MakeProject(projectJsonFile.text, callback);
             }
-            if ( importSource == ImportSource.FromWeb && !string.IsNullOrEmpty(userAPIKey) ) {
+            if (importSource == ImportSource.FromWeb && !string.IsNullOrEmpty(userAPIKey) && !string.IsNullOrEmpty(projectHash))
+            {
                 SendWebRequest((j) => MakeProject(j, callback), onError);
             }
         }
 
         //...
-        async void MakeProject(string json, System.Action callback) {
+        async void MakeProject(string json, System.Action callback)
+        {
             Project.ProjectMaker maker = null;
             await System.Threading.Tasks.Task.Run(() =>
             {
@@ -61,11 +67,12 @@ namespace Arcweave
             });
 
             Debug.Log("Done");
-            if ( callback != null ) { callback(); }
+            if (callback != null) { callback(); }
         }
 
         //...
-        void SendWebRequest(System.Action<string> callbackSuccess, System.Action<string> callbackError) {
+        void SendWebRequest(System.Action<string> callbackSuccess, System.Action<string> callbackError)
+        {
             Debug.Log("Sending Web Request...");
 
             UriBuilder builder = new UriBuilder("https://arcweave.com/api/");
@@ -88,9 +95,12 @@ namespace Arcweave
                 var responseCode = request.responseCode;
                 Debug.Log(string.Format("Web Request Completed (code = {0})...", responseCode));
                 var result = request.downloadHandler?.text;
-                if ( responseCode == 200 && callbackSuccess != null ) {
+                if (responseCode == 200 && callbackSuccess != null)
+                {
                     callbackSuccess(result);
-                } else {
+                }
+                else
+                {
                     Debug.LogError(string.Format("Web Request Failed (code = {0}): {1}", responseCode, request.error));
                     if (callbackError != null)
                     {
