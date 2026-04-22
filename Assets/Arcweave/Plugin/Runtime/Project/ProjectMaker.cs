@@ -150,7 +150,9 @@ namespace Arcweave.Project
                 }
 
                 var cover = MakeCover(jelements, id);
-                ( node as Element ).Set(id, pos, outputs, title, content, components, attributes, cover, theme);
+                AudioAsset[] audioAssets = MakeAudioAssets(jelements, id);
+
+                (node as Element).Set(id, pos, outputs, title, content, components, attributes, cover, theme, audioAssets);
             }
             return (Element)node;
         }
@@ -330,6 +332,51 @@ namespace Arcweave.Project
             return null;
         }
 
+        // Audio asset can be more than one per element
+        AudioAsset[] MakeAudioAssets(fsData source, string id)
+        {
+            // Check if "assets.audio" exists and is a list (array)
+            if (HasProperty(source, id, "assets.audio", out var audioProp) && audioProp.Type == fsDataType.Array)
+            {
+                var audioList = audioProp.AsList;
+                var audioAssets = new AudioAsset[audioList.Count];
+                for (int i = 0; i < audioList.Count; i++)
+                {
+                    audioAssets[i] = MakeAudioAsset(audioList[i]);
+                }
+                return audioAssets;
+            }
+            return null;
+        }
+
+        private AudioAsset MakeAudioAsset(fsData audioEntry)
+        {
+            var audioId = audioEntry["id"]?.AsString;
+            var mode = audioEntry["mode"]?.AsString;
+            string asset = audioEntry["asset"]?.AsString;
+            var delayProp = audioEntry["delay"];
+            float delay = 0f;
+            if (delayProp != null)
+            {
+                delay = delayProp.Type == fsDataType.Double ? (float)delayProp.AsDouble : (float)delayProp.AsInt64;
+            }
+
+            if (string.IsNullOrEmpty(asset))
+            {
+                UnityEngine.Debug.LogWarning($"Audio asset with id {audioId} is missing the 'asset' field, " +
+                $"which is required to retrieve the other info");
+                return new AudioAsset(audioId, mode, asset, delay, null, 1f);
+            }
+            // Name and volume are stored in "assets" so we look for them using the "asset" value, which is the id of the audio asset
+            var name = jproject["assets." + asset + ".name"]?.AsString;
+            var volumeProp = jproject["assets." + asset + ".volume"];
+            float volume = 1f;
+            if (volumeProp != null)
+            {
+                volume = volumeProp.Type == fsDataType.Double ? (float)volumeProp.AsDouble : (float)volumeProp.AsInt64;
+            }
+            return new AudioAsset(audioId, mode, asset, delay, name, volume);
+        }
         ///----------------------------------------------------------------------------------------------
 
         //...

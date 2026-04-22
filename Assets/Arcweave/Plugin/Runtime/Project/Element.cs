@@ -29,6 +29,8 @@ namespace Arcweave.Project
         [field: SerializeField]
         public Cover cover { get; private set; }
         [field: SerializeField]
+        public AudioAsset[] AudioAssets { get; private set; }
+        [field: SerializeField]
         public List<Connection> Outputs { get; private set; }
 
         public Project Project { get; private set; }
@@ -50,7 +52,18 @@ namespace Arcweave.Project
             return p;
         }
 
-        internal void Set(string id, Vector2Int pos, List<Connection> outputs, string rawTitle, string rawContent, List<Component> components, List<Attribute> attributes, Cover cover, string colorTheme) {
+        internal void Set(
+            string id,
+            Vector2Int pos,
+            List<Connection> outputs,
+            string rawTitle,
+            string rawContent,
+            List<Component> components,
+            List<Attribute> attributes,
+            Cover cover,
+            string colorTheme,
+            AudioAsset[] audioAssets)
+        {
             Id = id;
             Pos = pos;
             Outputs = outputs;
@@ -60,10 +73,11 @@ namespace Arcweave.Project
             Attributes = attributes;
             this.cover = cover;
             ColorTheme = colorTheme;
+            AudioAssets = audioAssets;
         }
 
         ///----------------------------------------------------------------------------------------------
-        
+
         /// <summary>
         /// Runs the content script of the element. This will also update
         /// the RuntimeContent of the Element.
@@ -114,5 +128,10 @@ namespace Arcweave.Project
         public Texture2D GetCoverImage() => cover?.ResolveImage();
         ///<summary>Returns a Texture2D asset of the first component attached to the element by the same image name as the one used in Arcweave and loaded from a "Resources" asset folder.</summary>
         public Texture2D GetFirstComponentCoverImage() => Components != null && Components.Count > 0 ? Components[0].GetCoverImage() : null;
+
+        public AudioAsset[] GetAudioAssets()
+        {
+            return AudioAssets;
+        }
     }
 }
