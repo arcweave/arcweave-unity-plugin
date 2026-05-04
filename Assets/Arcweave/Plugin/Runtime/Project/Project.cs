@@ -1,6 +1,8 @@
-using System.Collections.Generic;
-using System.Linq;
 using Arcweave.Interpreter.INodes;
+using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -128,10 +130,59 @@ namespace Arcweave.Project
                 var type = System.Type.GetType(variableState.type);
                 object value = null;
                 if (type == typeof(string)) { value = variableState.value; }
-                if ( type == typeof(int) ) { value = int.Parse(variableState.value); }
-                if ( type == typeof(float) ) { value = float.Parse(variableState.value); }
-                if ( type == typeof(bool) ) { value = bool.Parse(variableState.value); }
+                else if ( type == typeof(int) ) { value = int.Parse(variableState.value); }
+                else if ( type == typeof(float) ) { value = float.Parse(variableState.value); }
+                else if ( type == typeof(bool) ) { value = bool.Parse(variableState.value); }
                 SetVariable(variableState.name, value);
+            }
+        }
+
+        internal string SaveVisits()
+        {
+            var visitDictionary = new Dictionary<string, int>();
+            foreach (var board in boards)
+            {
+                foreach (var element in board.Nodes.OfType<Element>())
+                {
+                    if (element.Visits > 0)
+                    {
+                        visitDictionary[element.Id] = element.Visits;
+                        UnityEngine.Debug.Log($"[Project] Saving visit count for element '{element.Title}' (ID: {element.Id}): {element.Visits}");
+                    }
+                }
+            }
+
+            ArcweaveVisitsState visitsState = new ArcweaveVisitsState(visitDictionary);
+            return visitsState.ToJson();
+        }
+
+        internal void LoadVisits(string visitsSave)
+        {
+            // Load visits
+            ArcweaveVisitsState visits = ArcweaveVisitsState.FromJson(visitsSave);
+
+            ArcweaveVisitsState.VisitsState[] visitStates = visits.GetVisits();
+
+            if (visitStates != null && visitStates.Length > 0)
+            {
+                UnityEngine.Debug.Log($"[Project] Loading {visitStates.Length} visit counts");
+                foreach (var visitState in visitStates)
+                {
+                    var element = ElementWithId(visitState.elementId);
+                    if (element != null)
+                    {
+                        element.Visits = visitState.nVisit;
+                        UnityEngine.Debug.Log($"[Project] Restored visits for element '{element.Title}' (ID: {visitState.elementId}): {visitState.nVisit}");
+                    }
+                    else
+                    {
+                        UnityEngine.Debug.LogWarning($"[Project] Could not find element with ID '{visitState.elementId}' to restore visits");
+                    }
+                }
+            }
+            else
+            {
+                UnityEngine.Debug.Log("[Project] No visit data to restore");
             }
         }
     }
