@@ -51,7 +51,14 @@ namespace Arcweave
 
             saveButton.onClick.AddListener(Save);
             loadButton.onClick.AddListener(Load);
-            loadButton.gameObject.SetActive(PlayerPrefs.HasKey(ArcweavePlayer.SAVE_KEY));
+            
+            if(player == null)
+            {
+                gameObject.SetActive(false);
+                Debug.LogWarning("No ArcweavePlayer assigned to ArcweavePlayerUI. Disabling UI.");
+            }
+
+            loadButton.gameObject.SetActive(player.HasSave());
 
             player.onElementEnter += OnElementEnter;
             player.onElementOptions += OnElementOptions;
@@ -67,13 +74,32 @@ namespace Arcweave
         }
 
         void Save() {
-            player.Save();
+
+            if (player == null)
+            {
+                return;
+            }
+
+            player.RequestSave();
             loadButton.gameObject.SetActive(true);
         }
 
         void Load() {
-            ClearTempButtons();
-            player.Load();
+
+            if (player == null)
+            {
+                return;
+            }
+
+            if (player.RequestLoad())
+            {
+                ClearTempButtons();
+                Debug.Log("Arcweave state loaded");
+            }
+            else
+            {
+                Debug.LogWarning("No saved state found");
+            }
         }
 
         ///----------------------------------------------------------------------------------------------
