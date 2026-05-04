@@ -1,3 +1,5 @@
+using System;
+using Unity.VisualScripting;
 using Arcweave.Interpreter.INodes;
 using UnityEngine;
 
@@ -11,7 +13,15 @@ namespace Arcweave.Project
         public string Name { get; set; }
         [field: SerializeField]
         public string Id { get; set; }
-        public object Value { get; set; }
+        private object _value;
+        public object Value 
+        { 
+            get => _value;
+            set 
+            {
+                _value = value;
+            }
+        }
 
         [field: SerializeReference]
         public IHasVariables Parent { get; set; }
@@ -32,7 +42,34 @@ namespace Arcweave.Project
             get => _defaultValue;
             set
             {
-                _defaultValue = value;
+                _defaultValue = null;
+
+                // Create a copy of the value to preserve the original state
+                if (value == null)
+                {
+                    _defaultValue = null;
+                }
+                else
+                {
+                    var type = value.GetType();
+
+                    if (type == typeof(string) || type == typeof(int) || type == typeof(double) || type == typeof(bool))
+                    {
+                        _defaultValue = value;
+                    }
+                    else 
+                    {
+                        // If the value is a reference type it has to implement ICloneable to create a deep copy, otherwise we will lose the default value
+                        if (value is ICloneable cloneable)
+                        {
+                            _defaultValue = cloneable.Clone();
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException($"Default value of type {type.FullName} must implement ICloneable to store a default value.");
+                        }
+                    }
+                }
             }
         }
         
@@ -67,10 +104,13 @@ namespace Arcweave.Project
 
         ///<summary>Reset the variable to its default value.</summary>
         public void ResetToDefaultValue() {
-            if ( Type == typeof(string) ) { this.Value = (string)DefaultValue; }
-            if ( Type == typeof(int) ) { this.Value = (int)DefaultValue; }
-            if ( Type == typeof(double) ) { this.Value = (double)DefaultValue; }
-            if ( Type == typeof(bool) ) { this.Value = (bool)DefaultValue; }
+
+            // Create a copy of the default value to ensure it's not modified
+            if ( Type == typeof(string) ) { this.Value = DefaultValue == null ? null : (string)DefaultValue; }
+            else if ( Type == typeof(int) ) { this.Value = (int)DefaultValue; }
+            else if ( Type == typeof(double) ) { this.Value = (double)DefaultValue; }
+            else if ( Type == typeof(bool) ) { this.Value = (bool)DefaultValue; }
+
         }
 
         private string GetSerializedValue(object value)
@@ -100,7 +140,7 @@ namespace Arcweave.Project
             return "";
         }
 
-        private object DeserializeValue(string stringValue)
+        private object DeserializeValue(string stringValue, bool isDefaultValue)
         {
             if (stringValue.Length == 0)
             {
@@ -108,27 +148,37 @@ namespace Arcweave.Project
             }
             
             var type = stringValue[0];
+            string serializedObject = isDefaultValue ? defaultValueSerialized : valueSerialized;
+
             return type switch
             {
                 'n' => null,
-                's' => valueSerialized[1..],
-                'i' => int.Parse(valueSerialized[1..]),
-                'd' => double.Parse(valueSerialized[1..]),
-                'b' => bool.Parse(valueSerialized[1..]),
+                's' => serializedObject[1..],
+                'i' => int.Parse(serializedObject[1..]),
+                'd' => double.Parse(serializedObject[1..]),
+                'b' => bool.Parse(serializedObject[1..]),
                 _ => default
             };
         }
         
         public void OnBeforeSerialize()
         {
+            /* Clear serialization */
+            valueSerialized = "";
+            defaultValueSerialized = "";
+
             valueSerialized = GetSerializedValue(Value);
             defaultValueSerialized = GetSerializedValue(_defaultValue);
         }
 
         public void OnAfterDeserialize()
         {
-            Value = DeserializeValue(valueSerialized);
-            _defaultValue = DeserializeValue(defaultValueSerialized);
+            /* Clear the content*/
+            _value = null;
+            _defaultValue = null;
+
+            _value = DeserializeValue(valueSerialized, /*isDefaultValue =*/ false);
+            _defaultValue = DeserializeValue(defaultValueSerialized, /*isDefaultValue =*/ true);
         }
     }
 }
