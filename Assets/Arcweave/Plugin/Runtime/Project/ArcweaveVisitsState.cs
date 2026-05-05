@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using static Arcweave.Project.State;
-
 
 namespace Arcweave.Project
 {
     /* 
      * Support class to keep a save of the element visits
      */
+    [Serializable]
     internal class ArcweaveVisitsState
     {
         [Serializable]
@@ -48,6 +47,12 @@ namespace Arcweave.Project
 
         public static ArcweaveVisitsState FromJson(string json)
         {
+            if (string.IsNullOrEmpty(json))
+            {
+                Debug.LogWarning("ArcweaveVisitsState.FromJson: Received null or empty JSON string. Returning an empty ArcweaveVisitsState.");
+                return new ArcweaveVisitsState(new Dictionary<string, int>());
+            }
+
             var state = JsonUtility.FromJson<ArcweaveVisitsState>(json);
             return state;
         }

@@ -44,7 +44,9 @@ namespace Arcweave.Project
                 {
                     var type = value.GetType();
 
-                    if (type == typeof(string) || type == typeof(int) || type == typeof(double) || type == typeof(bool))
+                    // value types and strings can be directly assigned as they are immutable, but reference types need to be cloned to avoid
+                    // modifying the default value when the variable value changes
+                    if (type == typeof(string) || type.IsValueType)
                     {
                         _defaultValue = value;
                     }
@@ -84,6 +86,7 @@ namespace Arcweave.Project
             else if ( Type == typeof(int) ) { this.Value = (int)DefaultValue; }
             else if ( Type == typeof(double) ) { this.Value = (double)DefaultValue; }
             else if ( Type == typeof(bool) ) { this.Value = (bool)DefaultValue; }
+            else if ( Type == typeof(float) ) { this.Value = (float)DefaultValue; }
 
         }
 
@@ -110,11 +113,15 @@ namespace Arcweave.Project
             {
                 return "b" + value;
             }
+            if (type == typeof(float))
+            {
+                return "f" + value;
+            }
 
             return "";
         }
 
-        private object DeserializeValue(string stringValue, bool isDefaultValue)
+        private object DeserializeValue(string stringValue)
         {
             if (stringValue.Length == 0)
             {
@@ -122,15 +129,15 @@ namespace Arcweave.Project
             }
             
             var type = stringValue[0];
-            string serializedObject = isDefaultValue ? defaultValueSerialized : valueSerialized;
 
             return type switch
             {
                 'n' => null,
-                's' => serializedObject[1..],
-                'i' => int.Parse(serializedObject[1..]),
-                'd' => double.Parse(serializedObject[1..]),
-                'b' => bool.Parse(serializedObject[1..]),
+                's' => stringValue[1..],
+                'i' => int.Parse(stringValue[1..]),
+                'd' => double.Parse(stringValue[1..]),
+                'b' => bool.Parse(stringValue[1..]),
+                'f' => float.Parse(stringValue[1..]),
                 _ => default
             };
         }
@@ -151,8 +158,8 @@ namespace Arcweave.Project
             _value = null;
             _defaultValue = null;
 
-            _value = DeserializeValue(valueSerialized, /*isDefaultValue =*/ false);
-            _defaultValue = DeserializeValue(defaultValueSerialized, /*isDefaultValue =*/ true);
+            _value = DeserializeValue(valueSerialized);
+            _defaultValue = DeserializeValue(defaultValueSerialized);
         }
     }
 }
