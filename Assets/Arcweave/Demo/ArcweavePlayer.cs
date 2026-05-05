@@ -335,8 +335,8 @@ namespace Arcweave
                     Debug.Log($"[ArcweavePlayer] Loading variables before restoring state");
                     aw.Project.LoadVariables(variables);
                     aw.Project.LoadVisits(visits);
-                    Debug.Log($"[ArcweavePlayer] Variables loaded, setting the starting element to: {element.Title}");
-                    aw.Project.StartingElement = element; // Set the starting element to the loaded element
+                    Debug.Log($"[ArcweavePlayer] Variables loaded, navigating to element: {element.Title}");
+                    Next(element);
                     return true;
                 }
                 Debug.LogError($"Cannot load - element with ID '{elementId}' not found");
