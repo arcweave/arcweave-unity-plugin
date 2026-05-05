@@ -233,7 +233,7 @@ namespace Arcweave.Project
             }
         }
 
-        internal string SaveVisits()
+        public string SaveVisits()
         {
             var visitDictionary = new Dictionary<string, int>();
             foreach (var board in Boards)
@@ -251,7 +251,7 @@ namespace Arcweave.Project
             return visitsState.ToJson();
         }
 
-        internal void LoadVisits(string visitsSave)
+        public void LoadVisits(string visitsSave)
         {
             // Load visits
             ArcweaveVisitsState visits = ArcweaveVisitsState.FromJson(visitsSave);
