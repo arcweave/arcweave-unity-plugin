@@ -9,7 +9,10 @@ namespace Arcweave.Project
     {
         [field: SerializeField]
         public string Name { get; set; }
-        public string Id => Name;
+        [field: SerializeField]
+
+        /* Unique id that it is used in the json to identify the variable */
+        public string Id { get; set; }
         public object Value { get; set; }
         public IHasVariables Parent { get; set; }
 
@@ -20,6 +23,7 @@ namespace Arcweave.Project
 
         public object ObjectValue => Value;
 
+        /* object type */
         [SerializeField]
         private string _typeName;
 
@@ -38,28 +42,34 @@ namespace Arcweave.Project
         [SerializeField, HideInInspector]
         private string defaultValueSerialized;
 
-        public Variable(string id, string name, object value)
-        {
-            Name = name;
-            Value = value;
-            _defaultValue = value;
+        public Variable(string name, string id, object value) {
+            this.Name = name;
+            this.Id = id;
+            this.Value = value;
             this._typeName = value.GetType().FullName;
+            this.DefaultValue = value;
         }
-        public Variable(string id, string name, object value, IHasVariables parent)
+        public Variable(string name, string id, object value, IHasVariables parent)
         {
-
             Name = name;
+            this.Id = id;
             Value = value;
-            _defaultValue = value;
-            this._typeName = value.GetType().FullName;
             Parent = parent;
+            this._typeName = value.GetType().FullName;
+            _defaultValue = value;
         }
 
         ///<summary>Reset the variable to its default value.</summary>
         public void ResetToDefaultValue() {
             if ( Type == typeof(string) ) { this.Value = (string)DefaultValue; }
             if ( Type == typeof(int) ) { this.Value = (int)DefaultValue; }
-            if ( Type == typeof(double) ) { this.Value = (double)DefaultValue; }
+            if ( Type == typeof(float) ) { this.Value = (float)DefaultValue; }
+            if ( Type == typeof(double) )
+            {
+                this.Value = (double)DefaultValue;
+            }
+
+
             if ( Type == typeof(bool) ) { this.Value = (bool)DefaultValue; }
         }
 
@@ -77,6 +87,10 @@ namespace Arcweave.Project
             if (type == typeof(int))
             {
                 return "i" + value;
+            }
+            if (type == typeof(float))
+            {
+                return "f" + value;
             }
             if (type == typeof(double))
             {
@@ -96,15 +110,16 @@ namespace Arcweave.Project
             {
                 return default;
             }
-            
+
             var type = stringValue[0];
             return type switch
             {
                 'n' => null,
-                's' => valueSerialized[1..],
-                'i' => int.Parse(valueSerialized[1..]),
-                'd' => double.Parse(valueSerialized[1..]),
-                'b' => bool.Parse(valueSerialized[1..]),
+                's' => stringValue[1..],
+                'i' => int.Parse(stringValue[1..]),
+                'f' => float.Parse(stringValue[1..]),
+                'd' => double.Parse(stringValue[1..]),
+                'b' => bool.Parse(stringValue[1..]),
                 _ => default
             };
         }
@@ -119,6 +134,23 @@ namespace Arcweave.Project
         {
             Value = DeserializeValue(valueSerialized);
             _defaultValue = DeserializeValue(defaultValueSerialized);
+        }
+
+        public string ContentAsString(bool printOnScreen = true)
+        {
+            string variableInfo = $"Variable Name: {Name}, Id: {Id}, Type: {Type}, Value: {Value}, Default Value: {_defaultValue}, Parent: {Parent}";
+
+            if(Parent is not null && Parent is Board board)
+            {
+                variableInfo += $" (Parent is Board with Name: {board.Name}, Board Id: {board.Id})";
+            }
+
+            if (printOnScreen)
+            {
+                Debug.Log(variableInfo);
+            }
+
+            return variableInfo;
         }
     }
 }

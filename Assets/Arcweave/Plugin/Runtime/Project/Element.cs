@@ -89,7 +89,7 @@ namespace Arcweave.Project
             var output = i.RunScript(RawContent);
             if ( output.Changes.Count > 0 ) {
                 foreach ( var change in output.Changes ) {
-                    Project.SetVariable(change.Key, change.Value);
+                    Project.SetVariableById(change.Key, change.Value);
                 }
             }
 

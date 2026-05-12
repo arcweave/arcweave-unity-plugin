@@ -1,7 +1,9 @@
 using Arcweave.FullSerializer;
 using Arcweave.Interpreter.INodes;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine;
 
 namespace Arcweave.Project
 {
@@ -69,21 +71,23 @@ namespace Arcweave.Project
             var projBoards = new List<Board>();
             var projComponents = new List<Component>();
             var projVariables = new List<Variable>();
-            foreach (var key in jboards.AsDictionary.Keys)
-            {
+            foreach ( var key in jboards.AsDictionary.Keys ) {
                 var board = TryMakeBoard(key);
-                if (board != null) { projBoards.Add(board); } //null = has children
+                if ( board != null ) { projBoards.Add(board); } //null = has children
             }
-            foreach (var key in jcomponents.AsDictionary.Keys)
-            {
+            foreach ( var key in jcomponents.AsDictionary.Keys ) {
                 var component = TryMakeComponent(key);
                 if (component != null) { projComponents.Add(component); } //null = has children
             }
-            foreach (var key in jvariables.AsDictionary.Keys)
-            {
+
+            foreach ( var key in jvariables.AsDictionary.Keys ) {
                 var variable = TryMakeVariable(key);
-                if (variable != null) { projVariables.Add(variable); } //null = has children
+                if ( variable != null  && variable.Parent == null)
+                {
+                    projVariables.Add(variable); 
+                } //null = has children
             }
+
             return new Project(name, startElement, projBoards, projComponents, projVariables);
         }
 
@@ -112,7 +116,17 @@ namespace Arcweave.Project
             var boardNotes = new List<Note>();
             foreach (var key in GetProp(jboards, id, "notes").AsList) { boardNotes.Add(TryMakeNote(key.AsString)); }
 
-            return boards[id] = new Board(id, name, boardNodes, boardNotes);
+            string customId = null;
+            try 
+            {
+                customId = GetProp(jboards, id, "customId")?.AsString;
+            }
+            catch (NullReferenceException exp)
+            { 
+                Debug.Log("No custom id for board " + id);
+            }
+
+            return boards[id] = new Board(id, customId, name, boardNodes, boardNotes);
         }
 
         //..
@@ -149,11 +163,11 @@ namespace Arcweave.Project
                 }
 
                 var components = new List<Component>();
-                var componentids = GetProp(jelements, id, "components");
-                foreach (var componentid in componentids.AsList)
-                {
-                    var component = TryMakeComponent(componentid.AsString);
-                    if (component != null) components.Add(component); //null = has children
+                if ( HasProperty(jelements, id, "components", out var componentids) ) {
+                    foreach ( var componentid in componentids.AsList ) {
+                        var component = TryMakeComponent(componentid.AsString);
+                        if ( component != null ) components.Add(component); //null = has children
+                    }
                 }
 
                 var attributes = new List<Attribute>();
@@ -330,21 +344,51 @@ namespace Arcweave.Project
             return attribute;
         }
 
-        //...
+        //... Call this function after the creation of the boards, so that we can assign the parent board to the variable if needed
         Variable TryMakeVariable(string id)
         {
 
             if (HasChildren(jvariables, id)) { return null; }
+
 
             object value = null;
             var name = GetProp(jvariables, id, "name")?.AsString;
             var type = GetProp(jvariables, id, "type")?.AsString;
             var jvalue = GetProp(jvariables, id, "value");
             if (type == "integer") { value = (int)jvalue.AsInt64; }
-            if (type == "float") { value = (float)jvalue.AsDouble; }
+            if (type == "float")
+            {
+                // Handle the case where the values is 0, but the user wanted 0.0
+                if (jvalue.IsInt64)
+                {
+                    value = (float)jvalue.AsInt64;
+                    Debug.LogWarning($"Variable '{name}' was expected to be a float, but the value is an integer. Interpreting it as {value}.");
+                }
+                else
+                {
+                    value = (float)jvalue.AsDouble;
+                }
+            }
             if (type == "string") { value = (string)jvalue.AsString; }
             if (type == "boolean") { value = (bool)jvalue.AsBool; }
-            return new Variable(id, name, value);
+
+            string cType = GetProp(jvariables, id, "cType")?.AsString;
+            if (!string.IsNullOrEmpty(cType) && cType == "boards")
+            {
+                var cId = GetProp(jvariables, id, "cId")?.AsString;
+                if (boards.TryGetValue(cId, out var board))
+                {
+                    var variable = new Variable(name, id, value, board);
+                    board.AddVariable(variable);
+                    return variable;
+                }
+                else
+                {
+                    Debug.LogWarning($"Variable '{name}' is supposed to be attached to board with id '{cId}', but no such board was found.");
+                }
+            }
+
+            return new Variable(name, id, value);
         }
 
         ///----------------------------------------------------------------------------------------------

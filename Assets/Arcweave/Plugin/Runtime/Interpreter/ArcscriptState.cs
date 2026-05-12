@@ -23,13 +23,24 @@ namespace Arcweave.Interpreter
             this.currentElement = elementId;
             this.project = project;
             
-            this.Variables = project.Variables.ToDictionary(variable => variable.Id, variable => variable);
+            this.Variables = new Dictionary<string, Variable>();
+            foreach (var variable in project.Variables)
+            {
+                if (!this.Variables.TryAdd(variable.Id, variable))
+                {
+                    UnityEngine.Debug.LogWarning($"Variable with ID '{variable.Id}' already exists and will be skipped.");
+                }
+            }
+
             foreach (var projectBoard in project.Boards)
             {
                 if (projectBoard.Variables == null) continue;
                 foreach (var projectBoardVariable in projectBoard.Variables)
                 {
-                    Variables.Add(projectBoardVariable.Id, projectBoardVariable);
+                    if(!Variables.TryAdd(projectBoardVariable.Id, projectBoardVariable))
+                    {
+                        UnityEngine.Debug.LogWarning($"Variable with ID '{projectBoardVariable.Id}' already exists and will be skipped.");
+                    }
                 }
             }
             
@@ -43,18 +54,19 @@ namespace Arcweave.Interpreter
             }
         }
 
-        public IVariable? GetVariable(string name, string? scope = null) {
+        public IVariable? GetVariable(string name, string? customId = null) {
             try
             {
-                return Variables.Values.FirstOrDefault(variable =>
-                {
-                    if (scope != null)
-                    {
-                        return variable.Name == name && scope == variable.Parent.CustomId;
-                    }
 
-                    return variable.Name == name && variable.Parent == null;
-                });
+                IVariable var = project.GetVariable(name, customId);
+
+                if(var == null)
+                {
+                    // No matching variable found
+                    return null;
+                }
+
+                return var;
             }
             catch (System.InvalidOperationException)
             {
