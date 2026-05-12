@@ -3,6 +3,9 @@ using System.Linq;
 using System.IO;
 using Arcweave.FullSerializer;
 using Arcweave.Interpreter.INodes;
+using UnityEngine;
+using System;
+
 
 namespace Arcweave.Project
 {
@@ -30,7 +33,6 @@ namespace Arcweave.Project
         private Dictionary<string, Connection> connections;
         private Dictionary<string, Component> components;
         private Dictionary<string, Attribute> attributes;
-        private Dictionary<string, Variable> variables;
         private Dictionary<string, Note> notes;
 
         public ProjectMaker(string json, ArcweaveProjectAsset projectAsset) {
@@ -56,29 +58,47 @@ namespace Arcweave.Project
             this.connections = new Dictionary<string, Connection>();
             this.components = new Dictionary<string, Component>();
             this.attributes = new Dictionary<string, Attribute>();
-            this.variables = new Dictionary<string, Variable>();
             this.notes = new Dictionary<string, Note>();
         }
 
         public Project MakeProject() {
+            
             var name = jproject["name"]?.AsString;
             var startElementid = jproject["startingElement"]?.AsString;
             var startElement = TryMakeElement(startElementid);
             var projBoards = new List<Board>();
             var projComponents = new List<Component>();
             var projVariables = new List<Variable>();
-            foreach ( var key in jboards.AsDictionary.Keys ) {
+
+            foreach (var key in jboards.AsDictionary.Keys)
+            {
                 var board = TryMakeBoard(key);
-                if ( board != null ) { projBoards.Add(board); } //null = has children
+                if (board != null)
+                {
+                    projBoards.Add(board);
+                    if (projBoards != null && projVariables != null)
+                    {
+                        projVariables.AddRange(board.Variables);
+                    }
+                } //null = has children
             }
-            foreach ( var key in jcomponents.AsDictionary.Keys ) {
+
+            foreach (var key in jcomponents.AsDictionary.Keys)
+            {
                 var component = TryMakeComponent(key);
-                if ( component != null ) { projComponents.Add(component); } //null = has children
+                if (component != null) { projComponents.Add(component); } //null = has children
             }
-            foreach ( var key in jvariables.AsDictionary.Keys ) {
-                var variable = TryMakeVariable(key);
-                if ( variable != null ) { projVariables.Add(variable); } //null = has children
+
+            foreach (var key in jvariables.AsDictionary.Keys)
+            {
+                // Board local variables are added to the project in the board loop, so we only want to add global variables here
+                Variable variable = TryMakeVariable(key);
+                if (variable != null && Variable.IsGlobal(variable))
+                {
+                    projVariables.Add(variable);
+                }
             }
+
             return new Project(name, startElement, projBoards, projComponents, projVariables);
         }
 
@@ -104,7 +124,23 @@ namespace Arcweave.Project
             var boardNotes = new List<Note>();
             foreach ( var key in GetProp(jboards, id, "notes").AsList ) { boardNotes.Add(TryMakeNote(key.AsString)); }
 
-            return boards[id] = new Board(id, name, boardNodes, boardNotes);
+            var boardVariables = new List<Variable>();
+            string customId = null;
+            try 
+            {
+                customId = GetProp(jboards, id, "customId")?.AsString;
+            }
+            catch (NullReferenceException exp)
+            { 
+                Debug.Log("No custom id for board " + id);
+            }
+
+            if (HasProperty(jboards, id, "variables", out var variableIds))
+            {
+                foreach (var key in variableIds.AsList) { boardVariables.Add(TryMakeVariable(key.AsString, customId)); }
+            }
+
+            return boards[id] = new Board(id, customId, name, boardNodes, boardNotes, boardVariables);
         }
 
         //..
@@ -136,10 +172,11 @@ namespace Arcweave.Project
                 }
 
                 var components = new List<Component>();
-                var componentids = GetProp(jelements, id, "components");
-                foreach ( var componentid in componentids.AsList ) {
-                    var component = TryMakeComponent(componentid.AsString);
-                    if ( component != null ) components.Add(component); //null = has children
+                if ( HasProperty(jelements, id, "components", out var componentids) ) {
+                    foreach ( var componentid in componentids.AsList ) {
+                        var component = TryMakeComponent(componentid.AsString);
+                        if ( component != null ) components.Add(component); //null = has children
+                    }
                 }
 
                 var attributes = new List<Attribute>();
@@ -295,8 +332,9 @@ namespace Arcweave.Project
         }
 
         //...
-        Variable TryMakeVariable(string id) {
+        Variable TryMakeVariable(string id, string customId = null) {
 
+            VariableScopeType scope = VariableScopeType.Global;
             if ( HasChildren(jvariables, id) ) { return null; }
 
             object value = null;
@@ -304,10 +342,35 @@ namespace Arcweave.Project
             var type = GetProp(jvariables, id, "type")?.AsString;
             var jvalue = GetProp(jvariables, id, "value");
             if ( type == "integer" ) { value = (int)jvalue.AsInt64; }
-            if ( type == "float" ) { value = (float)jvalue.AsDouble; }
+            if ( type == "float" ) 
+            { 
+                // Handle the case where the values is 0, but the user wanted 0.0
+                if (jvalue.IsInt64)
+                {
+                    value = (float)jvalue.AsInt64;
+                    Debug.LogWarning($"Variable '{name}' was expected to be a float, but the value is an integer. Interpreting it as {value}.");
+                }
+                else
+                {
+                    value = (float)jvalue.AsDouble;
+                }
+            }
             if ( type == "string" ) { value = (string)jvalue.AsString; }
             if ( type == "boolean" ) { value = (bool)jvalue.AsBool; }
-            return new Variable(name, value);
+
+
+            if(!string.IsNullOrEmpty(customId))
+            {
+                name = $"{customId}.{name}";
+            }
+
+            var scopeType = GetProp(jvariables, id, "cType")?.AsString;
+            if (!string.IsNullOrEmpty(scopeType))
+            {
+                scope = VariableScopeTypeExtensions.FromString(scopeType);
+            }
+
+            return new Variable(name, value, scope);
         }
 
         ///----------------------------------------------------------------------------------------------

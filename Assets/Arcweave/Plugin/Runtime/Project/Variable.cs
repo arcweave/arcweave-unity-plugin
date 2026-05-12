@@ -10,11 +10,16 @@ namespace Arcweave.Project
         public string Name { get; set; }
         public object Value { get; set; }
 
+        /*cType: tells wether the variable is global or board-local.*/
+        [SerializeField]
+        public VariableScopeType componentType;
+
         [SerializeField, HideInInspector]
         private string valueSerialized;
 
         public object ObjectValue => Value;
 
+        /* object type */
         [SerializeField]
         private string _typeName;
 
@@ -33,19 +38,36 @@ namespace Arcweave.Project
 
         public System.Type Type => System.Type.GetType(_typeName);
 
-        public Variable(string name, object value) {
+        public Variable(string name, object value, VariableScopeType scopeType) {
             this.Name = name;
             this.Value = value;
             this.DefaultValue = value;
             this._typeName = value.GetType().FullName;
+            this.componentType = scopeType;
         }
 
         ///<summary>Reset the variable to its default value.</summary>
         public void ResetToDefaultValue() {
             if ( Type == typeof(string) ) { this.Value = (string)DefaultValue; }
             if ( Type == typeof(int) ) { this.Value = (int)DefaultValue; }
-            if ( Type == typeof(double) ) { this.Value = (double)DefaultValue; }
+            if ( Type == typeof(float) ) { this.Value = (float)DefaultValue; }
+            if ( Type == typeof(double) )
+            {
+                this.Value = (double)DefaultValue;
+            }
+
+
             if ( Type == typeof(bool) ) { this.Value = (bool)DefaultValue; }
+        }
+
+        public static bool IsGlobal(Variable variable)
+        {
+            if(variable.componentType == VariableScopeType.Global)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private string GetSerializedValue(object value)
@@ -62,6 +84,10 @@ namespace Arcweave.Project
             if (type == typeof(int))
             {
                 return "i" + value;
+            }
+            if (type == typeof(float))
+            {
+                return "f" + value;
             }
             if (type == typeof(double))
             {
@@ -81,15 +107,16 @@ namespace Arcweave.Project
             {
                 return default;
             }
-            
+
             var type = stringValue[0];
             return type switch
             {
                 'n' => null,
-                's' => valueSerialized[1..],
-                'i' => int.Parse(valueSerialized[1..]),
-                'd' => double.Parse(valueSerialized[1..]),
-                'b' => bool.Parse(valueSerialized[1..]),
+                's' => stringValue[1..],
+                'i' => int.Parse(stringValue[1..]),
+                'f' => float.Parse(stringValue[1..]),
+                'd' => double.Parse(stringValue[1..]),
+                'b' => bool.Parse(stringValue[1..]),
                 _ => default
             };
         }

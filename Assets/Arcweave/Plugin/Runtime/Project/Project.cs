@@ -16,6 +16,9 @@ namespace Arcweave.Project
         [field: UnityEngine.SerializeReference]
         public List<Board> Boards { get; private set; }
         [field: UnityEngine.SerializeReference]
+
+        //public Dictionary<string, Board> boardMap { get; private set; }
+
         public List<Component> components { get; private set; }
         [field: UnityEngine.SerializeReference]
         public List<Variable> Variables { get; private set; }
