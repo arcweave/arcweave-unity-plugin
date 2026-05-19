@@ -1,4 +1,5 @@
 using UnityEngine;
+using Arcweave.Interpreter.INodes;
 
 namespace Arcweave.Project
 {
@@ -8,7 +9,11 @@ namespace Arcweave.Project
     {
         [field: SerializeField]
         public string Name { get; set; }
+        public string Id => Name;
         public object Value { get; set; }
+        public IHasVariables Parent { get; set; }
+
+        public System.Type Type => System.Type.GetType(_typeName);
 
         [SerializeField, HideInInspector]
         private string valueSerialized;
@@ -19,7 +24,9 @@ namespace Arcweave.Project
         private string _typeName;
 
         private object _defaultValue;
+
         public object DefaultValue
+
         {
             get => _defaultValue;
             set
@@ -27,17 +34,25 @@ namespace Arcweave.Project
                 _defaultValue = value;
             }
         }
-        
+
         [SerializeField, HideInInspector]
         private string defaultValueSerialized;
 
-        public System.Type Type => System.Type.GetType(_typeName);
-
-        public Variable(string name, object value) {
-            this.Name = name;
-            this.Value = value;
-            this.DefaultValue = value;
+        public Variable(string id, string name, object value)
+        {
+            Name = name;
+            Value = value;
+            _defaultValue = value;
             this._typeName = value.GetType().FullName;
+        }
+        public Variable(string id, string name, object value, IHasVariables parent)
+        {
+
+            Name = name;
+            Value = value;
+            _defaultValue = value;
+            this._typeName = value.GetType().FullName;
+            Parent = parent;
         }
 
         ///<summary>Reset the variable to its default value.</summary>
