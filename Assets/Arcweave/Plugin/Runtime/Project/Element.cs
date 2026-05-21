@@ -27,7 +27,7 @@ namespace Arcweave.Project
         [field: SerializeReference]
         public List<Component> Components { get; private set; }
         [field: SerializeField]
-        public List<Attribute> Attributes { get; private set; }
+        public List<Attribute> Attributes { get; set; }
         [field: SerializeField]
         public Cover cover { get; private set; }
         [field: SerializeField]

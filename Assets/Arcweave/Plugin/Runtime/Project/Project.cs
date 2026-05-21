@@ -90,7 +90,20 @@ namespace Arcweave.Project
         ///----------------------------------------------------------------------------------------------
 
         ///<summary>Returns the variable with name.</summary>
-        public Variable GetVariable(string name) => Variables.First(x => x.Name == name);
+        public Variable GetVariable(string name, string scope = null)
+        {
+            if (scope == null)
+            {
+                return Variables.FirstOrDefault(variable => variable.Name == name);
+            }
+
+            var board = Boards.FirstOrDefault(board => board.Id == scope);
+            if (board != null)
+            {
+                return board.Variables.FirstOrDefault(variable => variable.Name == name);
+            }
+            return null;
+        }
 
         ///<summary>Sets the variable with name to a new value. Returns if variable exists in the first place.</summary>
         public bool SetVariable(string name, object value) {
