@@ -105,7 +105,12 @@ namespace Arcweave.Project
             return null;
         }
 
-        ///<summary>Sets the variable with ID to a new value. Returns if variable exists in the first place.</summary>
+        /// <summary>
+        /// Sets the value of a global variable by its name.
+        /// </summary>
+        /// <param name="name">The name of the variable to set (e.g., "health").</param>
+        /// <param name="value">The new value to assign to the variable.</param>
+        /// <returns>True if the variable was found and updated successfully; otherwise, false.</returns>
         public bool SetVariable(string name, object value) 
         {
             // set variable also checking in the boards 

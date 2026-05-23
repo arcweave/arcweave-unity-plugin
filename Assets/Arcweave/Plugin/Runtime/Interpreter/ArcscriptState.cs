@@ -22,8 +22,7 @@ namespace Arcweave.Interpreter
             Outputs = new ArcscriptOutputs();
             this.currentElement = elementId;
             this.project = project;
-            
-            this.Variables = new Dictionary<string, Variable>();
+
             foreach (var variable in project.Variables)
             {
                 if (!this.Variables.TryAdd(variable.Id, variable))

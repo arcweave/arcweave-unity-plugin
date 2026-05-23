@@ -48,12 +48,15 @@ namespace Arcweave.Interpreter
 
         public bool assertVariable(ArcscriptParser.IdentifierContext identifierContext) {
             var variableName = identifierContext.GetText();
-            
-            var found = VariableNames.First(name => name == variableName);
-            if ( found != null ) {
-                return false;
+
+            if (VariableNames.Contains(variableName))
+            {
+                return true;
             }
-            return true;
+            else
+            {
+                throw new RecognitionException("Undefined variable: " + variableName, this, this.InputStream, this.Context);
+            }
         }
 
         public bool assertMention(IList<ArcscriptParser.Mention_attributesContext> attrCtxList) {
