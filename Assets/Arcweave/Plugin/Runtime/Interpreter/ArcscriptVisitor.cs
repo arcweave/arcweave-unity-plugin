@@ -212,10 +212,10 @@ namespace Arcweave.Interpreter
             {
                 if (Expression.GetBoolValue(left.Value))
                 {
-                    return left;
+                    return new Expression(true);
                 }
                 var rightComp = (Expression)Visit(context.expression(1))!;
-                return rightComp;
+                return new Expression(Expression.GetBoolValue(rightComp.Value));
             }
             
             var right = (Expression)Visit(context.expression(1))!;
