@@ -34,8 +34,13 @@ namespace Arcweave.Interpreter
 
             foreach (var projectBoard in project.Boards)
             {
+#if GODOT
+                if (projectBoard.Value.Variables == null) continue;
+                foreach (var projectBoardVariable in projectBoard.Value.Variables)
+#else
                 if (projectBoard.Variables == null) continue;
                 foreach (var projectBoardVariable in projectBoard.Variables)
+#endif
                 {
                     if(!Variables.TryAdd(projectBoardVariable.Id, projectBoardVariable))
                     {
