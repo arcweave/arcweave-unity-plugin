@@ -19,6 +19,10 @@ namespace Arcweave.Interpreter
             {
                 return new Expression(-i);
             }
+            else if (e.Value is float f)
+            {
+                return new Expression(-f);
+            }
             else if (e.Value is double value)
             {
                 return new Expression(-value);
@@ -118,7 +122,7 @@ namespace Arcweave.Interpreter
         public static bool operator ==(Expression first, Expression second)
         {
             System.Type type1 = first.Type();
-            if (type1 == typeof(int) || type1 == typeof(double))
+            if (type1 == typeof(int) || type1 == typeof(float) || type1 == typeof(double))
             {
                 DoubleValues doubleValues = GetDoubleValues(first.Value, second.Value);
                 return doubleValues.Value1 == doubleValues.Value2;
@@ -162,7 +166,7 @@ namespace Arcweave.Interpreter
             Expression e = (Expression)obj;
 
             System.Type type1 = Type();
-            if (type1 == typeof(int) || type1 == typeof(double))
+            if (type1 == typeof(int) || type1 == typeof(float) || type1 == typeof(double))
             {
                 DoubleValues doubleValues = GetDoubleValues(Value, e.Value);
                 return doubleValues.Value1 == doubleValues.Value2;
@@ -181,7 +185,7 @@ namespace Arcweave.Interpreter
         public static bool operator !=(Expression first, Expression second)
         {
             System.Type type1 = first.Type();
-            if (type1 == typeof(int) || type1 == typeof(double))
+            if (type1 == typeof(int) || type1 == typeof(float) || type1 == typeof(double))
             {
                 DoubleValues doubleValues = GetDoubleValues(first.Value, second.Value);
                 return doubleValues.Value1 != doubleValues.Value2;
@@ -339,6 +343,11 @@ namespace Arcweave.Interpreter
                 return "false";
             }
 
+            if (Value.GetType() == typeof(float))
+            {
+                return ((float)Value).ToString(NumberFormat);
+            }
+
             if (Value.GetType() == typeof(double))
             {
                 return ((double)Value).ToString(NumberFormat);
@@ -363,6 +372,10 @@ namespace Arcweave.Interpreter
             {
                 value1 = (int)first;
                 flValue1 = value1;
+            } else if (first.GetType() == typeof(float))
+            {
+                hasDouble = true;
+                flValue1 = (float)first;
             } else if (first.GetType() == typeof(double))
             {
                 hasDouble = true;
@@ -376,6 +389,10 @@ namespace Arcweave.Interpreter
             {
                 value2 = (int)second;
                 flValue2 = value2;
+            } else if (second.GetType() == typeof(float))
+            {
+                hasDouble = true;
+                flValue2 = (float)second;
             } else if (second.GetType() == typeof(double))
             {
                 hasDouble = true;
@@ -393,6 +410,7 @@ namespace Arcweave.Interpreter
             if (value is bool b) { return b; }
             if (value is string s) { return s.Length > 0; }
             if (value is int i) { return i > 0; }
+            if (value is float f) { return f > 0; }
             if (value is double d) { return d > 0; }
             return false;
         }
