@@ -11,7 +11,7 @@ namespace Arcweave.Interpreter.INodes
 #if GODOT
         Array<Arcweave.Project.Attribute> Attributes { get; }
 #else
-        List<Arcweave.Project.Attribute> Attributes { get; }
+        List<Arcweave.Project.Attribute> Attributes { get; set; }
 #endif
 
         public void AddAttribute(Arcweave.Project.Attribute attribute);
