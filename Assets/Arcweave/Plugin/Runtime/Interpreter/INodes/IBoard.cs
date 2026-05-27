@@ -1,6 +1,6 @@
 ﻿namespace Arcweave.Interpreter.INodes
 {
-    public interface IBoard : IHasVariables
+    public interface IBoard
     {
     }
 }

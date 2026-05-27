@@ -39,12 +39,6 @@ public interface IArcscriptParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitInput([NotNull] ArcscriptParser.InputContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="ArcscriptParser.condition"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitCondition([NotNull] ArcscriptParser.ConditionContext context);
-	/// <summary>
 	/// Visit a parse tree produced by <see cref="ArcscriptParser.script"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
@@ -147,17 +141,11 @@ public interface IArcscriptParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitStatement_assignment([NotNull] ArcscriptParser.Statement_assignmentContext context);
 	/// <summary>
-	/// Visit a parse tree produced by <see cref="ArcscriptParser.assignable"/>.
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.statement_function_call"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitAssignable([NotNull] ArcscriptParser.AssignableContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="ArcscriptParser.identifier_list"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitIdentifier_list([NotNull] ArcscriptParser.Identifier_listContext context);
+	Result VisitStatement_function_call([NotNull] ArcscriptParser.Statement_function_callContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="ArcscriptParser.argument_list"/>.
 	/// </summary>
@@ -183,84 +171,94 @@ public interface IArcscriptParserVisitor<Result> : IParseTreeVisitor<Result> {
 	/// <return>The visitor result.</return>
 	Result VisitMention_attributes([NotNull] ArcscriptParser.Mention_attributesContext context);
 	/// <summary>
-	/// Visit a parse tree produced by the <c>ParenthesizedExpression</c>
-	/// labeled alternative in <see cref="ArcscriptParser.expression"/>.
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.additive_numeric_expression"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitParenthesizedExpression([NotNull] ArcscriptParser.ParenthesizedExpressionContext context);
+	Result VisitAdditive_numeric_expression([NotNull] ArcscriptParser.Additive_numeric_expressionContext context);
 	/// <summary>
-	/// Visit a parse tree produced by the <c>AdditiveExpression</c>
-	/// labeled alternative in <see cref="ArcscriptParser.expression"/>.
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.multiplicative_numeric_expression"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitAdditiveExpression([NotNull] ArcscriptParser.AdditiveExpressionContext context);
+	Result VisitMultiplicative_numeric_expression([NotNull] ArcscriptParser.Multiplicative_numeric_expressionContext context);
 	/// <summary>
-	/// Visit a parse tree produced by the <c>ComparisonExpression</c>
-	/// labeled alternative in <see cref="ArcscriptParser.expression"/>.
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.signed_unary_numeric_expression"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitComparisonExpression([NotNull] ArcscriptParser.ComparisonExpressionContext context);
+	Result VisitSigned_unary_numeric_expression([NotNull] ArcscriptParser.Signed_unary_numeric_expressionContext context);
 	/// <summary>
-	/// Visit a parse tree produced by the <c>LiteralExpression</c>
-	/// labeled alternative in <see cref="ArcscriptParser.expression"/>.
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.unary_numeric_expression"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
-	Result VisitLiteralExpression([NotNull] ArcscriptParser.LiteralExpressionContext context);
-	/// <summary>
-	/// Visit a parse tree produced by the <c>UnaryExpression</c>
-	/// labeled alternative in <see cref="ArcscriptParser.expression"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitUnaryExpression([NotNull] ArcscriptParser.UnaryExpressionContext context);
-	/// <summary>
-	/// Visit a parse tree produced by the <c>MultiplicativeExpression</c>
-	/// labeled alternative in <see cref="ArcscriptParser.expression"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitMultiplicativeExpression([NotNull] ArcscriptParser.MultiplicativeExpressionContext context);
-	/// <summary>
-	/// Visit a parse tree produced by the <c>FunctionCallExpression</c>
-	/// labeled alternative in <see cref="ArcscriptParser.expression"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitFunctionCallExpression([NotNull] ArcscriptParser.FunctionCallExpressionContext context);
-	/// <summary>
-	/// Visit a parse tree produced by the <c>IdentifierExpression</c>
-	/// labeled alternative in <see cref="ArcscriptParser.expression"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitIdentifierExpression([NotNull] ArcscriptParser.IdentifierExpressionContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="ArcscriptParser.literal"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitLiteral([NotNull] ArcscriptParser.LiteralContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="ArcscriptParser.numeric_literal"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitNumeric_literal([NotNull] ArcscriptParser.Numeric_literalContext context);
-	/// <summary>
-	/// Visit a parse tree produced by <see cref="ArcscriptParser.identifier"/>.
-	/// </summary>
-	/// <param name="context">The parse tree.</param>
-	/// <return>The visitor result.</return>
-	Result VisitIdentifier([NotNull] ArcscriptParser.IdentifierContext context);
+	Result VisitUnary_numeric_expression([NotNull] ArcscriptParser.Unary_numeric_expressionContext context);
 	/// <summary>
 	/// Visit a parse tree produced by <see cref="ArcscriptParser.function_call"/>.
 	/// </summary>
 	/// <param name="context">The parse tree.</param>
 	/// <return>The visitor result.</return>
 	Result VisitFunction_call([NotNull] ArcscriptParser.Function_callContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.void_function_call"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitVoid_function_call([NotNull] ArcscriptParser.Void_function_callContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.sign"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitSign([NotNull] ArcscriptParser.SignContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.variable_list"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitVariable_list([NotNull] ArcscriptParser.Variable_listContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.compound_condition_or"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCompound_condition_or([NotNull] ArcscriptParser.Compound_condition_orContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.compound_condition_and"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCompound_condition_and([NotNull] ArcscriptParser.Compound_condition_andContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.negated_unary_condition"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitNegated_unary_condition([NotNull] ArcscriptParser.Negated_unary_conditionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.unary_condition"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitUnary_condition([NotNull] ArcscriptParser.Unary_conditionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.condition"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitCondition([NotNull] ArcscriptParser.ConditionContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.conditional_operator"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitConditional_operator([NotNull] ArcscriptParser.Conditional_operatorContext context);
+	/// <summary>
+	/// Visit a parse tree produced by <see cref="ArcscriptParser.expression"/>.
+	/// </summary>
+	/// <param name="context">The parse tree.</param>
+	/// <return>The visitor result.</return>
+	Result VisitExpression([NotNull] ArcscriptParser.ExpressionContext context);
 }
 } // namespace Arcweave.Interpreter
