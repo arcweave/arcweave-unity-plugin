@@ -1,4 +1,3 @@
-using Arcweave.Interpreter.INodes;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,9 +12,9 @@ namespace Arcweave.Project
         [field: SerializeField]
         public string Name { get; private set; }
         [field: SerializeField]
-        public List<Attribute> Attributes { get; set; }
+        public List<Attribute> Attributes { get; private set; }
 
-        void IHasAttributes.AddAttribute(Attribute attribute)
+        public void AddAttribute(Attribute attribute)
         {
             Attributes.Add(attribute);
         }
@@ -31,14 +30,12 @@ namespace Arcweave.Project
         [field: SerializeField]
         public Cover cover { get; private set; }
 
-        public void Set(string id, string name, List<Attribute> attributes, Cover cover)
-        {
+        public void Set(string id, string name, List<Attribute> attributes, Cover cover) {
             Id = id;
             Name = name;
             Attributes = attributes;
             this.cover = cover;
         }
-
 
         public Texture2D GetCoverImage() => cover?.ResolveImage();
     }

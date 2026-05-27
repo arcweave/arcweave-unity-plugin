@@ -13,8 +13,6 @@ namespace Arcweave.Interpreter
         public ArcscriptOutputs Outputs;
         public string currentElement { get; set; }
         public IProject project { get; set; }
-        
-        public Dictionary<string, Variable> Variables { get; } = new Dictionary<string, Variable>();
 
         private System.Action<string> _emit;
         public ArcscriptState(string elementId, IProject project, System.Action<string>? emit = null)
@@ -22,32 +20,6 @@ namespace Arcweave.Interpreter
             Outputs = new ArcscriptOutputs();
             this.currentElement = elementId;
             this.project = project;
-
-            foreach (var variable in project.Variables)
-            {
-                if (!this.Variables.TryAdd(variable.Id, variable))
-                {
-                    UnityEngine.Debug.LogWarning($"Variable with ID '{variable.Id}' already exists and will be skipped.");
-                }
-            }
-
-            foreach (var projectBoard in project.Boards)
-            {
-#if GODOT
-                if (projectBoard.Value.Variables == null) continue;
-                foreach (var projectBoardVariable in projectBoard.Value.Variables)
-#else
-                if (projectBoard.Variables == null) continue;
-                foreach (var projectBoardVariable in projectBoard.Variables)
-#endif
-                {
-                    if(!Variables.TryAdd(projectBoardVariable.Id, projectBoardVariable))
-                    {
-                        UnityEngine.Debug.LogWarning($"Variable with ID '{projectBoardVariable.Id}' already exists and will be skipped.");
-                    }
-                }
-            }
-            
             if (emit != null)
             {
                 _emit = emit;
@@ -58,19 +30,10 @@ namespace Arcweave.Interpreter
             }
         }
 
-        public IVariable? GetVariable(string name, string? customId = null) {
+        public IVariable? GetVariable(string name) {
             try
             {
-
-                IVariable var = project.GetVariable(name, customId);
-
-                if(var == null)
-                {
-                    // No matching variable found
-                    return null;
-                }
-
-                return var;
+                return this.project.Variables.First(variable => variable.Name == name);
             }
             catch (System.InvalidOperationException)
             {
@@ -78,30 +41,14 @@ namespace Arcweave.Interpreter
             }
         }
 
-        public object GetVarValue(string name, string? scope = null)
-        {
-            var v = GetVariable(name, scope);
-            if (v == null)
-            {
-                throw new System.InvalidOperationException($"Variable {name} not found");
+        public object GetVarValue(string name) {
+            if ( this.VariableChanges.ContainsKey(name) ) {
+                return VariableChanges[name];
             }
-            
-            return this.VariableChanges.ContainsKey(v.Id) ? VariableChanges[v.Id] : v.ObjectValue;
+            return this.project.GetVariable(name).ObjectValue;
         }
 
-        public void SetVarValue(IVariable v, object value)
-        {
-            VariableChanges[v.Id] = value;
-        }
-        
-        public void SetVarValue(ArcscriptVisitor.IdentifierDef identifierDef, object value) {
-            var v = GetVariable(identifierDef.Name, identifierDef.Scope);
-            if (v == null)
-            {
-                throw new System.InvalidOperationException($"Variable {identifierDef.Name} not found");
-            }
-            VariableChanges[v.Id] = value;
-        }
+        public void SetVarValue(string name, object value) { VariableChanges[name] = value; }
 
         public void SetVarValues(string[] names, string[] values) {
             for ( int i = 0; i < names.Length; i++ ) {
@@ -113,11 +60,7 @@ namespace Arcweave.Interpreter
         {
             foreach (var board in project.Boards)
             {
-#if GODOT
-                foreach (var element in board.Value.Elements)
-#else
                 foreach (var element in board.Nodes.OfType<Element>())
-#endif
                 {
                     element.Visits = 0;
                 }

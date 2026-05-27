@@ -12,8 +12,6 @@ namespace Arcweave.Project
     {
         [field: SerializeField]
         public string Id { get; private set; }
-        public Project Project { get; private set; }
-
         [field: SerializeField]
         public Vector2Int Pos { get; private set; }
         [field: SerializeField]
@@ -27,7 +25,7 @@ namespace Arcweave.Project
         [field: SerializeReference]
         public List<Component> Components { get; private set; }
         [field: SerializeField]
-        public List<Attribute> Attributes { get; set; }
+        public List<Attribute> Attributes { get; private set; }
         [field: SerializeField]
         public Cover cover { get; private set; }
         [field: SerializeField]
@@ -35,6 +33,7 @@ namespace Arcweave.Project
         [field: SerializeField]
         public List<Connection> Outputs { get; private set; }
 
+        public Project Project { get; private set; }
         // private System.Func<Project, string> runtimeContentFunc { get; set; }
 
         ///The number of visits to this element
@@ -89,7 +88,7 @@ namespace Arcweave.Project
             var output = i.RunScript(RawContent);
             if ( output.Changes.Count > 0 ) {
                 foreach ( var change in output.Changes ) {
-                    Project.SetVariableById(change.Key, change.Value);
+                    Project.SetVariable(change.Key, change.Value);
                 }
             }
 
