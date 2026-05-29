@@ -1,4 +1,7 @@
 # Arcweave Plugin for Unity
+![Language](https://img.shields.io/badge/language-C%23-4EAF1A?style=flat-square&logo=csharp&logoColor=FFFFFF&labelColor=4EAF1A)
+![Open Issues](https://img.shields.io/github/issues-raw/arcweave/arcweave-unity-plugin?color=FF0000&style=flat-square&label=open%20issues)
+![License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)
 
 This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It supports data exported from **Arcweave Project > Export > Engine > Export for Unity** (available to all users) or fetched via Arcweave's web API (available to Team workspaces only).
 
@@ -288,8 +291,11 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 | `Variable GetVariable(string name)` | Get Variable object by name |
 | `bool SetVariable(string name, object value)` | Set variable value |
 | `void ResetVariablesToDefaultValues()` | Reset all variables to defaults |
+| `void ResetStartingElement()` | Reset starting element to default |
 | `string SaveVariables()` | Serialize current variable state to JSON |
 | `void LoadVariables(string json)` | Restore variable state from JSON |
+| `string SaveVisits()` | Serialize visit counts to JSON (internal) |
+| `void LoadVisits(string visitsSave)` | Restore visit counts from JSON (internal) |
 | `int Visits(string elementId)` | Get visit count for an element |
 | `void ResetVisits()` | Reset all visit counts to 0 |
 
@@ -563,6 +569,8 @@ Event-driven narrative player (demo helper class).
 |-------|------|-------------|
 | `aw` | ArcweaveProjectAsset | The project to play |
 | `autoStart` | bool | Auto-start on scene load |
+| `saveMode` | SaveMode | Controls when the player automatically saves progress |
+| `saveHandler` | ArcweaveSaveHandler | Optional save handler component to handle save/load events |
 
 #### Events
 
@@ -573,16 +581,28 @@ Event-driven narrative player (demo helper class).
 | `onElementEnter` | `(Element)` | Entered new element |
 | `onElementOptions` | `(Options, Action<int>)` | Multiple choices available |
 | `onWaitInputNext` | `(Action)` | Single path, waiting for continue |
+| `onProjectUpdated` | `(Project)` | Fired when project is updated (e.g., after loading) |
+
 
 #### Methods
 
 | Method | Description |
 |--------|-------------|
 | `void PlayProject()` | Start or restart the narrative |
-| `void Save()` | Save current state to PlayerPrefs |
-| `void Load()` | Load and restore saved state |
+| `void EnsureInitialized()` | Initialize the project if not already initialized |
+| `void RequestSave()` | Requests a save of the current game state |
+| `bool RequestLoad()` | Requests loading of a previously saved game state, returns true if successful |
+| `void ResetVariables()` | Resets all project variables to their default values and clears saved state |
+| `bool HasSave()` | Returns true if a save file exists |
 
----
+# ArcweaveSaveHandler Methods
+
+| Method | Description |
+|--------|-------------|
+| `bool HandleSaveRequest(string elementId, string variables, string visits)` | Handles saving game state |
+| `bool HandleLoadRequest(out string elementId, out string variables, out string visits)` | Handles loading game state |
+| `void ResetSave()` | Clears all saved data |
+| `bool HasSave()` | Returns true if save data exists |
 
 ## Important Notes
 

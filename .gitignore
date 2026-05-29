@@ -2,9 +2,9 @@
 #
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 #
-/[Aa]ssets/
-!/[Aa]ssets/Arcweave
-!/[Aa]ssets/Arcweave/**/*
+!/[Aa]ssets/
+/[Aa]ssets/*
+!/[Aa]ssets/Arcweave/
 /[Pp]ackages/
 /[Ll]ibrary/
 /[Tt]emp/
