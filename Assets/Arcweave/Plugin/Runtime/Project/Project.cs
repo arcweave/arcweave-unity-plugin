@@ -90,12 +90,65 @@ namespace Arcweave.Project
         ///----------------------------------------------------------------------------------------------
 
         ///<summary>Returns the variable with name.</summary>
-        public Variable GetVariable(string name) => Variables.First(x => x.Name == name);
+        public Variable GetVariable(string name, string scope = null)
+        {
+            if (scope == null)
+            {
+                return Variables.FirstOrDefault(variable => variable.Name == name);
+            }
+            var board = Boards.FirstOrDefault(board => board.CustomId == scope);
+            if (board != null)
+            {
+                return board.Variables.FirstOrDefault(variable => variable.Name == name);
+            }
+            return null;    
+        }
 
-        ///<summary>Sets the variable with name to a new value. Returns if variable exists in the first place.</summary>
-        public bool SetVariable(string name, object value) {
-            var variable = Variables.First(x => x.Name == name);
-            if ( variable == null ) { return false; }
+         /// <summary>
+        /// Sets the value of a global variable by its name.
+        /// </summary>
+        /// <param name="name">The name of the variable to set (e.g., "health").</param>
+        /// <param name="value">The new value to assign to the variable.</param>
+        /// <returns>True if the variable was found and updated successfully; otherwise, false.</returns>
+        public bool SetVariable(string name, object value) 
+        {
+            // set variable also checking in the boards 
+            var variable = Variables.FirstOrDefault(x => x.Name == name);
+            if (variable == null)
+            {
+                Debug.LogError($"Variable with ID '{name}' not found.");
+                return false; // or handle appropriately based on method return type
+            }
+            variable.Value = value;
+            return true;
+        }
+
+        ///----------------------------------------------------------------------------------------------
+
+        public bool SetVariableById(string id, object value)
+        {
+            // set variable also checking in the boards 
+            var variable = Variables.FirstOrDefault(x => x.Id == id);
+
+            // If not found in Variables, look in the boards
+            if (variable == null)
+            {
+                foreach (var board in Boards)
+                {
+                    variable = board.Variables?.FirstOrDefault(x => x.Id == id);
+                    if (variable != null)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            // If still not found, log error and return false
+            if (variable == null)
+            {
+                Debug.LogError($"Variable with ID '{id}' not found.");
+                return false;
+            }
             variable.Value = value;
             return true;
         }
@@ -129,9 +182,10 @@ namespace Arcweave.Project
                 object value = null;
                 if (type == typeof(string)) { value = variableState.value; }
                 if ( type == typeof(int) ) { value = int.Parse(variableState.value); }
-                if ( type == typeof(float) ) { value = float.Parse(variableState.value); }
+                if ( type == typeof(double) ) { value = double.Parse(variableState.value); }
                 if ( type == typeof(bool) ) { value = bool.Parse(variableState.value); }
-                SetVariable(variableState.name, value);
+
+                SetVariableById(variableState.id, value);
             }
         }
     }

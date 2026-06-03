@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Security.Claims;
 using Arcweave.FullSerializer;
 using Arcweave.Interpreter.INodes;
+using UnityEngine;
 
 namespace Arcweave.Project
 {
@@ -104,7 +106,11 @@ namespace Arcweave.Project
             var boardNotes = new List<Note>();
             foreach ( var key in GetProp(jboards, id, "notes").AsList ) { boardNotes.Add(TryMakeNote(key.AsString)); }
 
-            return boards[id] = new Board(id, name, boardNodes, boardNotes);
+            string customId = null;
+            if ( HasProperty(jboards, id, "customId", out var customIdProp) ) {
+                customId = customIdProp.AsString;
+            }
+            return boards[id] = new Board(id, name, customId, boardNodes, boardNotes);
         }
 
         //..
@@ -303,11 +309,38 @@ namespace Arcweave.Project
             var name = GetProp(jvariables, id, "name")?.AsString;
             var type = GetProp(jvariables, id, "type")?.AsString;
             var jvalue = GetProp(jvariables, id, "value");
+            var cType = GetProp(jvariables, id, "cType")?.AsString;
+
             if ( type == "integer" ) { value = (int)jvalue.AsInt64; }
-            if ( type == "float" ) { value = (float)jvalue.AsDouble; }
+
+            if (type == "float")
+            {
+                if (jvalue.Type == fsDataType.Double)
+                {
+                    value = (double)jvalue.AsDouble;
+                }
+                else
+                {
+                    value = (double)jvalue.AsInt64;
+                }
+            }
             if ( type == "string" ) { value = (string)jvalue.AsString; }
             if ( type == "boolean" ) { value = (bool)jvalue.AsBool; }
-            return new Variable(name, value);
+            if (!string.IsNullOrEmpty(cType) && cType == "boards")
+            {
+                var boardId = GetProp(jvariables, id, "cId")?.AsString;
+                if (boards.TryGetValue(boardId, out var board))
+                {
+                    var variable = new Variable(id, name, value, board);
+                    board.AddVariable(variable);
+                    return variable;
+                }
+                else
+                {
+                    Debug.LogWarning($"Variable '{name}' is supposed to be attached to board with id '{boardId}', but no such board was found.");
+                }
+            }
+            return new Variable(id, name, value);
         }
 
         ///----------------------------------------------------------------------------------------------
