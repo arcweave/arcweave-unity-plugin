@@ -1,3 +1,4 @@
+using Arcweave.Interpreter.INodes;
 using UnityEngine;
 
 namespace Arcweave.Project
@@ -8,11 +9,18 @@ namespace Arcweave.Project
     {
         [field: SerializeField]
         public string Name { get; set; }
+        [field: SerializeField]
+        public string Id { get; set; }
         public object Value { get; set; }
+
+        [field: SerializeReference]
+        public IHasVariables Parent { get; set; }
 
         [SerializeField, HideInInspector]
         private string valueSerialized;
 
+        [SerializeField, HideInInspector]
+        private string parentIdSerialized;
         public object ObjectValue => Value;
 
         [SerializeField]
@@ -33,11 +41,28 @@ namespace Arcweave.Project
 
         public System.Type Type => System.Type.GetType(_typeName);
 
-        public Variable(string name, object value) {
+        /// <summary>
+        /// Initializes a variable with an explicit Arcweave variable id.
+        /// </summary>
+        public Variable(string id, string name, object value) {
+            this.Id = id;
             this.Name = name;
             this.Value = value;
             this.DefaultValue = value;
             this._typeName = value.GetType().FullName;
+        }
+
+        /// <summary>
+        /// Initializes a variable with an explicit Arcweave variable id and owning scope.
+        /// </summary>
+        public Variable(string id, string name, object value, IHasVariables parent)
+        {
+            Id = id;
+            Name = name;
+            Value = value;
+            DefaultValue = value;
+            _typeName = value.GetType().FullName;
+            Parent = parent;
         }
 
         ///<summary>Reset the variable to its default value.</summary>

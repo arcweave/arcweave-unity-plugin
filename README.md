@@ -273,25 +273,47 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 | `name` | string | Project name |
 | `boards` | List\<Board\> | All boards in the project |
 | `components` | List\<Component\> | All components (characters/entities) |
-| `Variables` | List\<Variable\> | All global variables |
+| `Variables` | List\<Variable\> | All global/project-scoped variables |
 | `StartingElement` | Element | Entry point for the narrative |
 
 #### Methods
 
-| Method | Description |
-|--------|-------------|
-| `void Initialize()` | **Must call before use.** Resets all variables and visit counts. |
-| `Board BoardWithID(string id)` | Get board by ID |
-| `Board BoardWithName(string name)` | Get board by name |
-| `Element ElementWithId(string id)` | Get element by ID |
-| `T GetNodeWithID<T>(string id)` | Get any node by ID and type |
-| `Variable GetVariable(string name)` | Get Variable object by name |
-| `bool SetVariable(string name, object value)` | Set variable value |
-| `void ResetVariablesToDefaultValues()` | Reset all variables to defaults |
-| `string SaveVariables()` | Serialize current variable state to JSON |
-| `void LoadVariables(string json)` | Restore variable state from JSON |
-| `int Visits(string elementId)` | Get visit count for an element |
-| `void ResetVisits()` | Reset all visit counts to 0 |
+| Method                                                      | Description |
+|-------------------------------------------------------------|-------------|
+| `void Initialize()`                                         | **Must call before use.** Resets all variables and visit counts. |
+| `Board BoardWithID(string id)`                              | Get board by ID |
+| `Board BoardWithName(string name)`                          | Get board by name |
+| `Element ElementWithId(string id)`                          | Get element by ID |
+| `T GetNodeWithID<T>(string id)`                             | Get any node by ID and type |
+| `Variable GetVariable(string name, string scope = null)`    | Get a variable by name. Pass a board `CustomId` as `scope` for board-scoped variables |
+| `bool SetVariable(string name, object value)`               | Set a global/project-scoped variable by name |
+| `bool SetVariable(string name, string scope, object value)` | Set a board-scoped variable by name and board `CustomId` |
+| `void ResetVariablesToDefaultValues()`                      | Reset all variables to defaults |
+| `string SaveVariables()`                                    | Serialize current global and board-scoped variable state to JSON |
+| `void LoadVariables(string json)`                           | Restore current global and board-scoped variable state from JSON |
+| `int Visits(string elementId)`                              | Get visit count for an element |
+| `void ResetVisits()`                                        | Reset all visit counts to 0 |
+
+---
+
+### Board Variables
+
+Boards can now define their own scoped variables in addition to project/global variables.
+
+- `Project.Variables` contains only project/global variables.
+- `Board.Variables` contains variables scoped to that specific board.
+- Board-scoped variables are addressed by the board's `CustomId`, not by the board name.
+- In Arcscript, scoped variables use `boardCustomId.variableName`.
+
+```csharp
+Variable globalHealth = project.GetVariable("health");
+Variable boardHealth = project.GetVariable("health", "intro_board");
+
+project.SetVariable("health", 10);
+project.SetVariable("health", 2, "intro_board");
+```
+
+If a board variable exists, ensure the source Arcweave board has a `CustomId`, otherwise it cannot be resolved by scope.
 
 ---
 
@@ -304,9 +326,11 @@ Container for narrative nodes.
 | Property | Type | Description |
 |----------|------|-------------|
 | `Id` | string | Unique identifier |
+| `CustomId` | string | Optional Arcweave custom id used as the board-variable scope |
 | `Name` | string | Board name |
 | `Nodes` | List\<INode\> | All nodes (Elements, Branches, Jumpers) |
 | `Notes` | List\<Note\> | Annotation notes |
+| `Variables` | List\<Variable\> | Variables scoped to this board |
 
 #### Methods
 
@@ -480,15 +504,17 @@ Custom metadata on elements or components.
 
 ### Variable
 
-Global state variable. Supports: `int`, `double`, `bool`, `string`.
+Project/global or board-scoped state variable. Supports: `int`, `double`, `bool`, `string`.
 
 #### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
+| `Id` | string | Arcweave variable identifier used for runtime updates and save/load |
 | `Name` | string | Variable name |
 | `Value` | object | Current value |
 | `DefaultValue` | object | Initial value |
+| `Parent` | IHasVariables | Owning scope (`null` for global variables, `Board` for board-scoped variables) |
 | `Type` | Type | System.Type of the value |
 
 #### Methods
@@ -592,13 +618,15 @@ Event-driven narrative player (demo helper class).
 
 3. **GetOptions() has side effects**: This method internally saves and restores variable state while evaluating branch conditions.
 
-4. **Initialize() resets everything**: Calling `Project.Initialize()` resets all variables to defaults and all visit counts to 0.
+4. **Initialize() resets everything**: Calling `Project.Initialize()` resets all global and board-scoped variables to defaults and all visit counts to 0.
 
-5. **Images and Audio clips must be in Resources folder**: Cover images and Audio clips are loaded via `Resources.Load<T>()`. Place them in any `Resources` folder and ensure filenames match (without extension).
+5. **Board variables require scope**: `Project.GetVariable("health")` only searches project/global variables. Use `Project.GetVariable("health", "boardCustomId")` and `Project.SetVariable("health", "boardCustomId", value)` for board-scoped variables.
 
-6. **Components are not MonoBehaviours**: Arcweave Components represent characters/entities in your narrative, not Unity components.
+6. **Images and Audio clips must be in Resources folder**: Cover images and Audio clips are loaded via `Resources.Load<T>()`. Place them in any `Resources` folder and ensure filenames match (without extension).
 
-7. **Visit tracking is manual**: The `Visits` property must be incremented manually (or use ArcweavePlayer which does it automatically).
+7. **Components are not MonoBehaviours**: Arcweave Components represent characters/entities in your narrative, not Unity components.
+
+8. **Visit tracking is manual**: The `Visits` property must be incremented manually (or use ArcweavePlayer which does it automatically).
 
 ---
 
