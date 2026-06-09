@@ -41,6 +41,9 @@ namespace Arcweave.Project
 
         public System.Type Type => System.Type.GetType(_typeName);
 
+        /// <summary>
+        /// Initializes a variable with an explicit Arcweave variable id.
+        /// </summary>
         public Variable(string id, string name, object value) {
             this.Id = id;
             this.Name = name;
@@ -49,6 +52,9 @@ namespace Arcweave.Project
             this._typeName = value.GetType().FullName;
         }
 
+        /// <summary>
+        /// Initializes a variable with an explicit Arcweave variable id and owning scope.
+        /// </summary>
         public Variable(string id, string name, object value, IHasVariables parent)
         {
             Id = id;

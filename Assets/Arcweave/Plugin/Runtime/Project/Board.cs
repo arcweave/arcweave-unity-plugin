@@ -22,6 +22,9 @@ namespace Arcweave.Project
         [field: SerializeField]
         public List<Variable> Variables { get; private set; }
 
+        /// <summary>
+        /// Initializes a board with an optional Arcweave custom id used for board-scoped variables.
+        /// </summary>
         public Board(string id, string name, string customId, List<INode> nodes)
         {
             Id = id;
@@ -31,6 +34,9 @@ namespace Arcweave.Project
             Variables = new List<Variable>();
         }
         
+        /// <summary>
+        /// Initializes a board with notes and an optional Arcweave custom id used for board-scoped variables.
+        /// </summary>
         public Board(string id, string name, string customId, List<INode> nodes, List<Note> notes) {
             Id = id;
             CustomId = customId;
@@ -40,6 +46,9 @@ namespace Arcweave.Project
             Variables = new List<Variable>();
         }
         
+        /// <summary>
+        /// Initializes a board with pre-created scoped variables and an optional Arcweave custom id.
+        /// </summary>
         public Board(string id, string name, string customId, List<INode> nodes, List<Variable> variables)
         {
             Id = id;
@@ -58,6 +67,9 @@ namespace Arcweave.Project
         ///<summary>Returns Element with id.</summary>
         public Element ElementWithID(string id) => NodeWithID<Element>(id);
 
+        /// <summary>
+        /// Adds a board-scoped variable and assigns this board as its parent scope.
+        /// </summary>
         public void AddVariable(Variable variable)
         {
             variable.Parent = this;

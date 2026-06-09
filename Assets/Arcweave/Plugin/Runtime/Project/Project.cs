@@ -89,7 +89,7 @@ namespace Arcweave.Project
 
         ///----------------------------------------------------------------------------------------------
 
-        ///<summary>Returns the variable with name.</summary>
+        ///<summary>Returns a variable by name. Provide a board CustomId in <paramref name="scope"/> to search board-scoped variables; otherwise only global variables are searched.</summary>
         public Variable GetVariable(string name, string scope = null)
         {
             if (scope == null)
@@ -104,7 +104,7 @@ namespace Arcweave.Project
             return null;    
         }
 
-         /// <summary>
+        /// <summary>
         /// Sets the value of a global variable by its name.
         /// </summary>
         /// <param name="name">The name of the variable to set (e.g., "health").</param>
@@ -112,25 +112,46 @@ namespace Arcweave.Project
         /// <returns>True if the variable was found and updated successfully; otherwise, false.</returns>
         public bool SetVariable(string name, object value) 
         {
-            // set variable also checking in the boards 
             var variable = Variables.FirstOrDefault(x => x.Name == name);
             if (variable == null)
             {
-                Debug.LogError($"Variable with ID '{name}' not found.");
-                return false; // or handle appropriately based on method return type
+                Debug.LogError($"Global variable with name '{name}' not found.");
+                return false;
             }
+            variable.Value = value;
+            return true;
+        }
+
+        /// <summary>
+        /// Sets the value of a board-scoped variable by its name and board CustomId.
+        /// </summary>
+        /// <param name="name">The variable name inside the board scope.</param>
+        /// <param name="scope">The board CustomId used as the variable scope.</param>
+        /// <param name="value">The new value to assign to the variable.</param>
+        /// <returns>True if the scoped variable was found and updated successfully; otherwise, false.</returns>
+        public bool SetVariable(string name, string scope, object value)
+        {
+            var variable = GetVariable(name, scope);
+            if (variable == null)
+            {
+                Debug.LogError($"Variable with name '{name}' in scope '{scope}' not found.");
+                return false;
+            }
+
             variable.Value = value;
             return true;
         }
 
         ///----------------------------------------------------------------------------------------------
 
+        /// <summary>
+        /// Sets the value of a variable by Arcweave variable id.
+        /// This is used internally when Arcscript applies state changes and when saved state is restored.
+        /// </summary>
         public bool SetVariableById(string id, object value)
         {
-            // set variable also checking in the boards 
             var variable = Variables.FirstOrDefault(x => x.Id == id);
 
-            // If not found in Variables, look in the boards
             if (variable == null)
             {
                 foreach (var board in Boards)
@@ -143,7 +164,6 @@ namespace Arcweave.Project
                 }
             }
 
-            // If still not found, log error and return false
             if (variable == null)
             {
                 Debug.LogError($"Variable with ID '{id}' not found.");
@@ -155,7 +175,7 @@ namespace Arcweave.Project
 
         ///----------------------------------------------------------------------------------------------
 
-        ///<summary>Reset all variables to their default value.</summary>
+        ///<summary>Reset all global and board-scoped variables to their default values.</summary>
         public void ResetVariablesToDefaultValues()
         {
             if (Variables != null)
@@ -165,7 +185,7 @@ namespace Arcweave.Project
                 }
         }
 
-        ///<summary>Returns a string of the saved variables that can be loaded later.</summary>
+        ///<summary>Returns a string containing the saved state of all global and board-scoped variables.</summary>
         public string SaveVariables()
         {
             var state = new State(Variables);
