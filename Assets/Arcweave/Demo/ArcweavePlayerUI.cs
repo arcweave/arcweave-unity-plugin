@@ -60,11 +60,6 @@ namespace Arcweave
             saveButton.onClick.AddListener(Save);
             loadButton.onClick.AddListener(Load);
             
-            if(player == null)
-            {
-                gameObject.SetActive(false);
-                Debug.LogWarning("No ArcweavePlayer assigned to ArcweavePlayerUI. Disabling UI.");
-            }
 
             loadButton.gameObject.SetActive(player.HasSave());
 
