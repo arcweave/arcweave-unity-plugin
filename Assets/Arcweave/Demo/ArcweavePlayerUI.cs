@@ -45,6 +45,14 @@ namespace Arcweave
         private List<Button> tempButtons = new List<Button>();
 
         void OnEnable() {
+
+            if(player == null)
+            {
+                gameObject.SetActive(false);
+                Debug.LogWarning("No ArcweavePlayer assigned to ArcweavePlayerUI. Disabling UI.");
+                return;
+            }
+
             buttonTemplate.gameObject.SetActive(false);
             InitializeImage(cover);
             InitializeImage(componentCover);
@@ -52,11 +60,6 @@ namespace Arcweave
             saveButton.onClick.AddListener(Save);
             loadButton.onClick.AddListener(Load);
             
-            if(player == null)
-            {
-                gameObject.SetActive(false);
-                Debug.LogWarning("No ArcweavePlayer assigned to ArcweavePlayerUI. Disabling UI.");
-            }
 
             loadButton.gameObject.SetActive(player.HasSave());
 
@@ -67,6 +70,12 @@ namespace Arcweave
         }
 
         void OnDisable() {
+
+            if(player == null)
+            {
+                return;
+            }
+
             player.onElementEnter -= OnElementEnter;
             player.onElementOptions -= OnElementOptions;
             player.onWaitInputNext -= OnWaitInputNext;
@@ -91,9 +100,10 @@ namespace Arcweave
                 return;
             }
 
-            if (player.RequestLoad())
+            if (player.LoadAndNavigateToSavedState())
             {
                 ClearTempButtons();
+               
                 Debug.Log("Arcweave state loaded");
             }
             else
@@ -223,7 +233,8 @@ namespace Arcweave
         }
 
         void ClearTempButtons() {
-            foreach (var button in tempButtons) {
+            foreach (var button in tempButtons) 
+            {
                 Destroy(button.gameObject);
             }
             tempButtons.Clear();

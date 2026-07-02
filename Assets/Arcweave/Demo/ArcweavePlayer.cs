@@ -10,8 +10,8 @@ namespace Arcweave
     {
         /// <summary>No automatic saving. Use RequestSave() manually to save progress.</summary>
         Manual,
-        /// <summary>Automatically saves when the project reaches an end element (no more paths).</summary>
-        AutoSaveOnEnd
+        /// <summary>Automatically saves when the project reaches an end element (no more paths) and on quit </summary>
+        AutoSaveAlways
     }
 
     ///This is not required to utilize an arweave project but can be helpful for some projects as well as a learning example.
@@ -31,7 +31,7 @@ namespace Arcweave
         public bool autoStart = true;
 
         [Tooltip("Controls when the player automatically saves progress. Manual requires calling RequestSave() explicitly.")]
-        public SaveMode saveMode = SaveMode.AutoSaveOnEnd;
+        public SaveMode saveMode = SaveMode.AutoSaveAlways;
 
         private Element currentElement;
         private bool isInitialized = false;
@@ -185,7 +185,7 @@ namespace Arcweave
             }
 
             // No paths means the project has reached an end.
-            if (saveMode == SaveMode.AutoSaveOnEnd)
+            if (saveMode == SaveMode.AutoSaveAlways)
             {
                 RequestSave();
             }
@@ -225,7 +225,7 @@ namespace Arcweave
         /// <summary>
         /// Requests loading of a previously saved game state.
         /// If a saveHandler is assigned, it will retrieve the saved element ID and variables,
-        /// restore the project state, and navigate to the saved element.
+        /// restore the project state, and set the starting element to the saved element.
         /// Call this method to resume a saved game session.
         /// </summary>
         /// <returns>True if the load was successful and navigation occurred; false otherwise.</returns>
@@ -247,7 +247,7 @@ namespace Arcweave
                     Debug.Log($"[ArcweavePlayer] Loading variables before restoring state");
                     aw.Project.LoadVariables(variables);
                     aw.Project.LoadVisits(visits);
-                    Debug.Log($"[ArcweavePlayer] Variables loaded, navigating to element: {element.Title}");
+                    Debug.Log($"[ArcweavePlayer] Variables loaded, setting the starting element to: {element.Title}");
                     aw.Project.StartingElement = element; // Set the starting element to the loaded element
                     return true;
                 }
@@ -261,6 +261,28 @@ namespace Arcweave
             return false;
         }
 
+        /// <summary>
+        /// Load the current save and restore the project state, then navigate to the saved starting element.
+        /// returns true if the load and navigation were successful; false otherwise.
+        /// </summary>
+        public bool LoadAndNavigateToSavedState()
+        {
+            if (RequestLoad())
+            {
+                var startingElement = FindStartingElement();
+                if (startingElement != null)
+                {
+                    Next(startingElement);
+                    return true;
+                }
+                Debug.LogError("No starting element found after loading saved state");
+            }
+            else
+            {
+                Debug.LogWarning("No saved state to load");
+            }
+            return false;
+        }
         /// <summary>
         /// Resets all project variables to their default values and clears any saved state.
         /// If a saveHandler is assigned, it will clear the saved data.
@@ -284,7 +306,7 @@ namespace Arcweave
         {
             if (saveHandler != null)
             {
-                saveHandler.HasSave();
+                return saveHandler.HasSave();
             }
 
             return false;
@@ -293,7 +315,7 @@ namespace Arcweave
 
         private void OnApplicationQuit()
         {
-            if (saveMode == SaveMode.AutoSaveOnEnd)
+            if (saveMode == SaveMode.AutoSaveAlways)
             {
                 RequestSave();
             }
