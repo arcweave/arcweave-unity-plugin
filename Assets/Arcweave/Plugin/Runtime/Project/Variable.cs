@@ -148,21 +148,21 @@ namespace Arcweave.Project
 
         private object DeserializeValue(string stringValue)
         {
-            if (stringValue.Length == 0)
+            if (string.IsNullOrEmpty(stringValue))
             {
                 return default;
             }
-            
+
             var type = stringValue[0];
 
             return type switch
             {
                 'n' => null,
                 's' => stringValue[1..],
-                'i' => int.Parse(stringValue[1..]),
-                'd' => double.Parse(stringValue[1..]),
+                'i' => int.Parse(stringValue[1..], System.Globalization.CultureInfo.InvariantCulture),
+                'd' => double.Parse(stringValue[1..], System.Globalization.CultureInfo.InvariantCulture),
                 'b' => bool.Parse(stringValue[1..]),
-                'f' => float.Parse(stringValue[1..]),
+                'f' => float.Parse(stringValue[1..], System.Globalization.CultureInfo.InvariantCulture),
                 _ => default
             };
         }

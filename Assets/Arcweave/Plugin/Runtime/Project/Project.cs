@@ -211,9 +211,28 @@ namespace Arcweave.Project
         {
             if(string.IsNullOrEmpty(_defaultStartingElementId))
             {
+
+
+                if (_startingElementId != null)
+                {
+                    Debug.LogWarning($"default starting element Id was null. Initializing it with starting element '{_startingElementId}'.");
+                    _defaultStartingElementId = _startingElementId;
+                }
+                else
+                {
+                    // First run
+                    return;
+                }
+            
+            }
+
+            var startingElement = ElementWithId(_defaultStartingElementId);
+            if (startingElement == null)
+            {
+                Debug.LogWarning($"Could not reset starting element. No element found with id '{_defaultStartingElementId}'.");
                 return;
             }
-            StartingElement = ElementWithId(_defaultStartingElementId);
+            StartingElement = startingElement;
         }
 
         ///-------------------------- VISITS --------------------------------------------------------------------------------
