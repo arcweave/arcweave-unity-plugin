@@ -314,6 +314,16 @@ namespace Arcweave
 
             return false;
         }
+
+        public string GetSavedSceneName()
+        {
+            if (saveHandler != null)
+            {
+                return saveHandler.GetSavedSceneName();
+            }
+
+            return string.Empty;
+        }
 #endregion
 
         private void OnApplicationQuit()

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using Arcweave.Project;
 
 namespace Arcweave
@@ -98,6 +99,22 @@ namespace Arcweave
             if (player == null)
             {
                 return;
+            }
+
+            var savedScene = player.GetSavedSceneName();
+            if (!string.IsNullOrEmpty(savedScene) && savedScene != SceneManager.GetActiveScene().name)
+            {
+                // The save was made in a different scene — load that scene.
+                // EnsureInitialized() will restore the saved state when the scene starts.
+                if (!IsSceneInBuildSettings(savedScene))
+                {
+                    Debug.LogWarning($"[ArcweavePlayerUI] Saved scene '{savedScene}' is not in the build settings. Cannot load.");
+                }
+                else
+                {
+                    SceneManager.LoadScene(savedScene);
+                    return;
+                }
             }
 
             if (player.LoadAndNavigateToSavedState())
@@ -238,6 +255,15 @@ namespace Arcweave
                 Destroy(button.gameObject);
             }
             tempButtons.Clear();
+        }
+
+        bool IsSceneInBuildSettings(string sceneName) {
+            for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++) {
+                var path = SceneUtility.GetScenePathByBuildIndex(i);
+                var name = System.IO.Path.GetFileNameWithoutExtension(path);
+                if (name == sceneName) return true;
+            }
+            return false;
         }
     }
 }

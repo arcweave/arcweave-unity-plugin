@@ -1,6 +1,7 @@
 using Arcweave;
 using Arcweave.Project;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 public class ArcweaveSaveHandler : MonoBehaviour
 {
@@ -22,6 +23,7 @@ public class ArcweaveSaveHandler : MonoBehaviour
         PlayerPrefs.SetString(SAVE_KEY + "_currentElement", elementId);
         PlayerPrefs.SetString(SAVE_KEY + "_variables", variables);
         PlayerPrefs.SetString(SAVE_KEY + "_visits", visits);
+        PlayerPrefs.SetString(SAVE_KEY + "_sceneName", SceneManager.GetActiveScene().name);
 
         PlayerPrefs.Save();
         if (debug)
@@ -72,6 +74,7 @@ public class ArcweaveSaveHandler : MonoBehaviour
         PlayerPrefs.DeleteKey(SAVE_KEY + "_currentElement");
         PlayerPrefs.DeleteKey(SAVE_KEY + "_variables");
         PlayerPrefs.DeleteKey(SAVE_KEY + "_visits");
+        PlayerPrefs.DeleteKey(SAVE_KEY + "_sceneName");
         PlayerPrefs.Save();
 
         if (debug)
@@ -91,5 +94,15 @@ public class ArcweaveSaveHandler : MonoBehaviour
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Returns the name of the Unity scene that was active when the save was created,
+    /// or an empty string if no scene name was recorded (e.g. for saves created before
+    /// this feature was added).
+    /// </summary>
+    public string GetSavedSceneName()
+    {
+        return PlayerPrefs.GetString(SAVE_KEY + "_sceneName", string.Empty);
     }
 }
