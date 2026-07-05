@@ -318,7 +318,7 @@ namespace Arcweave
 
         private void OnApplicationQuit()
         {
-            if (saveMode == SaveMode.AutoSaveAlways)
+            if (saveMode == SaveMode.AutoSaveAlways && saveHandler != null && currentElement != null)
             {
                 RequestSave();
             }
