@@ -59,7 +59,7 @@ namespace Arcweave
 
             saveButton.onClick.AddListener(Save);
             loadButton.onClick.AddListener(Load);
-            
+
 
             loadButton.gameObject.SetActive(player.HasSave());
 
@@ -75,6 +75,9 @@ namespace Arcweave
             {
                 return;
             }
+
+            saveButton.onClick.RemoveListener(Save);
+            loadButton.onClick.RemoveListener(Load);
 
             player.onElementEnter -= OnElementEnter;
             player.onElementOptions -= OnElementOptions;
@@ -100,13 +103,8 @@ namespace Arcweave
                 return;
             }
 
-            if (player.LoadAndNavigateToSavedState())
-            {
-                ClearTempButtons();
-               
-                Debug.Log("Arcweave state loaded");
-            }
-            else
+            ClearTempButtons();
+            if (!player.LoadAndNavigateToSavedState())
             {
                 Debug.LogWarning("No saved state found");
             }

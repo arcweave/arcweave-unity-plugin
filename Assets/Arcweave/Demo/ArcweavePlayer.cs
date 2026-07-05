@@ -150,7 +150,7 @@ namespace Arcweave
         /// <summary>
         /// Moves to the next/an element directly
         /// </summary>
-        public void Next(Element element)
+        public void Next(Element element, bool isLoad = false)
         {
             if (element == null)
             {
@@ -160,7 +160,6 @@ namespace Arcweave
             }
 
             currentElement = element;
-            currentElement.Visits++;
 
             // Check if element has content
             if (!currentElement.HasContent())
@@ -187,10 +186,15 @@ namespace Arcweave
                 return;
             }
 
-            // No paths means the project has reached an end.
-            if (saveMode == SaveMode.AutoSaveAlways)
+            /* If coming to next from a load request don't do these steps*/
+            if (!isLoad)
             {
-                RequestSave();
+                currentElement.Visits++;
+                // No paths means the project has reached an end.
+                if (saveMode == SaveMode.AutoSaveAlways)
+                {
+                    RequestSave();
+                }
             }
 
             currentElement = null;
@@ -275,7 +279,7 @@ namespace Arcweave
                 var startingElement = FindStartingElement();
                 if (startingElement != null)
                 {
-                    Next(startingElement);
+                    Next(startingElement, /*isLoad = */ true);
                     return true;
                 }
                 Debug.LogError("No starting element found after loading saved state");
