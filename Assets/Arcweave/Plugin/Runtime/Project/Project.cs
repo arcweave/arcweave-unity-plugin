@@ -276,24 +276,27 @@ namespace Arcweave.Project
 
             if (visitStates != null && visitStates.Length > 0)
             {
-                UnityEngine.Debug.Log($"[Project] Loading {visitStates.Length} visit counts");
+                if (Debug.isDebugBuild)
+                {
+                    Debug.Log($"[Project] Loading {visitStates.Length} visit counts");
+                }
+
                 foreach (var visitState in visitStates)
                 {
                     var element = ElementWithId(visitState.elementId);
                     if (element != null)
                     {
                         element.Visits = visitState.nVisit;
-                        UnityEngine.Debug.Log($"[Project] Restored visits for element '{element.Title}' (ID: {visitState.elementId}): {visitState.nVisit}");
                     }
                     else
                     {
-                        UnityEngine.Debug.LogWarning($"[Project] Could not find element with ID '{visitState.elementId}' to restore visits");
+                        Debug.LogWarning($"[Project] Could not find element with ID '{visitState.elementId}' to restore visits");
                     }
                 }
             }
-            else
+            else if (Debug.isDebugBuild)
             {
-                UnityEngine.Debug.Log("[Project] No visit data to restore");
+                Debug.Log("[Project] No visit data to restore");
             }
         }
 
