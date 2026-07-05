@@ -209,13 +209,11 @@ namespace Arcweave.Project
 
         public void ResetStartingElement()
         {
-            if(string.IsNullOrEmpty(_defaultStartingElementId))
+            if (string.IsNullOrEmpty(_defaultStartingElementId))
             {
-
-
-                if (_startingElementId != null)
+                if (!string.IsNullOrEmpty(_startingElementId))
                 {
-                    Debug.LogWarning($"default starting element Id was null. Initializing it with starting element '{_startingElementId}'.");
+                    Debug.LogWarning($"Default starting element id was missing. Initializing it with starting element '{_startingElementId}'.");
                     _defaultStartingElementId = _startingElementId;
                 }
                 else
@@ -223,7 +221,6 @@ namespace Arcweave.Project
                     // First run
                     return;
                 }
-            
             }
 
             var startingElement = ElementWithId(_defaultStartingElementId);
