@@ -82,9 +82,12 @@ namespace Arcweave
             // Initialize the project
             aw.Project.Initialize();
 
-            if (!RequestLoad())
+            if (saveHandler != null && saveHandler.HasSave())
             {
-                Debug.LogWarning("[ArcweavePlayer] Load request failed - no saved data available");
+                if (!RequestLoad())
+                {
+                    Debug.LogWarning("[ArcweavePlayer] Load request failed - save data was present but could not be loaded");
+                }
             }
 
             isInitialized = true;
