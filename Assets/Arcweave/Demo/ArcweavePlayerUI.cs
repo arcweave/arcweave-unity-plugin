@@ -59,7 +59,7 @@ namespace Arcweave
 
             saveButton.onClick.AddListener(Save);
             loadButton.onClick.AddListener(Load);
-            
+
 
             loadButton.gameObject.SetActive(player.HasSave());
 
