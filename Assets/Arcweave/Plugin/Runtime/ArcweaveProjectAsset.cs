@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using Debug = UnityEngine.Debug;
@@ -50,18 +51,22 @@ namespace Arcweave
         }
 
         //...
-        async void MakeProject(string json, System.Action callback) {
-            Project.ProjectMaker maker = null;
+        async Task MakeProject(string json, System.Action callback)
+        {
+            Project.Project project = null;
+            
             await System.Threading.Tasks.Task.Run(() =>
             {
                 Debug.Log("Parsing Json...");
-                maker = new Project.ProjectMaker(json, this);
+                var maker = new Project.ProjectMaker(json, this);
                 Debug.Log("Making Project...");
-                Project = maker.MakeProject();
+                project = maker.MakeProject();
             });
 
+            Project = project;
+            
             Debug.Log("Done");
-            if ( callback != null ) { callback(); }
+            callback?.Invoke();
         }
 
         //...
