@@ -628,7 +628,7 @@ GameObject:
   - component: {fileID: 1403719407132185571}
   - component: {fileID: 1403719407132185583}
   m_Layer: 5
-  m_Name: '@ArcweavePlayerUI'
+  m_Name: ArcweavePlayerUI
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -731,11 +731,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   player: {fileID: 0}
   content: {fileID: 1403719407584412057}
+  noContentText: <i>[ No Content ]</i>
+  emptyOptionText: <i>[ N/A ]</i>
+  continueButtonText: Continue
+  restartButtonText: Restart
   cover: {fileID: 3271020651981777023}
+  componentCover: {fileID: 1528199902644127600}
   buttonTemplate: {fileID: 1403719408647371067}
   saveButton: {fileID: 1794690150}
   loadButton: {fileID: 1814213446}
-  componentCover: {fileID: 1528199902644127600}
+  enableFade: 1
+  crossfadeTime: 0.5
 --- !u!1 &1403719407132734687
 GameObject:
   m_ObjectHideFlags: 0
