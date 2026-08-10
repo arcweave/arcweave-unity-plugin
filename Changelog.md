@@ -28,6 +28,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Fixed the project viewer to use Unity's `EntityId` APIs on Unity 6000.5 and newer while retaining compatibility with earlier editor versions.
 - Fixed runtime application of Arcscript variable changes for board-scoped variables.
 - Fixed variable save/load restoration to target variables by id rather than by name.
 - Fixed `resetAll` to include scoped variables and exclude variables by stable ID rather than by name.

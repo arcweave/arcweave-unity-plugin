@@ -39,7 +39,11 @@ namespace Arcweave
         private readonly Color NODE_DEFAULT_COLOR = COLOR_THEMES["default"];
 
         private ArcweaveProjectAsset _asset;
+#if UNITY_6000_5_OR_NEWER
+        private EntityId _assetID;
+#else
         private int _assetID;
+#endif
         private Rect _canvasRect;
         private Vector2 _translation;
         private float _zoomFactor = 1f;
@@ -55,14 +59,22 @@ namespace Arcweave
             get
             {
                 if ( _asset == null ) {
+#if UNITY_6000_5_OR_NEWER
+                    _asset = EditorUtility.EntityIdToObject(_assetID) as ArcweaveProjectAsset;
+#else
                     _asset = EditorUtility.InstanceIDToObject(_assetID) as ArcweaveProjectAsset;
+#endif
                 }
                 return _asset;
             }
             set
             {
                 _asset = value;
+#if UNITY_6000_5_OR_NEWER
+                _assetID = value != null ? value.GetEntityId() : default;
+#else
                 _assetID = value != null ? value.GetInstanceID() : 0;
+#endif
             }
         }
 
@@ -88,7 +100,11 @@ namespace Arcweave
         public static void Open(ArcweaveProjectAsset asset) {
             var window = GetWindow<ProjectViewerWindow>();
             window._asset = asset;
+#if UNITY_6000_5_OR_NEWER
+            window._assetID = asset.GetEntityId();
+#else
             window._assetID = asset.GetInstanceID();
+#endif
             window._currentBoardIndex = 0;
             window.PanTo(asset.Project.Boards[0].Nodes[0].Pos - new Vector2(100, 100));
         }

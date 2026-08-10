@@ -21,6 +21,10 @@ This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It su
 
 Choose one of the following methods:
 
+### Prerequisite: Unity UI
+
+The bundled demo uses the Unity UI package. If your project does not already include it, install **Unity UI** (`com.unity.ugui`, version `2.0.0` or a compatible production release) from **Window > Package Manager** before importing the plugin. New Unity 6000.5 projects do not include this package by default, and the demo scripts cannot compile without it.
+
 ### Method 1: Manual Installation from GitHub - Recommended
 
 1. Download this repository as a ZIP file from [GitHub](https://github.com/arcweave/arcweave-unity-plugin/archive/refs/heads/main.zip)
