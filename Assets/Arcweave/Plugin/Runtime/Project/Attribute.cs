@@ -11,6 +11,10 @@ namespace Arcweave.Project
     {
 
         [field: SerializeField]
+        public string Id { get; private set; }
+        [field: SerializeField]
+        public string CustomId { get; private set; }
+        [field: SerializeField]
         public string Name { get; private set; }
         [field: SerializeField]
         public IAttribute.DataType Type { get; private set; }
@@ -31,6 +35,15 @@ namespace Arcweave.Project
         [SerializeReference]
         private List<Component> data_componentList;
 
+        [SerializeField]
+        private bool data_boolean;
+
+        [SerializeField]
+        private int data_integer;
+
+        [SerializeField]
+        private double data_float;
+
         public object data {
             get
             {
@@ -48,13 +61,18 @@ namespace Arcweave.Project
                     return data_stringRichText;
                 }
                 if ( Type == IAttribute.DataType.ComponentList ) { return data_componentList; }
+                if ( Type == IAttribute.DataType.Boolean ) { return data_boolean; }
+                if ( Type == IAttribute.DataType.Integer ) { return data_integer; }
+                if ( Type == IAttribute.DataType.Float ) { return data_float; }
                 return null;
             }
         }
 
         public void InitializeInProject(Project project) { this.project = project; }
 
-        internal void Set(string name, IAttribute.DataType type, object _data, IAttribute.ContainerType containerType, string containerId) {
+        internal void Set(string id, string customId, string name, IAttribute.DataType type, object _data, IAttribute.ContainerType containerType, string containerId) {
+            this.Id = id;
+            this.CustomId = customId;
             this.Name = name;
             this.Type = type;
             if ( type == IAttribute.DataType.StringPlainText ) { data_string = (string)_data; }
@@ -65,6 +83,9 @@ namespace Arcweave.Project
                 data_stringRichText = null;
             }
             if ( type == IAttribute.DataType.ComponentList ) { data_componentList = (List<Component>)_data; }
+            if ( type == IAttribute.DataType.Boolean ) { data_boolean = (bool)_data; }
+            if ( type == IAttribute.DataType.Integer ) { data_integer = (int)_data; }
+            if ( type == IAttribute.DataType.Float ) { data_float = (double)_data; }
             this.containerType = containerType;
             this.containerId = containerId;
         }

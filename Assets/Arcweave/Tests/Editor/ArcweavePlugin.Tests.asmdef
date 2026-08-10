@@ -1,0 +1,12 @@
+{
+  "name": "ArcweavePlugin.Tests",
+  "references": [
+    "ArcweavePlugin"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

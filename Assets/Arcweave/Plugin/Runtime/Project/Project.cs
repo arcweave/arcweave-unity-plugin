@@ -17,6 +17,7 @@ namespace Arcweave.Project
         public List<Board> Boards { get; private set; }
         [field: UnityEngine.SerializeReference]
         public List<Component> components { get; private set; }
+        public List<Component> Components => components;
         [field: UnityEngine.SerializeReference]
         public List<Variable> Variables { get; private set; }
 
@@ -43,6 +44,7 @@ namespace Arcweave.Project
             ResetVariablesToDefaultValues();
             ResetVisits();
             foreach ( var board in Boards ) {
+                board.InitializeInProject(this);
                 foreach ( var node in board.Nodes ) {
                     node.InitializeInProject(this);
                 }
@@ -89,19 +91,25 @@ namespace Arcweave.Project
 
         ///----------------------------------------------------------------------------------------------
 
-        ///<summary>Returns a variable by name. Provide a board CustomId in <paramref name="scope"/> to search board-scoped variables; otherwise only global variables are searched.</summary>
+        ///<summary>Returns a variable by name. Provide a board or component CustomId in <paramref name="scope"/> to search scoped variables; otherwise only global variables are searched.</summary>
         public Variable GetVariable(string name, string scope = null)
         {
             if (scope == null)
             {
                 return Variables.FirstOrDefault(variable => variable.Name == name);
             }
-            var board = Boards.FirstOrDefault(board => board.CustomId == scope);
-            if (board != null)
-            {
-                return board.Variables.FirstOrDefault(variable => variable.Name == name);
-            }
-            return null;    
+            var container = Boards.Cast<IHasVariables>()
+                .Concat(Components)
+                .FirstOrDefault(candidate => candidate.CustomId == scope);
+            return container?.Variables.FirstOrDefault(variable => variable.Name == name);
+        }
+
+        ///<summary>Enumerates every global, board-scoped, and component-scoped variable.</summary>
+        public IEnumerable<Variable> GetAllVariables()
+        {
+            return (Variables ?? new List<Variable>())
+                .Concat((Boards ?? new List<Board>()).SelectMany(board => board.Variables ?? new List<Variable>()))
+                .Concat((Components ?? new List<Component>()).SelectMany(component => component.Variables ?? new List<Variable>()));
         }
 
         /// <summary>
@@ -112,7 +120,7 @@ namespace Arcweave.Project
         /// <returns>True if the variable was found and updated successfully; otherwise, false.</returns>
         public bool SetVariable(string name, object value) 
         {
-            var variable = Variables.FirstOrDefault(x => x.Name == name);
+            var variable = GetVariable(name);
             if (variable == null)
             {
                 Debug.LogError($"Global variable with name '{name}' not found.");
@@ -123,10 +131,10 @@ namespace Arcweave.Project
         }
 
         /// <summary>
-        /// Sets the value of a board-scoped variable by its name and board CustomId.
+        /// Sets the value of a board- or component-scoped variable by its name and owner CustomId.
         /// </summary>
-        /// <param name="name">The variable name inside the board scope.</param>
-        /// <param name="scope">The board CustomId used as the variable scope.</param>
+        /// <param name="name">The variable name inside the owner scope.</param>
+        /// <param name="scope">The board or component CustomId used as the variable scope.</param>
         /// <param name="value">The new value to assign to the variable.</param>
         /// <returns>True if the scoped variable was found and updated successfully; otherwise, false.</returns>
         public bool SetVariable(string name, string scope, object value)
@@ -150,19 +158,7 @@ namespace Arcweave.Project
         /// </summary>
         public bool SetVariableById(string id, object value)
         {
-            var variable = Variables.FirstOrDefault(x => x.Id == id);
-
-            if (variable == null)
-            {
-                foreach (var board in Boards)
-                {
-                    variable = board.Variables?.FirstOrDefault(x => x.Id == id);
-                    if (variable != null)
-                    {
-                        break;
-                    }
-                }
-            }
+            var variable = GetAllVariables().FirstOrDefault(x => x.Id == id);
 
             if (variable == null)
             {
@@ -175,20 +171,19 @@ namespace Arcweave.Project
 
         ///----------------------------------------------------------------------------------------------
 
-        ///<summary>Reset all global and board-scoped variables to their default values.</summary>
+        ///<summary>Reset all global, board-scoped, and component-scoped variables to their default values.</summary>
         public void ResetVariablesToDefaultValues()
         {
-            if (Variables != null)
-                foreach (var variable in Variables)
-                {
-                    variable.ResetToDefaultValue();
-                }
+            foreach (var variable in GetAllVariables())
+            {
+                variable.ResetToDefaultValue();
+            }
         }
 
-        ///<summary>Returns a string containing the saved state of all global and board-scoped variables.</summary>
+        ///<summary>Returns a string containing the saved state of all global and scoped variables.</summary>
         public string SaveVariables()
         {
-            var state = new State(Variables);
+            var state = new State(GetAllVariables());
             return state.ToJson();
         }
 
@@ -201,8 +196,8 @@ namespace Arcweave.Project
                 var type = System.Type.GetType(variableState.type);
                 object value = null;
                 if (type == typeof(string)) { value = variableState.value; }
-                if ( type == typeof(int) ) { value = int.Parse(variableState.value); }
-                if ( type == typeof(double) ) { value = double.Parse(variableState.value); }
+                if ( type == typeof(int) ) { value = int.Parse(variableState.value, System.Globalization.CultureInfo.InvariantCulture); }
+                if ( type == typeof(double) ) { value = double.Parse(variableState.value, System.Globalization.CultureInfo.InvariantCulture); }
                 if ( type == typeof(bool) ) { value = bool.Parse(variableState.value); }
 
                 SetVariableById(variableState.id, value);
