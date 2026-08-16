@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using Debug = UnityEngine.Debug;
@@ -44,30 +45,52 @@ namespace Arcweave
         ///<summary>Import project from json text file or web and get callback when finished.</summary>
         public void ImportProject(System.Action callback = null, System.Action<string> onError = null)
         {
+            _ = ImportProjectAsync(callback, onError);
+        }
+
+        async Task ImportProjectAsync(System.Action callback, System.Action<string> onError)
+        {
             if (importSource == ImportSource.FromJson && projectJsonFile != null)
             {
-                MakeProject(projectJsonFile.text, callback);
+                await MakeProject(projectJsonFile.text, callback, onError);
+                return;
             }
+
             if (importSource == ImportSource.FromWeb && !string.IsNullOrEmpty(userAPIKey) && !string.IsNullOrEmpty(projectHash))
             {
-                SendWebRequest((j) => MakeProject(j, callback), onError);
+                SendWebRequest((j) => _ = MakeProject(j, callback, onError), onError);
+                return;
             }
+
+            var message = $"Import source {importSource} is not configured correctly.";
+            Debug.LogError(message);
+            onError?.Invoke(message);
         }
 
         //...
-        async void MakeProject(string json, System.Action callback)
+        async Task MakeProject(string json, System.Action callback, System.Action<string> onError)
         {
-            Project.ProjectMaker maker = null;
-            await System.Threading.Tasks.Task.Run(() =>
+            try
             {
-                Debug.Log("Parsing Json...");
-                maker = new Project.ProjectMaker(json, this);
-                Debug.Log("Making Project...");
-                Project = maker.MakeProject();
-            });
+                Project.Project project = null;
+                // It will avoid Unity freezing the main thread while parsing the json and making the project, which can take a while for big projects.
+                await Task.Run(() =>
+                {
+                    Debug.Log("Parsing Json...");
+                    var maker = new Project.ProjectMaker(json, this);
+                    Debug.Log("Making Project...");
+                    project = maker.MakeProject();
+                });
 
-            Debug.Log("Done");
-            if (callback != null) { callback(); }
+                Project = project;
+                Debug.Log("Done");
+                callback?.Invoke();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"Project import failed: {exception}");
+                onError?.Invoke(exception.Message);
+            }
         }
 
         //...
