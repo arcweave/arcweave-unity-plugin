@@ -1,5 +1,6 @@
-﻿using UnityEngine;
-using Arcweave.Project;
+﻿using Arcweave.Project;
+using System.Threading.Tasks;
+using UnityEngine;
 
 namespace Arcweave
 {
@@ -28,61 +29,94 @@ namespace Arcweave
         public event OnElementOptions onElementOptions;
         public event OnWaitingInputNext onWaitInputNext;
 
-        void Start() { if ( autoStart ) PlayProject(); }
+        private Task importProjectTask;
+        public Task GetImportProjectTask()
+        {
+            return importProjectTask;
+        }
 
-        public void PlayProject() {
+        void Start()
+        {
+            if (autoStart)
+            {
+                PlayProject();
+            }
+        }
 
-            if ( aw == null ) {
+        public void PlayProject()
+        {
+
+            if (aw == null)
+            {
                 Debug.LogError("There is no Arcweave Project assigned in the inspector of Arcweave Player");
                 return;
             }
 
+            if (importProjectTask == null || aw.Project.StartingElement == null || importProjectTask.IsFaulted == true)
+            {
+                Debug.LogWarning("The Arcweave Project Asset assigned in the inspector but has not been imported yet..importing it now");
+                importProjectTask = aw.ImportProjectAsync(() => PlayProject(), (error) => Debug.LogError($"Failed to import Arcweave project: {error}"));
+                return;
+            }
+
+
             aw.Project.Initialize();
-            if ( onProjectStart != null ) onProjectStart(aw.Project);
+            if (onProjectStart != null)
+            {
+                onProjectStart(aw.Project);
+            }
+
             Next(aw.Project.StartingElement);
         }
 
         /// Moves to the next element through a path
-        void Next(Path path) {
+        void Next(Path path)
+        {
             path.ExecuteAppendedConnectionLabels();
             Next(path.TargetElement);
         }
 
         /// Moves to the next element directly
-        void Next(Element element) {
+        void Next(Element element)
+        {
             currentElement = element;
             currentElement.Visits++;
-            if ( onElementEnter != null ) onElementEnter(element);
+            if (onElementEnter != null) onElementEnter(element);
             var currentState = currentElement.GetOptions();
-            if ( currentState.hasPaths ) {
-                if ( currentState.hasOptions ) {
-                    if ( onElementOptions != null ) {
+            if (currentState.hasPaths)
+            {
+                if (currentState.hasOptions)
+                {
+                    if (onElementOptions != null)
+                    {
                         onElementOptions(currentState, (index) => Next(currentState.Paths[index]));
                     }
                     return;
                 }
 
-                if ( onWaitInputNext != null ) onWaitInputNext(() => Next(currentState.Paths[0]));
+                if (onWaitInputNext != null) onWaitInputNext(() => Next(currentState.Paths[0]));
                 return;
             }
             currentElement = null;
-            if ( onProjectFinish != null ) onProjectFinish(aw.Project);
+            if (onProjectFinish != null) onProjectFinish(aw.Project);
         }
 
         ///----------------------------------------------------------------------------------------------
 
         /// Saves the current element and the variables
-        public void Save() {
+        public void Save()
+        {
             var id = currentElement.Id;
             var variables = aw.Project.SaveVariables();
-            PlayerPrefs.SetString(SAVE_KEY+"_currentElement", id);
-            PlayerPrefs.SetString(SAVE_KEY+"_variables", variables);
+            PlayerPrefs.SetString(SAVE_KEY + "_currentElement", id);
+            PlayerPrefs.SetString(SAVE_KEY + "_variables", variables);
         }
 
         /// Loads the previously saved element and the variables and moves to that element
-        public void Load() {
-            var id = PlayerPrefs.GetString(SAVE_KEY+"_currentElement");
-            var variables = PlayerPrefs.GetString(SAVE_KEY+"_variables");
+        public void Load()
+        {
+            var id = PlayerPrefs.GetString(SAVE_KEY + "_currentElement");
+            var variables = PlayerPrefs.GetString(SAVE_KEY + "_variables");
             var element = aw.Project.ElementWithId(id);
             aw.Project.LoadVariables(variables);
             Next(element);

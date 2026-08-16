@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Diagnostics;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using Debug = UnityEngine.Debug;
@@ -33,39 +33,69 @@ namespace Arcweave
         void ClearData() => Project = null;
 
         //...
-        protected void OnEnable() {
-            if ( Project != null ) {
+        protected void OnEnable()
+        {
+            if (Project != null)
+            {
                 Project.Initialize();
+                return;
             }
         }
 
         ///<summary>Import project from json text file or web and get callback when finished.</summary>
-        public void ImportProject(System.Action callback = null, System.Action<string> onError = null) {
-            if ( importSource == ImportSource.FromJson && projectJsonFile != null ) {
-                MakeProject(projectJsonFile.text, callback);
-            }
-            if ( importSource == ImportSource.FromWeb && !string.IsNullOrEmpty(userAPIKey) ) {
-                SendWebRequest((j) => MakeProject(j, callback), onError);
-            }
+        public void ImportProject(System.Action callback = null, System.Action<string> onError = null)
+        {
+            _ = ImportProjectAsync(callback, onError);
         }
 
-        //...
-        async void MakeProject(string json, System.Action callback) {
-            Project.ProjectMaker maker = null;
-            await System.Threading.Tasks.Task.Run(() =>
+        public async Task ImportProjectAsync(System.Action callback, System.Action<string> onError)
+        {
+            if (importSource == ImportSource.FromJson && projectJsonFile != null)
             {
-                Debug.Log("Parsing Json...");
-                maker = new Project.ProjectMaker(json, this);
-                Debug.Log("Making Project...");
-                Project = maker.MakeProject();
-            });
+                await MakeProject(projectJsonFile.text, callback, onError);
+                return;
+            }
 
-            Debug.Log("Done");
-            if ( callback != null ) { callback(); }
+            if (importSource == ImportSource.FromWeb && !string.IsNullOrEmpty(userAPIKey) && !string.IsNullOrEmpty(projectHash))
+            {
+                SendWebRequest((j) => _ = MakeProject(j, callback, onError), onError);
+                return;
+            }
+
+            var message = $"Import source {importSource} is not configured correctly.";
+            Debug.LogError(message);
+            onError?.Invoke(message);
         }
 
         //...
-        void SendWebRequest(System.Action<string> callbackSuccess, System.Action<string> callbackError) {
+        async Task MakeProject(string json, System.Action callback, System.Action<string> onError)
+        {
+            try
+            {
+                Project.Project project = null;
+                // It will avoid Unity freezing the main thread while parsing the json and making the project, which can take a while for big projects.
+                await Task.Run(() =>
+                {
+                    Debug.Log("Parsing Json...");
+                    var maker = new Project.ProjectMaker(json, this);
+                    Debug.Log("Making Project...");
+                    project = maker.MakeProject();
+                });
+
+                Project = project;
+                Debug.Log("Done");
+                callback?.Invoke();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"Project import failed: {exception}");
+                onError?.Invoke(exception.Message);
+            }
+        }
+
+        //...
+        void SendWebRequest(System.Action<string> callbackSuccess, System.Action<string> callbackError)
+        {
             Debug.Log("Sending Web Request...");
 
             UriBuilder builder = new UriBuilder("https://arcweave.com/api/");
@@ -88,9 +118,12 @@ namespace Arcweave
                 var responseCode = request.responseCode;
                 Debug.Log(string.Format("Web Request Completed (code = {0})...", responseCode));
                 var result = request.downloadHandler?.text;
-                if ( responseCode == 200 && callbackSuccess != null ) {
+                if (responseCode == 200 && callbackSuccess != null)
+                {
                     callbackSuccess(result);
-                } else {
+                }
+                else
+                {
                     Debug.LogError(string.Format("Web Request Failed (code = {0}): {1}", responseCode, request.error));
                     if (callbackError != null)
                     {
