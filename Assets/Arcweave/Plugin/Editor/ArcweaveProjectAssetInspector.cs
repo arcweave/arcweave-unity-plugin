@@ -1,8 +1,8 @@
 ﻿#if UNITY_EDITOR
 
-using System;
 using UnityEngine;
 using UnityEditor;
+using System.Collections.Generic;
 
 namespace Arcweave
 {
@@ -32,7 +32,7 @@ namespace Arcweave
                     aw.fallbackLocales = EditorGUILayout.Toggle(content, aw.fallbackLocales);
                 }
             }
-            
+
             using (var group = new EditorGUILayout.FadeGroupScope(aw.importSource == ArcweaveProjectAsset.ImportSource.FromJson ? 1f : 0f))
             {
                 if (group.visible)
@@ -66,13 +66,56 @@ namespace Arcweave
             GUILayout.Space(5);
 
             GUILayout.BeginVertical("box");
-            GUILayout.Label(string.Format("Arcweave Project: {0}", aw.Project.name));
-            GUILayout.Label("Global Variables:");
+            GUILayout.Label(string.Format("Arcweave Project: {0}", aw.Project.name), EditorStyles.boldLabel);
+
+            // Global Variables Section
+            GUILayout.Label("Global Variables:", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
-            foreach ( var variable in aw.Project.Variables ) {
-                EditorGUILayout.LabelField(variable.Name, variable.Value?.ToString());
+            bool hasGlobalVariables = false;
+            foreach ( var variable in aw.Project.Variables)
+            {
+                if(variable.Parent == null)
+                {
+                    hasGlobalVariables = true;
+                    EditorGUILayout.LabelField(variable.Name, variable.Value?.ToString());
+                }
+            }
+            if (!hasGlobalVariables)
+            {
+                EditorGUILayout.LabelField("(None)");
             }
             EditorGUI.indentLevel--;
+
+            GUILayout.Space(10);
+
+            // Board Variables Section - Grouped by Board
+            GUILayout.Label("Board Variables:", EditorStyles.boldLabel);
+            bool hasBoardVariables = false;
+            foreach (var board in aw.Project.Boards)
+            {
+                if (board.Variables != null && board.Variables.Count > 0)
+                {
+                    hasBoardVariables = true;
+                    EditorGUI.indentLevel++;
+                    GUILayout.Label(string.IsNullOrEmpty(board.Name) ? $"Board: {board.Id}" : board.Name, EditorStyles.miniLabel);
+                    EditorGUI.indentLevel++;
+                    foreach (var variable in board.Variables)
+                    {
+                        string variableName = variable.Name;
+                        EditorGUILayout.LabelField(variableName, variable.Value?.ToString());
+                    }
+                    EditorGUI.indentLevel -= 2;
+                    GUILayout.Space(5);
+                }
+            }
+            if (!hasBoardVariables)
+            {
+                EditorGUI.indentLevel++;
+                EditorGUILayout.LabelField("(None)");
+                EditorGUI.indentLevel--;
+            }
+
+            GUILayout.Space(10);
 
             if ( aw.Project != null && GUILayout.Button("Open Project Viewer", GUILayout.Height(50)) ) {
                 ProjectViewerWindow.Open(aw);

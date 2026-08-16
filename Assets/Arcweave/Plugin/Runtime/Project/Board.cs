@@ -10,8 +10,12 @@ namespace Arcweave.Project
     public partial class Board
     {
         [field: SerializeField]
+
+        /* Hash key related to this board (e.g "1c11fa2a-f76c-4be7-aac4-6bf92a63240f") */
         public string Id { get; private set; }
         [field: SerializeField]
+        
+        /* Name string id (e.g healer dialogue) */
         public string CustomId { get; private set; }
         [field: SerializeField]
         public string Name { get; private set; }
