@@ -1,9 +1,7 @@
 ﻿#if UNITY_EDITOR
 
-using System;
 using UnityEngine;
 using UnityEditor;
-using Arcweave.Project;
 using System.Collections.Generic;
 
 namespace Arcweave
@@ -34,7 +32,7 @@ namespace Arcweave
                     aw.fallbackLocales = EditorGUILayout.Toggle(content, aw.fallbackLocales);
                 }
             }
-            
+
             using (var group = new EditorGUILayout.FadeGroupScope(aw.importSource == ArcweaveProjectAsset.ImportSource.FromJson ? 1f : 0f))
             {
                 if (group.visible)
