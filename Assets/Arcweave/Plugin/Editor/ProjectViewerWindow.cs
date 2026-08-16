@@ -55,7 +55,7 @@ namespace Arcweave
             get
             {
                 if ( _asset == null ) {
-                    _asset = EditorUtility.InstanceIDToObject(_assetID) as ArcweaveProjectAsset;
+                    _asset = EditorUtility.EntityIdToObject(_assetID) as ArcweaveProjectAsset;
                 }
                 return _asset;
             }

@@ -45,13 +45,23 @@ namespace Arcweave
         private List<Button> tempButtons = new List<Button>();
 
         void OnEnable() {
+
+            if(player == null)
+            {
+                gameObject.SetActive(false);
+                Debug.LogWarning("No ArcweavePlayer assigned to ArcweavePlayerUI. Disabling UI.");
+                return;
+            }
+
             buttonTemplate.gameObject.SetActive(false);
             InitializeImage(cover);
             InitializeImage(componentCover);
 
             saveButton.onClick.AddListener(Save);
             loadButton.onClick.AddListener(Load);
-            loadButton.gameObject.SetActive(PlayerPrefs.HasKey(ArcweavePlayer.SAVE_KEY));
+
+
+            loadButton.gameObject.SetActive(player.HasSave());
 
             player.onElementEnter += OnElementEnter;
             player.onElementOptions += OnElementOptions;
@@ -60,6 +70,15 @@ namespace Arcweave
         }
 
         void OnDisable() {
+
+            if(player == null)
+            {
+                return;
+            }
+
+            saveButton.onClick.RemoveListener(Save);
+            loadButton.onClick.RemoveListener(Load);
+
             player.onElementEnter -= OnElementEnter;
             player.onElementOptions -= OnElementOptions;
             player.onWaitInputNext -= OnWaitInputNext;
@@ -67,29 +86,57 @@ namespace Arcweave
         }
 
         void Save() {
-            player.Save();
+
+            if (player == null)
+            {
+                return;
+            }
+
+            player.RequestSave();
             loadButton.gameObject.SetActive(true);
         }
 
         void Load() {
+
+            if (player == null)
+            {
+                return;
+            }
+
             ClearTempButtons();
-            player.Load();
+            if (!player.LoadAndNavigateToSavedState())
+            {
+                Debug.LogWarning("No saved state found");
+            }
         }
 
         ///----------------------------------------------------------------------------------------------
         /// Event Handlers
         ///----------------------------------------------------------------------------------------------
 
-        void OnElementEnter(Element e) {
-            DisplayContent(e);
+        void OnElementEnter(Element e)
+        {
+            DisplayElementContent(e);
+        }
+
+        void DisplayElementContent(Element e)
+        {
+            DisplayText(e);
             DisplayImage(cover, e.GetCoverOrFirstComponentImage());
 
             var elementHasCover = e.GetCoverImage() != null;
             DisplayImage(componentCover, elementHasCover ? e.GetFirstComponentCoverImage() : null);
         }
 
-        void OnElementOptions(Options options, System.Action<int> callback) {
-            for (var i = 0; i < options.Paths.Count; i++) {
+        void OnElementOptions(Options options, System.Action<int> callback)
+        {
+            DisplayOptionButtons(options, callback);
+        }
+
+        private void DisplayOptionButtons(Options options, System.Action<int> callback)
+        {
+            for (var i = 0; i < options.Paths.Count; i++)
+            {
                 var index = i;
                 var text = !string.IsNullOrEmpty(options.Paths[i].text) ? options.Paths[i].text : emptyOptionText;
                 MakeButton(text, () => callback(index));
@@ -101,17 +148,14 @@ namespace Arcweave
         }
 
         void OnProjectFinish(Project.Project p) {
-            MakeButton(restartButtonText, player.PlayProject);
+            MakeButton(restartButtonText, player.RestartProject);
         }
 
         ///----------------------------------------------------------------------------------------------
         /// UI Display Methods
         ///----------------------------------------------------------------------------------------------
 
-        void DisplayContent(Element e) {
-            if (e.HasContent()) {
-                e.RunContentScript();
-            }
+        void DisplayText(Element e) {
             content.text = e.HasContent() ? e.RuntimeContent : noContentText;
 
             if (enableFade) {
@@ -197,7 +241,8 @@ namespace Arcweave
         }
 
         void ClearTempButtons() {
-            foreach (var button in tempButtons) {
+            foreach (var button in tempButtons) 
+            {
                 Destroy(button.gameObject);
             }
             tempButtons.Clear();
