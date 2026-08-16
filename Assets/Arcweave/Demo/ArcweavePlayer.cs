@@ -122,6 +122,16 @@ namespace Arcweave
         }
 
         /// <summary>
+        /// Restarts the project from the beginning, resetting all variables and saves from the configured starting element.
+        /// </summary>
+        public void RestartProject()
+        {
+            isInitialized = false;
+            ResetVariables();
+            PlayProject();
+        }
+
+        /// <summary>
         /// Find a suitable starting element for the project.
         /// Returns the starting element configured in the Arcweave project.
         /// Note: in the 3D demo, autoStart should be false — DialogueTrigger
@@ -161,10 +171,26 @@ namespace Arcweave
 
             currentElement = element;
 
-            // Check if element has content
-            if (!currentElement.HasContent())
+
+            // Prepare rendered content before notifying listeners.
+            if (currentElement.HasContent())
+            {
+                currentElement.RunContentScript(applyVariableChanges: !isLoad);
+            }
+            else
             {
                 Debug.LogWarning($"Element '{currentElement.Title}' has no content");
+            }
+
+            /* If coming to the element from a load request don't do these steps*/
+            if (!isLoad)
+            {
+                currentElement.Visits++;
+                // No paths means the project has reached an end.
+                if (saveMode == SaveMode.AutoSaveAlways)
+                {
+                    RequestSave();
+                }
             }
 
             if (onElementEnter != null) onElementEnter(element);
@@ -184,17 +210,6 @@ namespace Arcweave
                 if (onWaitInputNext != null) onWaitInputNext(() => Next(currentState.Paths[0]));
 
                 return;
-            }
-
-            /* If coming to next from a load request don't do these steps*/
-            if (!isLoad)
-            {
-                currentElement.Visits++;
-                // No paths means the project has reached an end.
-                if (saveMode == SaveMode.AutoSaveAlways)
-                {
-                    RequestSave();
-                }
             }
 
             currentElement = null;

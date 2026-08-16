@@ -17,7 +17,7 @@ namespace Arcweave.Interpreter.INodes
 #else
         public List<Arcweave.Project.Connection> Outputs { get; }
 #endif
-        public void RunContentScript();
+        public void RunContentScript(bool applyVariableChanges = true);
 
         public Arcweave.Project.Options GetOptions();
     }

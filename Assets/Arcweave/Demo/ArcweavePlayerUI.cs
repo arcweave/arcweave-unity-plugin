@@ -114,16 +114,29 @@ namespace Arcweave
         /// Event Handlers
         ///----------------------------------------------------------------------------------------------
 
-        void OnElementEnter(Element e) {
-            DisplayContent(e);
+        void OnElementEnter(Element e)
+        {
+            DisplayElementContent(e);
+        }
+
+        void DisplayElementContent(Element e)
+        {
+            DisplayText(e);
             DisplayImage(cover, e.GetCoverOrFirstComponentImage());
 
             var elementHasCover = e.GetCoverImage() != null;
             DisplayImage(componentCover, elementHasCover ? e.GetFirstComponentCoverImage() : null);
         }
 
-        void OnElementOptions(Options options, System.Action<int> callback) {
-            for (var i = 0; i < options.Paths.Count; i++) {
+        void OnElementOptions(Options options, System.Action<int> callback)
+        {
+            DisplayOptionButtons(options, callback);
+        }
+
+        private void DisplayOptionButtons(Options options, System.Action<int> callback)
+        {
+            for (var i = 0; i < options.Paths.Count; i++)
+            {
                 var index = i;
                 var text = !string.IsNullOrEmpty(options.Paths[i].text) ? options.Paths[i].text : emptyOptionText;
                 MakeButton(text, () => callback(index));
@@ -135,17 +148,14 @@ namespace Arcweave
         }
 
         void OnProjectFinish(Project.Project p) {
-            MakeButton(restartButtonText, player.PlayProject);
+            MakeButton(restartButtonText, player.RestartProject);
         }
 
         ///----------------------------------------------------------------------------------------------
         /// UI Display Methods
         ///----------------------------------------------------------------------------------------------
 
-        void DisplayContent(Element e) {
-            if (e.HasContent()) {
-                e.RunContentScript();
-            }
+        void DisplayText(Element e) {
             content.text = e.HasContent() ? e.RuntimeContent : noContentText;
 
             if (enableFade) {
