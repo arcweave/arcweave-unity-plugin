@@ -271,7 +271,6 @@ namespace Arcweave.Project
         {
             // Load visits
             ArcweaveVisitsState visits = ArcweaveVisitsState.FromJson(visitsSave);
-
             ArcweaveVisitsState.VisitsState[] visitStates = visits.GetVisits();
 
             if (visitStates != null && visitStates.Length > 0)
@@ -280,6 +279,10 @@ namespace Arcweave.Project
                 {
                     Debug.Log($"[Project] Loading {visitStates.Length} visit counts");
                 }
+
+                // Clear all visits first, since visit with 0 count are not saved in the visitsSave string
+                // and we don't want to keep old visit counts that are not present in the saved state
+                ResetVisits();
 
                 foreach (var visitState in visitStates)
                 {
