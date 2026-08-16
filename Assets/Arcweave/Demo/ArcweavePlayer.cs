@@ -1,4 +1,5 @@
 ﻿using Arcweave.Project;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Arcweave
@@ -28,6 +29,12 @@ namespace Arcweave
         public event OnElementOptions onElementOptions;
         public event OnWaitingInputNext onWaitInputNext;
 
+        private Task importProjectTask;
+        public Task GetImportProjectTask()
+        {
+            return importProjectTask;
+        }
+
         void Start()
         {
             if (autoStart)
@@ -45,10 +52,10 @@ namespace Arcweave
                 return;
             }
 
-            if (aw.Project == null || aw.Project.StartingElement == null)
+            if (importProjectTask == null || aw.Project.StartingElement == null || importProjectTask.IsFaulted == true)
             {
                 Debug.LogWarning("The Arcweave Project Asset assigned in the inspector but has not been imported yet..importing it now");
-                aw.ImportProject(() => PlayProject(), (error) => Debug.LogError($"Failed to import Arcweave project: {error}"));
+                importProjectTask = aw.ImportProjectAsync(() => PlayProject(), (error) => Debug.LogError($"Failed to import Arcweave project: {error}"));
                 return;
             }
 
