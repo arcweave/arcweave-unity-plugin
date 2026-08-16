@@ -48,7 +48,7 @@ namespace Arcweave
             _ = ImportProjectAsync(callback, onError);
         }
 
-        async Task ImportProjectAsync(System.Action callback, System.Action<string> onError)
+        public async Task ImportProjectAsync(System.Action callback, System.Action<string> onError)
         {
             if (importSource == ImportSource.FromJson && projectJsonFile != null)
             {
