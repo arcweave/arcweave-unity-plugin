@@ -31,7 +31,7 @@ namespace Arcweave
                     aw.fallbackLocales = EditorGUILayout.Toggle(content, aw.fallbackLocales);
                 }
             }
-            
+
             using (var group = new EditorGUILayout.FadeGroupScope(aw.importSource == ArcweaveProjectAsset.ImportSource.FromJson ? 1f : 0f))
             {
                 if (group.visible)
@@ -67,6 +67,7 @@ namespace Arcweave
             GUILayout.BeginVertical("box");
             GUILayout.Label(string.Format("Arcweave Project: {0}", aw.Project.name), EditorStyles.boldLabel);
 
+            // Global Variables Section
             GUILayout.Label("Global Variables:", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
             bool hasGlobalVariables = false;
@@ -83,6 +84,7 @@ namespace Arcweave
 
             GUILayout.Space(10);
 
+            // Board Variables Section - Grouped by Board
             GUILayout.Label("Board Variables:", EditorStyles.boldLabel);
             bool hasBoardVariables = false;
             foreach ( var board in aw.Project.Boards ) {
@@ -106,6 +108,7 @@ namespace Arcweave
 
             GUILayout.Space(10);
 
+            // Component Variables Section - Grouped by Component
             GUILayout.Label("Component Variables:", EditorStyles.boldLabel);
             bool hasComponentVariables = false;
             foreach ( var component in aw.Project.Components ) {
