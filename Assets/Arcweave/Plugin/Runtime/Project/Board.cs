@@ -14,7 +14,7 @@ namespace Arcweave.Project
         /* Hash key related to this board (e.g "1c11fa2a-f76c-4be7-aac4-6bf92a63240f") */
         public string Id { get; private set; }
         [field: SerializeField]
-        
+
         /* Name string id (e.g healer dialogue) */
         public string CustomId { get; private set; }
         [field: SerializeField]
@@ -25,6 +25,8 @@ namespace Arcweave.Project
         public List<Note> Notes { get; private set; }
         [field: SerializeField]
         public List<Variable> Variables { get; private set; }
+        [field: SerializeField]
+        public List<Attribute> Attributes { get; private set; }
 
         /// <summary>
         /// Initializes a board with an optional Arcweave custom id used for board-scoped variables.
@@ -36,6 +38,7 @@ namespace Arcweave.Project
             Nodes = nodes;
             CustomId = customId;
             Variables = new List<Variable>();
+            Attributes = new List<Attribute>();
         }
         
         /// <summary>
@@ -48,6 +51,7 @@ namespace Arcweave.Project
             Nodes = nodes;
             Notes = notes;
             Variables = new List<Variable>();
+            Attributes = new List<Attribute>();
         }
         
         /// <summary>
@@ -64,6 +68,7 @@ namespace Arcweave.Project
             }
             Variables = variables;
             CustomId = customId;
+            Attributes = new List<Attribute>();
         }
 
         ///<summary>Returns INode of type T with id.</summary>
@@ -78,6 +83,19 @@ namespace Arcweave.Project
         {
             variable.Parent = this;
             Variables.Add(variable);
+        }
+
+        public void AddAttribute(Attribute attribute)
+        {
+            Attributes.Add(attribute);
+        }
+
+        public void InitializeInProject(Project project)
+        {
+            foreach (var attribute in Attributes)
+            {
+                attribute.InitializeInProject(project);
+            }
         }
     }
 }

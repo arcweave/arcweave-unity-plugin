@@ -167,12 +167,12 @@ namespace Arcweave.Interpreter
         }
 
         public object ResetAll(IList<object> args) {
-            List<string> variableNames = new List<string>();
+            HashSet<string> variableIds = new HashSet<string>();
             foreach ( IVariable argument in args ) {
-                variableNames.Add(argument.Name);
+                variableIds.Add(argument.Id);
             }
-            foreach ( IVariable variable in this._project.Variables ) {
-                if ( !variableNames.Contains(variable.Name) ) {
+            foreach ( IVariable variable in this._project.GetAllVariables() ) {
+                if ( !variableIds.Contains(variable.Id) ) {
                     state.SetVarValue(variable, variable.DefaultValue);
                 }
             }

@@ -21,6 +21,10 @@ This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It su
 
 Choose one of the following methods:
 
+### Prerequisite: Unity UI
+
+The bundled demo uses the Unity UI package. If your project does not already include it, install **Unity UI** (`com.unity.ugui`, version `2.0.0` or a compatible production release) from **Window > Package Manager** before importing the plugin. New Unity 6000.5 projects do not include this package by default, and the demo scripts cannot compile without it.
+
 ### Method 1: Manual Installation from GitHub - Recommended
 
 1. Download this repository as a ZIP file from [GitHub](https://github.com/arcweave/arcweave-unity-plugin/archive/refs/heads/main.zip)
@@ -272,7 +276,7 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 |----------|------|-------------|
 | `name` | string | Project name |
 | `boards` | List\<Board\> | All boards in the project |
-| `components` | List\<Component\> | All components (characters/entities) |
+| `components` / `Components` | List\<Component\> | All components (characters/entities) |
 | `Variables` | List\<Variable\> | All global/project-scoped variables |
 | `StartingElement` | Element | Entry point for the narrative |
 
@@ -285,35 +289,39 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 | `Board BoardWithName(string name)`                          | Get board by name |
 | `Element ElementWithId(string id)`                          | Get element by ID |
 | `T GetNodeWithID<T>(string id)`                             | Get any node by ID and type |
-| `Variable GetVariable(string name, string scope = null)`    | Get a variable by name. Pass a board `CustomId` as `scope` for board-scoped variables |
+| `Variable GetVariable(string name, string scope = null)`    | Get a variable by name. Pass a board or component `CustomId` for scoped variables |
+| `IEnumerable<Variable> GetAllVariables()`                   | Enumerate global, board-scoped, and component-scoped variables |
 | `bool SetVariable(string name, object value)`               | Set a global/project-scoped variable by name |
-| `bool SetVariable(string name, string scope, object value)` | Set a board-scoped variable by name and board `CustomId` |
+| `bool SetVariable(string name, string scope, object value)` | Set a scoped variable by name and owner `CustomId` |
 | `void ResetVariablesToDefaultValues()`                      | Reset all variables to defaults |
-| `string SaveVariables()`                                    | Serialize current global and board-scoped variable state to JSON |
-| `void LoadVariables(string json)`                           | Restore current global and board-scoped variable state from JSON |
+| `string SaveVariables()`                                    | Serialize current global and scoped variable state to JSON |
+| `void LoadVariables(string json)`                           | Restore current global and scoped variable state from JSON |
 | `int Visits(string elementId)`                              | Get visit count for an element |
 | `void ResetVisits()`                                        | Reset all visit counts to 0 |
 
 ---
 
-### Board Variables
+### Scoped Variables
 
-Boards can now define their own scoped variables in addition to project/global variables.
+Boards and components can define scoped variables in addition to project/global variables. In current exports, scoped variables are backed by boolean, integer, float, or plain-string attributes with a custom ID.
 
 - `Project.Variables` contains only project/global variables.
-- `Board.Variables` contains variables scoped to that specific board.
-- Board-scoped variables are addressed by the board's `CustomId`, not by the board name.
-- In Arcscript, scoped variables use `boardCustomId.variableName`.
+- `Board.Variables` and `Component.Variables` contain their scoped variables.
+- Scoped variables use the attribute's `CustomId` as their name and the owning container's `CustomId` as their scope.
+- The attribute ID remains the variable ID used by runtime changes and save data.
+- In Arcscript, scoped variables use `containerCustomId.variableName`.
 
 ```csharp
 Variable globalHealth = project.GetVariable("health");
 Variable boardHealth = project.GetVariable("health", "intro_board");
+Variable componentHealth = project.GetVariable("health", "hero");
 
 project.SetVariable("health", 10);
 project.SetVariable("health", 2, "intro_board");
+project.SetVariable("health", 5, "hero");
 ```
 
-If a board variable exists, ensure the source Arcweave board has a `CustomId`, otherwise it cannot be resolved by scope.
+Both the source attribute and its board/component must have a `CustomId` for the attribute to become a scoped variable. Plain-string attributes with null data import as an empty string.
 
 ---
 
@@ -330,6 +338,7 @@ Container for narrative nodes.
 | `Name` | string | Board name |
 | `Nodes` | List\<INode\> | All nodes (Elements, Branches, Jumpers) |
 | `Notes` | List\<Note\> | Annotation notes |
+| `Attributes` | List\<Attribute\> | Board attributes |
 | `Variables` | List\<Variable\> | Variables scoped to this board |
 
 #### Methods
@@ -474,8 +483,10 @@ Character or entity definition. **Not a Unity MonoBehaviour.**
 | Property | Type | Description |
 |----------|------|-------------|
 | `Id` | string | Unique identifier |
+| `CustomId` | string | Arcweave custom ID used as a variable scope |
 | `Name` | string | Component name |
 | `Attributes` | List\<Attribute\> | Custom attributes |
+| `Variables` | List\<Variable\> | Variables scoped to this component |
 | `cover` | Cover | Cover image reference |
 
 #### Methods
@@ -488,23 +499,25 @@ Character or entity definition. **Not a Unity MonoBehaviour.**
 
 ### Attribute
 
-Custom metadata on elements or components.
+Custom metadata on elements, components, or boards.
 
 #### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
+| `Id` | string | Arcweave attribute identifier |
+| `CustomId` | string | Optional Arcscript variable name for eligible scoped attributes |
 | `Name` | string | Attribute name |
-| `Type` | DataType | StringPlainText, StringRichText, or ComponentList |
+| `Type` | DataType | Plain/rich string, component list, boolean, integer, or float |
 | `data` | object | Attribute data (lazy-evaluated for RichText) |
-| `containerType` | ContainerType | Element or Component |
+| `containerType` | ContainerType | Element, Component, or Board |
 | `containerId` | string | ID of the container |
 
 ---
 
 ### Variable
 
-Project/global or board-scoped state variable. Supports: `int`, `double`, `bool`, `string`.
+Project/global, board-scoped, or component-scoped state variable. Supports: `int`, `double`, `bool`, `string`.
 
 #### Properties
 
@@ -514,7 +527,7 @@ Project/global or board-scoped state variable. Supports: `int`, `double`, `bool`
 | `Name` | string | Variable name |
 | `Value` | object | Current value |
 | `DefaultValue` | object | Initial value |
-| `Parent` | IHasVariables | Owning scope (`null` for global variables, `Board` for board-scoped variables) |
+| `Parent` | IHasVariables | Owning scope (`null` for globals, otherwise a `Board` or `Component`) |
 | `Type` | Type | System.Type of the value |
 
 #### Methods
@@ -618,9 +631,9 @@ Event-driven narrative player (demo helper class).
 
 3. **GetOptions() has side effects**: This method internally saves and restores variable state while evaluating branch conditions.
 
-4. **Initialize() resets everything**: Calling `Project.Initialize()` resets all global and board-scoped variables to defaults and all visit counts to 0.
+4. **Initialize() resets everything**: Calling `Project.Initialize()` resets all global and scoped variables to defaults and all visit counts to 0.
 
-5. **Board variables require scope**: `Project.GetVariable("health")` only searches project/global variables. Use `Project.GetVariable("health", "boardCustomId")` and `Project.SetVariable("health", "boardCustomId", value)` for board-scoped variables.
+5. **Scoped variables require scope**: `Project.GetVariable("health")` only searches project/global variables. Pass the owning board or component `CustomId` to access a scoped variable.
 
 6. **Images and Audio clips must be in Resources folder**: Cover images and Audio clips are loaded via `Resources.Load<T>()`. Place them in any `Resources` folder and ensure filenames match (without extension).
 

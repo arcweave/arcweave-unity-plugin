@@ -79,8 +79,9 @@ namespace Arcweave.Project
             }
             foreach ( var key in jvariables.AsDictionary.Keys ) {
                 var variable = TryMakeVariable(key);
-                if ( variable != null ) { projVariables.Add(variable); } //null = has children
+                if ( variable != null && variable.Parent == null ) { projVariables.Add(variable); } //null = has children or a scoped variable
             }
+            MakeAttributeVariables();
             return new Project(name, startElement, projBoards, projComponents, projVariables);
         }
 
@@ -106,11 +107,19 @@ namespace Arcweave.Project
             var boardNotes = new List<Note>();
             foreach ( var key in GetProp(jboards, id, "notes").AsList ) { boardNotes.Add(TryMakeNote(key.AsString)); }
 
-            string customId = null;
-            if ( HasProperty(jboards, id, "customId", out var customIdProp) ) {
-                customId = customIdProp.AsString;
+            var boardAttributes = new List<Attribute>();
+            if ( HasProperty(jboards, id, "attributes", out var attributeids) && attributeids.IsList ) {
+                foreach ( var attributeid in attributeids.AsList ) {
+                    boardAttributes.Add(TryMakeAttribute(attributeid.AsString));
+                }
             }
-            return boards[id] = new Board(id, name, customId, boardNodes, boardNotes);
+
+            var customId = GetProp(jboards, id, "customId")?.AsString;
+            var board = boards[id] = new Board(id, name, customId, boardNodes, boardNotes);
+            foreach ( var attribute in boardAttributes ) {
+                board.AddAttribute(attribute);
+            }
+            return board;
         }
 
         //..
@@ -249,13 +258,14 @@ namespace Arcweave.Project
 
                 components[id] = component = new Component();
                 var name = GetProp(jcomponents, id, "name")?.AsString;
+                var customId = GetProp(jcomponents, id, "customId")?.AsString;
                 var attributes = new List<Attribute>();
                 var attributeids = GetProp(jcomponents, id, "attributes").AsList;
                 foreach ( var attributeid in attributeids ) {
                     attributes.Add(TryMakeAttribute(attributeid.AsString));
                 }
                 var cover = MakeCover(jcomponents, id);
-                component.Set(id, name, attributes, cover);
+                component.Set(id, customId, name, attributes, cover);
             }
             return component;
         }
@@ -265,11 +275,13 @@ namespace Arcweave.Project
             if ( !attributes.TryGetValue(id, out var attribute) ) {
                 attributes[id] = attribute = new Attribute();
                 var name = GetProp(jattributes, id, "name")?.AsString;
+                var customId = GetProp(jattributes, id, "customId")?.AsString;
 
                 var jcontainerType = GetProp(jattributes, id, "cType")?.AsString;
                 IAttribute.ContainerType containerType = IAttribute.ContainerType.Undefined;
                 if ( jcontainerType == "elements" ) { containerType = IAttribute.ContainerType.Element; }
                 if ( jcontainerType == "components" ) { containerType = IAttribute.ContainerType.Component; }
+                if ( jcontainerType == "boards" ) { containerType = IAttribute.ContainerType.Board; }
 
                 var containerId = GetProp(jattributes, id, "cId")?.AsString;
 
@@ -278,11 +290,9 @@ namespace Arcweave.Project
 
                 var jtype = GetProp(jattributes, id, "value.type")?.AsString;
                 if ( jtype == "string" ) {
-                    type = IAttribute.DataType.StringRichText;
-                    data = GetProp(jattributes, id, "value.data")?.AsString;
-                    if ( HasProperty(jattributes, id, "value.plain", out var isPlain) && isPlain.AsBool == true ) {
-                        type = IAttribute.DataType.StringPlainText;
-                    }
+                    var isPlain = HasProperty(jattributes, id, "value.plain", out var plain) && plain.AsBool;
+                    type = isPlain ? IAttribute.DataType.StringPlainText : IAttribute.DataType.StringRichText;
+                    data = GetProp(jattributes, id, "value.data")?.AsString ?? (isPlain ? string.Empty : null);
                 }
 
                 if ( jtype == "component-list" ) {
@@ -295,7 +305,21 @@ namespace Arcweave.Project
                     }
                     data = componentList;
                 }
-                attribute.Set(name, type, data, containerType, containerId);
+
+                var jdata = GetProp(jattributes, id, "value.data");
+                if ( jtype == "boolean" && jdata != null ) {
+                    type = IAttribute.DataType.Boolean;
+                    data = jdata.AsBool;
+                }
+                if ( jtype == "integer" && jdata != null ) {
+                    type = IAttribute.DataType.Integer;
+                    data = (int)jdata.AsInt64;
+                }
+                if ( jtype == "float" && jdata != null ) {
+                    type = IAttribute.DataType.Float;
+                    data = jdata.Type == fsDataType.Double ? jdata.AsDouble : (double)jdata.AsInt64;
+                }
+                attribute.Set(id, customId, name, type, data, containerType, containerId);
             }
             return attribute;
         }
@@ -304,6 +328,7 @@ namespace Arcweave.Project
         Variable TryMakeVariable(string id) {
 
             if ( HasChildren(jvariables, id) ) { return null; }
+            if ( variables.TryGetValue(id, out var existingVariable) ) { return existingVariable; }
 
             object value = null;
             var name = GetProp(jvariables, id, "name")?.AsString;
@@ -333,14 +358,49 @@ namespace Arcweave.Project
                 {
                     var variable = new Variable(id, name, value, board);
                     board.AddVariable(variable);
+                    variables[id] = variable;
                     return variable;
                 }
                 else
                 {
                     Debug.LogWarning($"Variable '{name}' is supposed to be attached to board with id '{boardId}', but no such board was found.");
+                    return null;
                 }
             }
-            return new Variable(id, name, value);
+            return variables[id] = new Variable(id, name, value);
+        }
+
+        void MakeAttributeVariables() {
+            foreach ( var board in boards.Values ) {
+                MakeAttributeVariables(board, board.Id, IAttribute.ContainerType.Board);
+            }
+            foreach ( var component in components.Values ) {
+                MakeAttributeVariables(component, component.Id, IAttribute.ContainerType.Component);
+            }
+        }
+
+        void MakeAttributeVariables(IHasVariables container, string containerId, IAttribute.ContainerType containerType) {
+            if ( string.IsNullOrEmpty(container.CustomId) ) { return; }
+
+            var containerAttributes = container is Board board ? board.Attributes : ((Component)container).Attributes;
+            foreach ( var attribute in containerAttributes ) {
+                if ( !IsVariableAttribute(attribute, containerId, containerType) ) { continue; }
+                if ( variables.ContainsKey(attribute.Id) ) { continue; }
+
+                var variable = new Variable(attribute.Id, attribute.CustomId, attribute.data, container);
+                variables[attribute.Id] = variable;
+                container.AddVariable(variable);
+            }
+        }
+
+        bool IsVariableAttribute(Attribute attribute, string containerId, IAttribute.ContainerType containerType) {
+            if ( attribute == null || string.IsNullOrEmpty(attribute.CustomId) ) { return false; }
+            if ( attribute.containerType != containerType || attribute.containerId != containerId ) { return false; }
+
+            return attribute.Type == IAttribute.DataType.Boolean
+                || attribute.Type == IAttribute.DataType.Integer
+                || attribute.Type == IAttribute.DataType.Float
+                || attribute.Type == IAttribute.DataType.StringPlainText;
         }
 
         ///----------------------------------------------------------------------------------------------
@@ -415,7 +475,7 @@ namespace Arcweave.Project
         //...
         fsData GetProp(fsData source, string id, string propertyPath) {
             var result = source[id + '.' + propertyPath];
-            return result.IsNull ? null : result;
+            return result == null || result.IsNull ? null : result;
         }
 
         //...

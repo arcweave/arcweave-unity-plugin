@@ -26,17 +26,11 @@ namespace Arcweave.Interpreter
 
         public void SetProject(IProject project) {
             this.Project = project;
-            foreach (var projectVariable in project.Variables)
+            foreach (var projectVariable in project.GetAllVariables())
             {
-                VariableNames.Add(projectVariable.Name);
-            }
-            foreach (var projectBoard in project.Boards)
-            {
-                if (projectBoard.Variables == null) continue;
-                foreach (var projectBoardVariable in projectBoard.Variables)
-                {
-                    VariableNames.Add(projectBoard.CustomId + "." + projectBoardVariable.Name);
-                }
+                VariableNames.Add(projectVariable.Parent == null
+                    ? projectVariable.Name
+                    : projectVariable.Parent.CustomId + "." + projectVariable.Name);
             }
         }
 
