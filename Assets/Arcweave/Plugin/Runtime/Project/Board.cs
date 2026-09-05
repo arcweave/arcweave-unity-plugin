@@ -23,9 +23,9 @@ namespace Arcweave.Project
         public List<INode> Nodes { get; private set; }
         [field: SerializeField]
         public List<Note> Notes { get; private set; }
-        [field: SerializeField]
+        [field: SerializeReference]
         public List<Variable> Variables { get; private set; }
-        [field: SerializeField]
+        [field: SerializeReference]
         public List<Attribute> Attributes { get; private set; }
 
         /// <summary>
