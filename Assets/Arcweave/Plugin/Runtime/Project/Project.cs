@@ -63,6 +63,13 @@ namespace Arcweave.Project
 
         ///<summary>Reset the number of visits to 0 for all elements.</summary>
         public void ResetVisits() {
+
+            if (Boards == null)
+            {
+                Debug.LogWarning("Boards list is null. Cannot reset visits.");
+                    return;
+            }
+
             foreach ( var board in Boards ) {
                 foreach ( var element in board.Nodes.OfType<Element>() ) {
                     element.Visits = 0;
