@@ -1,0 +1,10 @@
+root = true
+
+# Suppress "type doesn't use a namespace" warnings caused by XPathLexer in the ANTLR4 runtime
+# (Antlr4.Runtime.Standard.dll). XPathLexer is auto-generated from the XPath.g4 grammar and
+# lives in the global namespace in all versions of the ANTLR4 C# runtime library.
+[*.cs]
+# Roslyn / Visual Studio Code Analysis: CA1050 "Declare types in namespaces"
+dotnet_diagnostic.CA1050.severity = none
+# JetBrains Rider: CheckNamespace inspection
+resharper_check_namespace_highlighting = none
