@@ -52,10 +52,9 @@ namespace Arcweave
                 return;
             }
 
-            if (importProjectTask == null || aw.Project.StartingElement == null || importProjectTask.IsFaulted == true)
+            if(aw.Project?.StartingElement == null)
             {
-                Debug.LogWarning("The Arcweave Project Asset assigned in the inspector but has not been imported yet..importing it now");
-                importProjectTask = aw.ImportProjectAsync(() => PlayProject(), (error) => Debug.LogError($"Failed to import Arcweave project: {error}"));
+                TryImportProjectAsync();
                 return;
             }
 
@@ -67,6 +66,16 @@ namespace Arcweave
             }
 
             Next(aw.Project.StartingElement);
+        }
+
+        /// <summary>
+        /// Tries to import the Arcweave project asynchronously.
+        /// </summary>
+        /// <returns>True if the import task was successfully started and is not faulted, false otherwise.</returns>
+        void TryImportProjectAsync()
+        {
+            importProjectTask = aw.ImportProjectAsync(() => PlayProject(), (error) => Debug.LogError($"Failed to import Arcweave project: {error}"));
+            return;
         }
 
         /// Moves to the next element through a path
