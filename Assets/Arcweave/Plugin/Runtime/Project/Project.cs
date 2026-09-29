@@ -19,7 +19,7 @@ namespace Arcweave.Project
         public List<Component> components { get; private set; }
         public List<Component> Components => components;
         [field: UnityEngine.SerializeReference]
-        public List<Variable> Variables { get; private set; }
+        public List<Variable> GlobalVariables { get; private set; }
 
         [UnityEngine.SerializeField] private string _startingElementId;
         [System.NonSerialized] private Element _startingElement;
@@ -34,7 +34,7 @@ namespace Arcweave.Project
             this.StartingElement = startingElement;
             this.Boards = boards;
             this.components = components;
-            Variables = variables;
+            GlobalVariables = variables;
         }
 
         ///----------------------------------------------------------------------------------------------
@@ -103,7 +103,7 @@ namespace Arcweave.Project
         {
             if (scope == null)
             {
-                return Variables.FirstOrDefault(variable => variable.Name == name);
+                return GlobalVariables.FirstOrDefault(variable => variable.Name == name);
             }
             var container = Boards.Cast<IHasVariables>()
                 .Concat(Components)
@@ -114,7 +114,7 @@ namespace Arcweave.Project
         ///<summary>Enumerates every global, board-scoped, and component-scoped variable.</summary>
         public IEnumerable<Variable> GetAllVariables()
         {
-            return (Variables ?? new List<Variable>())
+            return (GlobalVariables ?? new List<Variable>())
                 .Concat((Boards ?? new List<Board>()).SelectMany(board => board.Variables ?? new List<Variable>()))
                 .Concat((Components ?? new List<Component>()).SelectMany(component => component.Variables ?? new List<Variable>()));
         }
