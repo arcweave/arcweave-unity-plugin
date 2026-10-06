@@ -1,4 +1,5 @@
 ﻿using Arcweave.Project;
+using System;
 using System.Threading.Tasks;
 using UnityEngine;
 
@@ -29,11 +30,9 @@ namespace Arcweave
         public event OnElementOptions onElementOptions;
         public event OnWaitingInputNext onWaitInputNext;
 
-        private Task importProjectTask;
-        public Task GetImportProjectTask()
-        {
-            return importProjectTask;
-        }
+        // Only guards this player against being started twice while the asset is importing.
+        // The import itself is owned (and shared between all consumers) by the ArcweaveProjectAsset.
+        private bool isImporting;
 
         void Start()
         {
@@ -43,21 +42,66 @@ namespace Arcweave
             }
         }
 
-        public void PlayProject()
+        /// <summary>
+        /// Fire-and-forget entry point (usable from UnityEvents). Use PlayProjectAsync to await it.
+        /// </summary>
+        public async void PlayProject()
         {
+            try
+            {
+                await PlayProjectAsync();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+        }
 
+        /// <summary>
+        /// Imports the project first if needed, then starts playing it.
+        /// </summary>
+        /// <returns></returns>
+        public async Task PlayProjectAsync()
+        {
             if (aw == null)
             {
                 Debug.LogError("There is no Arcweave Project assigned in the inspector of Arcweave Player");
                 return;
             }
 
-            if(aw.Project?.StartingElement == null)
+            // Readiness depends only on the project data, never on the state of some previous import task.
+            if (!aw.IsImported)
             {
-                TryImportProjectAsync();
-                return;
-            }
+                if (isImporting)
+                {
+                    Debug.LogWarning("The Arcweave project is already being imported, ignoring this play request.");
+                    return;
+                }
 
+                isImporting = true;
+                try
+                {
+                    Debug.LogWarning("The Arcweave Project Asset has not been imported yet - importing it now");
+                    await aw.EnsureImportedAsync();
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogError($"Failed to import Arcweave project: {exception.Message}");
+                    return;
+                }
+                finally
+                {
+                    isImporting = false;
+                }
+
+                if (this == null) return; // destroyed while the import was running
+
+                if (!aw.IsImported)
+                {
+                    Debug.LogError("The Arcweave project was imported but has no starting element.");
+                    return;
+                }
+            }
 
             aw.Project.Initialize();
             if (onProjectStart != null)
@@ -66,16 +110,6 @@ namespace Arcweave
             }
 
             Next(aw.Project.StartingElement);
-        }
-
-        /// <summary>
-        /// Tries to import the Arcweave project asynchronously.
-        /// </summary>
-        /// <returns>True if the import task was successfully started and is not faulted, false otherwise.</returns>
-        void TryImportProjectAsync()
-        {
-            importProjectTask = aw.ImportProjectAsync(() => PlayProject(), (error) => Debug.LogError($"Failed to import Arcweave project: {error}"));
-            return;
         }
 
         /// Moves to the next element through a path
