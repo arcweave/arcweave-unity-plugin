@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- Fixed a `NullReferenceException` when importing projects whose elements, boards, components, or branches omit empty lists (for example, an ending element with no `outputs` or an element without `components`). Missing or `null` lists are now treated as empty.
+- Fixed project imports hanging on "Importing Project..." when parsing fails. Parse errors are now logged and reported through `ImportProject`'s `onError` callback, and the inspector leaves its importing state.
+
 ## 3.0.0
 
 ### Added

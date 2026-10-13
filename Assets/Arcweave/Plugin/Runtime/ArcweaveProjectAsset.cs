@@ -42,23 +42,30 @@ namespace Arcweave
         ///<summary>Import project from json text file or web and get callback when finished.</summary>
         public void ImportProject(System.Action callback = null, System.Action<string> onError = null) {
             if ( importSource == ImportSource.FromJson && projectJsonFile != null ) {
-                MakeProject(projectJsonFile.text, callback);
+                MakeProject(projectJsonFile.text, callback, onError);
             }
             if ( importSource == ImportSource.FromWeb && !string.IsNullOrEmpty(userAPIKey) ) {
-                SendWebRequest((j) => MakeProject(j, callback), onError);
+                SendWebRequest((j) => MakeProject(j, callback, onError), onError);
             }
         }
 
         //...
-        async void MakeProject(string json, System.Action callback) {
-            Project.ProjectMaker maker = null;
-            await System.Threading.Tasks.Task.Run(() =>
-            {
-                Debug.Log("Parsing Json...");
-                maker = new Project.ProjectMaker(json, this);
-                Debug.Log("Making Project...");
-                Project = maker.MakeProject();
-            });
+        async void MakeProject(string json, System.Action callback, System.Action<string> onError) {
+            try {
+                Project = await System.Threading.Tasks.Task.Run(() =>
+                {
+                    Debug.Log("Parsing Json...");
+                    var maker = new Project.ProjectMaker(json, this);
+                    Debug.Log("Making Project...");
+                    return maker.MakeProject();
+                });
+            }
+            catch (Exception e) {
+                // async void: an uncaught exception would only be logged and neither callback would ever fire
+                Debug.LogException(e);
+                if ( onError != null ) { onError(e.Message); }
+                return;
+            }
 
             Debug.Log("Done");
             if ( callback != null ) { callback(); }
