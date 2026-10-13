@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- Added media downloads for web imports in the Unity Editor. Importing from web downloads the cover images and audio the project uses through Arcweave's web API into a `<Project Asset Name> Media` folder and links them to the project, so they no longer need to be copied into a `Resources` folder.
+- Added a **Download Media** inspector toggle, enabled by default, to opt out of media downloads.
+- Added `Cover.assetId`, `Cover.downloadedImage`, and `AudioAsset.downloadedClip`.
+
+### Changed
+
+- `Cover.ResolveImage()` and `AudioAsset.TryGetAudioClip()` return the downloaded media when available and fall back to `Resources.Load<T>()` otherwise.
+
 ## 3.0.0
 
 ### Added

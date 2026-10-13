@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -10,6 +11,8 @@ namespace Arcweave
     [CreateAssetMenu(menuName = "Arcweave/Project Asset")]
     public class ArcweaveProjectAsset : ScriptableObject
     {
+        internal const string API_URL = "https://arcweave.com/api/";
+
         public enum ImportSource { FromJson, FromWeb, }
 
         public ImportSource importSource;
@@ -23,6 +26,26 @@ namespace Arcweave
         public string locale;
 
         [HideInInspector] public bool fallbackLocales = false;
+
+        ///<summary>Download the images and audio the project uses when importing from web.</summary>
+        [HideInInspector] public bool downloadMedia = true;
+
+        // Media downloaded by web imports, tracked by GUID so it can be refreshed and cleaned up after moves and renames.
+        // The owner GUID detects duplicated project assets, which must not manage the original asset's media.
+        [Serializable]
+        internal struct DownloadedMedia
+        {
+            public string assetId;
+            public string guid;
+
+            public DownloadedMedia(string assetId, string guid) {
+                this.assetId = assetId;
+                this.guid = guid;
+            }
+        }
+        [SerializeField, HideInInspector] internal string mediaOwnerGuid = "";
+        [SerializeField, HideInInspector] internal string mediaFolderGuid = "";
+        [SerializeField, HideInInspector] internal List<DownloadedMedia> downloadedMedia = new List<DownloadedMedia>();
 
         [field: SerializeField, HideInInspector]
         public Project.Project Project { get; private set; }
@@ -45,7 +68,7 @@ namespace Arcweave
                 MakeProject(projectJsonFile.text, callback);
             }
             if ( importSource == ImportSource.FromWeb && !string.IsNullOrEmpty(userAPIKey) ) {
-                SendWebRequest((j) => MakeProject(j, callback), onError);
+                SendWebRequest((j) => MakeProject(j, () => DownloadMedia(callback)), onError);
             }
         }
 
@@ -65,10 +88,21 @@ namespace Arcweave
         }
 
         //...
+        void DownloadMedia(System.Action callback) {
+#if UNITY_EDITOR
+            if ( downloadMedia ) {
+                ArcweaveMediaDownloader.Download(this, callback);
+                return;
+            }
+#endif
+            if ( callback != null ) { callback(); }
+        }
+
+        //...
         void SendWebRequest(System.Action<string> callbackSuccess, System.Action<string> callbackError) {
             Debug.Log("Sending Web Request...");
 
-            UriBuilder builder = new UriBuilder("https://arcweave.com/api/");
+            UriBuilder builder = new UriBuilder(API_URL);
             builder.Path += projectHash + "/unity";
             if (locale != null && locale.Length > 0)
             {

@@ -29,6 +29,9 @@ namespace Arcweave
                     
                     GUIContent content = new GUIContent("Fallback Content", "Enable to use fallback content when a string is not available in the specified language.");
                     aw.fallbackLocales = EditorGUILayout.Toggle(content, aw.fallbackLocales);
+
+                    GUIContent mediaContent = new GUIContent("Download Media", "Download the images and audio the project uses into a folder next to this asset. Disable to provide them yourself in a 'Resources' folder.");
+                    aw.downloadMedia = EditorGUILayout.Toggle(mediaContent, aw.downloadMedia);
                 }
             }
 

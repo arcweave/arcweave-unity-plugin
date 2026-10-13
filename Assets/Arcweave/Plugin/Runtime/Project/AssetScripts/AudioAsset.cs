@@ -33,6 +33,10 @@ namespace Arcweave.Project
         // Reference to the loaded AudioClip
         private AudioClip _audioClip;
 
+        // The AudioClip downloaded from Arcweave's web API when importing from web
+        [field: SerializeField]
+        public AudioClip downloadedClip { get; internal set; }
+
         // Volume level for the audio asset
         [field: SerializeField]
         public float volume { get; private set; }
@@ -60,12 +64,17 @@ namespace Arcweave.Project
         }
 
         /// <summary>
-        /// Attempts to retrieve the AudioClip from the Resources folder using the asset's name.
+        /// Returns the AudioClip downloaded from Arcweave's web API, otherwise attempts to
+        /// retrieve the AudioClip from the Resources folder using the asset's name.
         /// </summary>
         /// <returns>The loaded AudioClip, or null if not found.</returns>
         public AudioClip TryGetAudioClip()
         {
-            
+            if (downloadedClip != null)
+            {
+                return downloadedClip;
+            }
+
             if (string.IsNullOrEmpty(name))
             {
                 return null;
