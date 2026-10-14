@@ -29,6 +29,15 @@ namespace Arcweave
                     
                     GUIContent content = new GUIContent("Fallback Content", "Enable to use fallback content when a string is not available in the specified language.");
                     aw.fallbackLocales = EditorGUILayout.Toggle(content, aw.fallbackLocales);
+
+                    GUIContent mediaContent = new GUIContent("Download Media", "Enable to download the images and audio the project uses from Arcweave into a folder next to this asset and use them instead of a 'Resources' folder.");
+                    var downloadMedia = EditorGUILayout.Toggle(mediaContent, aw.downloadMedia);
+                    if ( downloadMedia != aw.downloadMedia ) {
+                        // Saved even without importing, since it decides whether the project relies on Arcweave's media
+                        Undo.RecordObject(aw, "Toggle Download Media");
+                        aw.downloadMedia = downloadMedia;
+                        EditorUtility.SetDirty(aw);
+                    }
                 }
             }
 
@@ -73,7 +82,7 @@ namespace Arcweave
             GUILayout.Label("Global Variables:", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
             bool hasGlobalVariables = false;
-            foreach ( var variable in aw.Project.Variables ) {
+            foreach ( var variable in aw.Project.GlobalVariables ) {
                 if ( variable.Parent == null ) {
                     hasGlobalVariables = true;
                     EditorGUILayout.LabelField(variable.Name, variable.Value?.ToString());

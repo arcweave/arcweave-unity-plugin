@@ -4,10 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Added `ArcweaveProjectAsset.ImportProjectAsync()`, `EnsureImportedAsync()`, `IsImported` and `IsImporting`. Concurrent imports of the same asset share a single download and parse.
+- Added `ArcweavePlayer.PlayProjectAsync()`. Overlapping calls, including calls made from the player's own event handlers or import callbacks, share one pending start, so the project only starts once.
+- Added optional media downloads for web imports in the Unity Editor. With the new **Download Media** inspector toggle enabled, importing from web downloads the cover images and audio the project uses through Arcweave's web API into a `<Project Asset Name> Media` folder and links them to the project, so they don't need to be copied into a `Resources` folder. The toggle is disabled by default, including for existing project assets, so projects only rely on media downloaded from Arcweave when you enable it.
+- Added `Cover.assetId`, `Cover.downloadedImage`, and `AudioAsset.downloadedClip`.
+
+### Changed
+
+- `ArcweavePlayer.PlayProject()` now imports the project first when the asset has not been imported yet.
+- `Cover.ResolveImage()` and `AudioAsset.TryGetAudioClip()` return the downloaded media when available and fall back to `Resources.Load<T>()` otherwise. With **Download Media** enabled, downloaded media takes priority over files with the same name in a `Resources` folder.
+- Renamed the project-level variable list to `Project.GlobalVariables` to distinguish it from board and component variables. Use `GetAllVariables()` to enumerate every scope.
+- Preserved global variables in previously imported Unity assets when migrating the serialized property name.
+
+### Deprecated
+
+- Deprecated `Project.Variables` in favor of `Project.GlobalVariables`, retaining it as an alias to the same list. The `IProject.Variables` contract remains compatible with existing callers and implementations.
+
 ### Fixed
 
 - Fixed a `NullReferenceException` when importing projects whose elements, boards, components, or branches omit empty lists (for example, an ending element with no `outputs` or an element without `components`). Missing or `null` lists are now treated as empty.
-- Fixed project imports hanging on "Importing Project..." when parsing fails. Parse errors are now logged and reported through `ImportProject`'s `onError` callback, and the inspector leaves its importing state.
+- Fixed `ImportProject` never calling `onError` when the import source is not configured or the json fails to parse, which could leave the inspector stuck on "Importing Project...". The inspector now also refreshes as soon as an import finishes.
 
 ## 3.0.0
 

@@ -407,8 +407,9 @@ namespace Arcweave.Project
             }
 
             if ( HasProperty(source, id, "assets.cover.id", out coverSource) ) {
-                coverSource = jproject["assets." + coverSource.AsString + ".name"];
-                return new Cover(Cover.Type.Image, coverSource.AsString);
+                var assetId = coverSource.AsString;
+                coverSource = jproject["assets." + assetId + ".name"];
+                return new Cover(Cover.Type.Image, coverSource.AsString, assetId);
             }
 
             if ( HasProperty(source, id, "assets.cover.url", out coverSource) ) {
