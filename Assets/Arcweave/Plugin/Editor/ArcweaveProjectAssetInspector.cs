@@ -57,10 +57,12 @@ namespace Arcweave
                     isImporting = false;
                     EditorUtility.SetDirty(aw);
                     AssetDatabase.SaveAssetIfDirty(aw);
+                    Repaint();
                 },
                 (error) =>
                 {
                     isImporting = false;
+                    Repaint();
                 });
             }
             GUI.enabled = true;

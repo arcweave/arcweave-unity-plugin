@@ -24,7 +24,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- Fixed `ImportProject` never calling `onError` when the import source is not configured or the json fails to parse, which could leave the inspector stuck on "Importing Project...".
+- Fixed a `NullReferenceException` when importing projects whose elements, boards, components, or branches omit empty lists (for example, an ending element with no `outputs` or an element without `components`). Missing or `null` lists are now treated as empty.
+- Fixed `ImportProject` never calling `onError` when the import source is not configured or the json fails to parse, which could leave the inspector stuck on "Importing Project...". The inspector now also refreshes as soon as an import finishes.
 
 ## 3.0.0
 

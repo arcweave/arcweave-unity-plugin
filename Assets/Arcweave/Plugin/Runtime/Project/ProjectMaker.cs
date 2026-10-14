@@ -94,9 +94,9 @@ namespace Arcweave.Project
 
             var name = GetProp(jboards, id, "name")?.AsString;
             var boardNodes = new List<INode>();
-            foreach ( var key in GetProp(jboards, id, "elements").AsList ) { boardNodes.Add(TryMakeElement(key.AsString)); }
-            foreach ( var key in GetProp(jboards, id, "branches").AsList ) { boardNodes.Add(TryMakeBranch(key.AsString)); }
-            foreach ( var key in GetProp(jboards, id, "jumpers").AsList ) { boardNodes.Add(TryMakeJumper(key.AsString)); }
+            foreach ( var key in GetList(jboards, id, "elements") ) { boardNodes.Add(TryMakeElement(key.AsString)); }
+            foreach ( var key in GetList(jboards, id, "branches") ) { boardNodes.Add(TryMakeBranch(key.AsString)); }
+            foreach ( var key in GetList(jboards, id, "jumpers") ) { boardNodes.Add(TryMakeJumper(key.AsString)); }
 
             foreach ( var branch in boardNodes.OfType<Branch>().ToArray() ) {
                 foreach ( var condition in branch.Conditions ) {
@@ -105,7 +105,7 @@ namespace Arcweave.Project
             }
 
             var boardNotes = new List<Note>();
-            foreach ( var key in GetProp(jboards, id, "notes").AsList ) { boardNotes.Add(TryMakeNote(key.AsString)); }
+            foreach ( var key in GetList(jboards, id, "notes") ) { boardNotes.Add(TryMakeNote(key.AsString)); }
 
             var boardAttributes = new List<Attribute>();
             if ( HasProperty(jboards, id, "attributes", out var attributeids) && attributeids.IsList ) {
@@ -145,23 +145,19 @@ namespace Arcweave.Project
                 var content = GetProp(jelements, id, "content")?.AsString;
                 var theme = GetProp(jelements, id, "theme")?.AsString;
                 var outputs = new List<Connection>();
-                var outputids = GetProp(jelements, id, "outputs");
-                foreach ( var connectionid in outputids.AsList ) {
+                foreach ( var connectionid in GetList(jelements, id, "outputs") ) {
                     outputs.Add(TryMakeConnection(connectionid.AsString));
                 }
 
                 var components = new List<Component>();
-                var componentids = GetProp(jelements, id, "components");
-                foreach ( var componentid in componentids.AsList ) {
+                foreach ( var componentid in GetList(jelements, id, "components") ) {
                     var component = TryMakeComponent(componentid.AsString);
                     if ( component != null ) components.Add(component); //null = has children
                 }
 
                 var attributes = new List<Attribute>();
-                if ( HasProperty(jelements, id, "attributes", out var attributeids) ) {
-                    foreach ( var attributeid in attributeids.AsList ) {
-                        attributes.Add(TryMakeAttribute(attributeid.AsString));
-                    }
+                foreach ( var attributeid in GetList(jelements, id, "attributes") ) {
+                    attributes.Add(TryMakeAttribute(attributeid.AsString));
                 }
 
                 var cover = MakeCover(jelements, id);
@@ -195,14 +191,13 @@ namespace Arcweave.Project
                 var ifConditionid = GetProp(jbranches, id, "conditions.ifCondition")?.AsString;
                 conditions.Add((Condition)TryMakeCondition(ifConditionid));
 
-                if ( HasProperty(jbranches, id, "conditions.elseIfConditions", out var elseIfids) ) {
-                    foreach ( var elseIfid in elseIfids.AsList ) {
-                        conditions.Add((Condition)TryMakeCondition(elseIfid.AsString));
-                    }
+                foreach ( var elseIfid in GetList(jbranches, id, "conditions.elseIfConditions") ) {
+                    conditions.Add((Condition)TryMakeCondition(elseIfid.AsString));
                 }
 
-                if ( HasProperty(jbranches, id, "conditions.elseCondition", out var elseid) ) {
-                    conditions.Add((Condition)TryMakeCondition(elseid.AsString));
+                var elseid = GetProp(jbranches, id, "conditions.elseCondition")?.AsString;
+                if ( !string.IsNullOrEmpty(elseid) ) {
+                    conditions.Add((Condition)TryMakeCondition(elseid));
                 }
                 var theme = GetProp(jbranches, id, "theme")?.AsString;
                 ( node as Branch ).Set(id, pos, conditions, theme);
@@ -260,8 +255,7 @@ namespace Arcweave.Project
                 var name = GetProp(jcomponents, id, "name")?.AsString;
                 var customId = GetProp(jcomponents, id, "customId")?.AsString;
                 var attributes = new List<Attribute>();
-                var attributeids = GetProp(jcomponents, id, "attributes").AsList;
-                foreach ( var attributeid in attributeids ) {
+                foreach ( var attributeid in GetList(jcomponents, id, "attributes") ) {
                     attributes.Add(TryMakeAttribute(attributeid.AsString));
                 }
                 var cover = MakeCover(jcomponents, id);
@@ -298,8 +292,7 @@ namespace Arcweave.Project
                 if ( jtype == "component-list" ) {
                     type = IAttribute.DataType.ComponentList;
                     var componentList = new List<Component>();
-                    var componentids = GetProp(jattributes, id, "value.data").AsList;
-                    foreach ( var componentid in componentids ) {
+                    foreach ( var componentid in GetList(jattributes, id, "value.data") ) {
                         var component = TryMakeComponent(componentid.AsString);
                         if ( component != null ) { componentList.Add(component); } //null = has children
                     }
@@ -477,6 +470,12 @@ namespace Arcweave.Project
         fsData GetProp(fsData source, string id, string propertyPath) {
             var result = source[id + '.' + propertyPath];
             return result == null || result.IsNull ? null : result;
+        }
+
+        //missing, null or non-array properties are treated as empty lists, since exports may omit empty arrays
+        List<fsData> GetList(fsData source, string id, string propertyPath) {
+            var result = GetProp(source, id, propertyPath);
+            return result != null && result.IsList ? result.AsList : new List<fsData>();
         }
 
         //...
