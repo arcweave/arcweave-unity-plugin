@@ -124,9 +124,9 @@ namespace Arcweave.Project
             var result = GetCoverImage();
             return result != null ? result : GetFirstComponentCoverImage();
         }
-        ///<summary>Returns a Texture2D asset by the same image name as the one used in Arcweave and loaded from a "Resources" asset folder.</summary>
+        ///<summary>Returns the cover image downloaded from Arcweave's web API, otherwise a Texture2D asset by the same image name as the one used in Arcweave loaded from a "Resources" asset folder.</summary>
         public Texture2D GetCoverImage() => cover?.ResolveImage();
-        ///<summary>Returns a Texture2D asset of the first component attached to the element by the same image name as the one used in Arcweave and loaded from a "Resources" asset folder.</summary>
+        ///<summary>Returns the cover image of the first component attached to the element, resolved the same way as GetCoverImage.</summary>
         public Texture2D GetFirstComponentCoverImage() => Components != null && Components.Count > 0 ? Components[0].GetCoverImage() : null;
 
         public AudioAsset[] GetAudioAssets()

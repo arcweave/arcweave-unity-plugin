@@ -85,6 +85,24 @@ namespace Arcweave.Project
 
         ///----------------------------------------------------------------------------------------------
 
+        ///<summary>Enumerates the image covers that use an Arcweave asset, of elements, their components and project components.</summary>
+        internal IEnumerable<Cover> GetAssetCovers() {
+            var elements = Boards.SelectMany(board => board.Nodes.OfType<Element>()).ToList();
+            return elements.Select(element => element.cover)
+                .Concat(elements.SelectMany(element => element.Components ?? new List<Component>()).Select(component => component.cover))
+                .Concat((Components ?? new List<Component>()).Select(component => component.cover))
+                .Where(cover => cover != null && cover.type == Cover.Type.Image && !string.IsNullOrEmpty(cover.assetId) && !string.IsNullOrEmpty(cover.filePath));
+        }
+
+        ///<summary>Enumerates the audio assets of elements that use an Arcweave asset.</summary>
+        internal IEnumerable<AudioAsset> GetAssetAudio() {
+            return Boards.SelectMany(board => board.Nodes.OfType<Element>())
+                .SelectMany(element => element.AudioAssets ?? new AudioAsset[0])
+                .Where(audioAsset => audioAsset != null && !string.IsNullOrEmpty(audioAsset.asset) && !string.IsNullOrEmpty(audioAsset.name));
+        }
+
+        ///----------------------------------------------------------------------------------------------
+
         ///<summary>Returns the Board with id.</summary>
         public Board BoardWithID(string id) => Boards.FirstOrDefault(x => x.Id == id);
         ///<summary>Returns the Board with name.</summary>

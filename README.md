@@ -73,6 +73,8 @@ You will need:
 - Your Team workspace **API key** (found in your Workspace's API section).
 - Your **project hash** (found in Project Properties).
 
+Importing from web can also download the images and audio your project uses (see [Media Downloaded from Web](#media-downloaded-from-web)), so you don't need to copy them into a `Resources` folder.
+
 See the [Arcweave API Documentation](https://docs.arcweave.com/integrations/web-api) for details.
 
 ---
@@ -91,9 +93,21 @@ To import your data into Unity:
 Choose your import source:
 
 - **From Json**: Drag your `project.json` file into the "Project Json File" field.
-- **From Web**: Enter your **API Key** and **Project Hash**.
+- **From Web**: Enter your **API Key** and **Project Hash**. Optionally enable **Download Media** to download the project's images and audio.
 
 Click the **Import Project** button to begin the import.
+
+### Media Downloaded from Web
+
+**Download Media** is disabled by default, so your project only relies on media downloaded from Arcweave if you choose to. When it is enabled, importing from web in the Unity Editor downloads every image used as an element or component cover and every audio file attached to an element through Arcweave's web API. The first import saves the files in a `<Project Asset Name> Media` folder next to the project asset, named after their Arcweave asset ids, and links them to the imported project, so they are included in builds without a `Resources` folder.
+
+- Each import refreshes the media: changed files are updated in place and files the project no longer uses are deleted. The importer only overwrites or deletes files it downloaded for that project asset, so you can move or rename the folder and its files. A duplicated project asset downloads its own copy of the media.
+- If a file fails to download, the import continues, keeps any previously downloaded copy of that file, and logs a warning.
+- Unity cannot import some formats Arcweave accepts (`.webp` images and `.webm` audio). These are skipped with a warning.
+- Media downloads count towards your workspace's API rate limit. When the limit is reached, the importer waits up to a minute and tries each media download again, up to five attempts in total, so importing projects with lots of media can take a while. Click **Cancel** on the progress bar to stop downloading; media that was not downloaded keeps its previous copy.
+- Media is only downloaded in the Unity Editor, including when `ArcweavePlayer` imports the project on Play. Reimporting in a built player keeps the media downloaded in the editor for the assets the project still uses.
+
+Leave **Download Media** disabled to provide images and audio yourself in a `Resources` folder, as described below. Disabling it later doesn't delete downloaded files, but the next import no longer uses them.
 
 After successful import, the Inspector displays:
 - The project name
@@ -131,7 +145,7 @@ Without this step, UI interactions (buttons, clicks) will not work in Unity 6+.
 
 ### Adding Image Assets
 
-If your Arcweave project uses images:
+Images are downloaded when importing from web with **Download Media** enabled. Otherwise:
 
 1. Create a `Resources` folder in your Unity project (if it doesn't exist).
 2. Copy your image files into the `Resources` folder.
@@ -142,7 +156,7 @@ The plugin loads images dynamically using `Resources.Load()`.
 
 ### Adding Audio Assets
 
-If your Arcweave project uses audio:
+Audio is downloaded when importing from web with **Download Media** enabled. Otherwise:
 
 1. Create a `Resources` folder in your Unity project (if it doesn't exist).
 2. Copy your audio files into the `Resources` folder.
@@ -390,8 +404,8 @@ A narrative node containing dialogue content.
 | `bool HasContent()` | Check if element has content |
 | `bool HasComponent(string name)` | Check if element has component by name |
 | `bool TryGetComponent(string name, out Component c)` | Try to get component by name |
-| `Texture2D GetCoverImage()` | Load cover image from Resources |
-| `Texture2D GetFirstComponentCoverImage()` | Load first component's cover image |
+| `Texture2D GetCoverImage()` | Get the downloaded cover image or load it from Resources |
+| `Texture2D GetFirstComponentCoverImage()` | Get first component's cover image |
 | `Texture2D GetCoverOrFirstComponentImage()` | Get cover or fallback to component image |
 | `AudioAsset[] GetAudioAssets()` | Get all audio assets attached to this element |
 
@@ -505,7 +519,7 @@ Character or entity definition. **Not a Unity MonoBehaviour.**
 
 | Method | Description |
 |--------|-------------|
-| `Texture2D GetCoverImage()` | Load cover image from Resources |
+| `Texture2D GetCoverImage()` | Get the downloaded cover image or load it from Resources |
 
 ---
 
@@ -560,12 +574,14 @@ Image or video reference.
 |----------|------|-------------|
 | `type` | Cover.Type | Image, Youtube, or Undefined |
 | `filePath` | string | Asset filename |
+| `assetId` | string | Arcweave asset id |
+| `downloadedImage` | Texture2D | Image downloaded when importing from web |
 
 #### Methods
 
 | Method | Description |
 |--------|-------------|
-| `Texture2D ResolveImage()` | Load image from Resources folder |
+| `Texture2D ResolveImage()` | Return the downloaded image, otherwise load it from a Resources folder |
 
 ---
 
@@ -647,7 +663,7 @@ Event-driven narrative player (demo helper class).
 
 5. **Scoped variables require scope**: `Project.GetVariable("health")` only searches project/global variables. Pass the owning board or component `CustomId` to access a scoped variable.
 
-6. **Images and Audio clips must be in Resources folder**: Cover images and Audio clips are loaded via `Resources.Load<T>()`. Place them in any `Resources` folder and ensure filenames match (without extension).
+6. **Images and Audio clips come from web imports or a Resources folder**: Importing from web with **Download Media** enabled downloads cover images and audio clips. Otherwise they are loaded via `Resources.Load<T>()`, so place them in any `Resources` folder and ensure filenames match (without extension).
 
 7. **Components are not MonoBehaviours**: Arcweave Components represent characters/entities in your narrative, not Unity components.
 
@@ -674,6 +690,7 @@ Unity 6 requires the new Input System for UI interactions.
 **Problem:** `TryGetAudioClip()` returns null.
 
 **Solution:**
+- If you import from web, check the Console for download warnings and confirm **Download Media** is enabled
 - Ensure audio files are in a folder named exactly `Resources` (case-sensitive)
 - Verify the filename in your Arcweave project matches the file on disk (the plugin strips the extension automatically)
 - Confirm the audio format is supported by Unity (e.g. `.wav`, `.mp3`, `.ogg`)
@@ -683,6 +700,7 @@ Unity 6 requires the new Input System for UI interactions.
 **Problem:** `GetCoverImage()` returns null.
 
 **Solution:**
+- If you import from web, check the Console for download warnings and confirm **Download Media** is enabled
 - Ensure images are in a folder named exactly `Resources` (case-sensitive)
 - Verify the filename matches (without extension)
 - Check the image's Texture Type is set to **Default** in Import Settings

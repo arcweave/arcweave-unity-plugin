@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -23,6 +24,27 @@ namespace Arcweave
         public string locale;
 
         [HideInInspector] public bool fallbackLocales = false;
+
+        ///<summary>Download the images and audio the project uses when importing from web in the editor, and link them to the project.
+        /// Disabled by default. When disabled, media is resolved by name from a 'Resources' folder.</summary>
+        [HideInInspector] public bool downloadMedia = false;
+
+        // Media downloaded by web imports, tracked by GUID so it can be refreshed and cleaned up after moves and renames.
+        // The owner GUID detects duplicated project assets, which must not manage the original asset's media.
+        [Serializable]
+        internal struct DownloadedMedia
+        {
+            public string assetId;
+            public string guid;
+
+            public DownloadedMedia(string assetId, string guid) {
+                this.assetId = assetId;
+                this.guid = guid;
+            }
+        }
+        [SerializeField, HideInInspector] internal string mediaOwnerGuid = "";
+        [SerializeField, HideInInspector] internal string mediaFolderGuid = "";
+        [SerializeField, HideInInspector] internal List<DownloadedMedia> downloadedMedia = new List<DownloadedMedia>();
 
         [field: SerializeField, HideInInspector]
         public Project.Project Project { get; private set; }
@@ -93,8 +115,48 @@ namespace Arcweave
                 json = await FetchProjectJson();
             }
 
-            Project = await MakeProject(json);
+            var project = await MakeProject(json);
+            // The media is linked before the project is published, so nothing can start playing it without its media.
+            await LinkMedia(project);
+            Project = project;
             Debug.Log("Done");
+        }
+
+        //...
+        Task LinkMedia(Project.Project project) {
+            if ( !downloadMedia ) {
+                return Task.CompletedTask;
+            }
+#if UNITY_EDITOR
+            // Media is saved next to the project asset, so an instance that is not saved as an asset can't download it
+            if ( importSource == ImportSource.FromWeb && UnityEditor.EditorUtility.IsPersistent(this) ) {
+                return ArcweaveMediaDownloader.DownloadAsync(this, project);
+            }
+#endif
+            // Media can only be downloaded in the editor for a saved asset, so other imports, eg. in a player, keep the media of the previous import.
+            CarryOverMedia(Project, project);
+            return Task.CompletedTask;
+        }
+
+        ///<summary>Links the media of the previous project to the covers and audio of the new one that use the same Arcweave asset.</summary>
+        static void CarryOverMedia(Project.Project previous, Project.Project project) {
+            if ( previous == null || previous.Boards == null ) {
+                return;
+            }
+            var images = new Dictionary<string, Texture2D>();
+            foreach ( var cover in previous.GetAssetCovers() ) {
+                if ( cover.downloadedImage != null ) { images[cover.assetId] = cover.downloadedImage; }
+            }
+            var clips = new Dictionary<string, AudioClip>();
+            foreach ( var audioAsset in previous.GetAssetAudio() ) {
+                if ( audioAsset.downloadedClip != null ) { clips[audioAsset.asset] = audioAsset.downloadedClip; }
+            }
+            foreach ( var cover in project.GetAssetCovers() ) {
+                if ( images.TryGetValue(cover.assetId, out var image) ) { cover.downloadedImage = image; }
+            }
+            foreach ( var audioAsset in project.GetAssetAudio() ) {
+                if ( clips.TryGetValue(audioAsset.asset, out var clip) ) { audioAsset.downloadedClip = clip; }
+            }
         }
 
         //...
@@ -109,12 +171,15 @@ namespace Arcweave
             });
         }
 
+        ///<summary>The base url of Arcweave's web API. Virtual so tests can replace the network.</summary>
+        protected internal virtual string ApiUrl => "https://arcweave.com/api/";
+
         ///<summary>Downloads the project json. Virtual so tests can replace the network.</summary>
         protected virtual Task<string> FetchProjectJson() {
             Debug.Log("Sending Web Request...");
             var result = new TaskCompletionSource<string>();
 
-            UriBuilder builder = new UriBuilder("https://arcweave.com/api/");
+            UriBuilder builder = new UriBuilder(ApiUrl);
             builder.Path += projectHash + "/unity";
             if (locale != null && locale.Length > 0)
             {

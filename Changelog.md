@@ -8,10 +8,13 @@ All notable changes to this project will be documented in this file.
 
 - Added `ArcweaveProjectAsset.ImportProjectAsync()`, `EnsureImportedAsync()`, `IsImported` and `IsImporting`. Concurrent imports of the same asset share a single download and parse.
 - Added `ArcweavePlayer.PlayProjectAsync()`. Overlapping calls, including calls made from the player's own event handlers or import callbacks, share one pending start, so the project only starts once.
+- Added optional media downloads for web imports in the Unity Editor. With the new **Download Media** inspector toggle enabled, importing from web downloads the cover images and audio the project uses through Arcweave's web API into a `<Project Asset Name> Media` folder and links them to the project, so they don't need to be copied into a `Resources` folder. The toggle is disabled by default, including for existing project assets, so projects only rely on media downloaded from Arcweave when you enable it.
+- Added `Cover.assetId`, `Cover.downloadedImage`, and `AudioAsset.downloadedClip`.
 
 ### Changed
 
 - `ArcweavePlayer.PlayProject()` now imports the project first when the asset has not been imported yet.
+- `Cover.ResolveImage()` and `AudioAsset.TryGetAudioClip()` return the downloaded media when available and fall back to `Resources.Load<T>()` otherwise. With **Download Media** enabled, downloaded media takes priority over files with the same name in a `Resources` folder.
 - Renamed the project-level variable list to `Project.GlobalVariables` to distinguish it from board and component variables. Use `GetAllVariables()` to enumerate every scope.
 - Preserved global variables in previously imported Unity assets when migrating the serialized property name.
 
