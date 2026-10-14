@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Added `ArcweavePlayer.PlayProjectAsync()`. Overlapping calls, including calls made from the player's own event handlers or import callbacks, share one pending start, so the project only starts once.
 - Added optional media downloads for web imports in the Unity Editor. With the new **Download Media** inspector toggle enabled, importing from web downloads the cover images and audio the project uses through Arcweave's web API into a `<Project Asset Name> Media` folder and links them to the project, so they don't need to be copied into a `Resources` folder. The toggle is disabled by default, including for existing project assets, so projects only rely on media downloaded from Arcweave when you enable it.
 - Added `Cover.assetId`, `Cover.downloadedImage`, and `AudioAsset.downloadedClip`.
+- GitHub releases now include `ArcweaveForUnity.unitypackage` and `ArcweaveForUnity.zip`, which contain only the plugin, its demo and its license.
 
 ### Changed
 

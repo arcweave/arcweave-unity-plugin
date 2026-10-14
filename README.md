@@ -25,11 +25,13 @@ Choose one of the following methods:
 
 The bundled demo uses the Unity UI package. If your project does not already include it, install **Unity UI** (`com.unity.ugui`, version `2.0.0` or a compatible production release) from **Window > Package Manager** before importing the plugin. New Unity 6000.5 projects do not include this package by default, and the demo scripts cannot compile without it.
 
-### Method 1: Manual Installation from GitHub - Recommended
+### Method 1: Unity Package from GitHub - Recommended
 
-1. Download this repository as a ZIP file from [GitHub](https://github.com/arcweave/arcweave-unity-plugin/archive/refs/heads/main.zip)
-2. Extract the ZIP file
-3. Copy the `/Assets/Arcweave` folder into your Unity project's `Assets` folder
+1. Download [`ArcweaveForUnity.unitypackage`](https://github.com/arcweave/arcweave-unity-plugin/releases/latest/download/ArcweaveForUnity.unitypackage) from the latest [GitHub release](https://github.com/arcweave/arcweave-unity-plugin/releases/latest)
+2. In Unity, go to **Assets > Import Package > Custom Package** and select the downloaded file
+3. Click **Import**. You can untick the `Demo` folder if you don't need the demo scene
+
+Alternatively, download [`ArcweaveForUnity.zip`](https://github.com/arcweave/arcweave-unity-plugin/releases/latest/download/ArcweaveForUnity.zip), extract it, and copy the `Arcweave` folder into your Unity project's `Assets` folder.
 
 ### Method 2: Unity Asset Store
 
