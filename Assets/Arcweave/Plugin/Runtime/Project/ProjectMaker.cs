@@ -34,6 +34,7 @@ namespace Arcweave.Project
         private Dictionary<string, Attribute> attributes;
         private Dictionary<string, Variable> variables;
         private Dictionary<string, Note> notes;
+        private HashSet<string> reportedMissing = new HashSet<string>();
 
         public ProjectMaker(string json, ArcweaveProjectAsset projectAsset) {
 
@@ -77,8 +78,16 @@ namespace Arcweave.Project
             var projVariables = new List<Variable>();
             foreach ( var key in jboards.AsDictionary.Keys ) {
                 var board = TryMakeBoard(key);
-                if ( board != null ) { projBoards.Add(board); } //null = has children
+                if ( board != null ) { projBoards.Add(board); } //null = has children or missing
             }
+
+            // Only nodes on an imported board are initialized, so the story must not start or lead anywhere else
+            var boardNodes = new HashSet<INode>(projBoards.SelectMany(board => board.Nodes));
+            if ( !boardNodes.Contains(startElement) ) {
+                throw new System.InvalidOperationException($"The project's starting element '{startElementid}' is not on any imported board.");
+            }
+            DetachTargetsOutsideBoards(boardNodes);
+
             foreach ( var key in jcomponents.AsDictionary.Keys ) {
                 var component = TryMakeComponent(key);
                 if ( component != null ) { projComponents.Add(component); } //null = has children
@@ -91,11 +100,33 @@ namespace Arcweave.Project
             return new Project(name, startElement, projBoards, projComponents, projVariables);
         }
 
+        //connections and jumpers can lead to nodes that exist but are not on an imported board, eg. when an export leaves out some boards
+        void DetachTargetsOutsideBoards(HashSet<INode> boardNodes) {
+            // Connections and jumpers that are not on an imported board can't be reached, so only the ones that are matter
+            foreach ( var connection in connections.Values ) {
+                if ( connection.Source != null && !boardNodes.Contains(connection.Source) ) { continue; }
+                if ( connection.Target == null ) {
+                    Debug.LogWarning($"Arcweave import: connection '{connection.Id}' has no target, so it leads nowhere.");
+                }
+                else if ( !boardNodes.Contains(connection.Target) ) {
+                    Debug.LogWarning($"Arcweave import: connection '{connection.Id}' leads to '{connection.Target.Id}', which is not on any imported board, so it leads nowhere.");
+                    connection.Set(connection.RawLabel, connection.Source, null);
+                }
+            }
+            foreach ( var jumper in boardNodes.OfType<Jumper>() ) {
+                if ( jumper.Target != null && !boardNodes.Contains(jumper.Target) ) {
+                    Debug.LogWarning($"Arcweave import: jumper '{jumper.Id}' leads to '{jumper.Target.Id}', which is not on any imported board, so it leads nowhere.");
+                    jumper.Set(jumper.Id, jumper.Pos, null);
+                }
+            }
+        }
+
         ///----------------------------------------------------------------------------------------------
 
         //...
         Board TryMakeBoard(string id) {
 
+            if ( !Exists(jboards, id, "board") ) { return null; }
             if ( HasChildren(jboards, id) ) { return null; }
 
             var name = GetProp(jboards, id, "name")?.AsString;
@@ -249,9 +280,6 @@ namespace Arcweave.Project
                 if ( targetType == "branches" ) { target = TryMakeBranch(targetid); }
                 if ( targetType == "jumpers" ) { target = TryMakeJumper(targetid); }
                 if ( targetType == "conditions" ) { target = TryMakeCondition(targetid); } //not used?
-                if ( target == null ) {
-                    Debug.LogWarning($"Arcweave import: connection '{id}' has no target, so it never leads anywhere.");
-                }
                 connection.Set(label, source, target);
             }
             return connection;
@@ -335,6 +363,7 @@ namespace Arcweave.Project
         //...
         Variable TryMakeVariable(string id) {
 
+            if ( !Exists(jvariables, id, "variable") ) { return null; }
             if ( HasChildren(jvariables, id) ) { return null; }
             if ( variables.TryGetValue(id, out var existingVariable) ) { return existingVariable; }
 
@@ -521,7 +550,10 @@ namespace Arcweave.Project
         //an id can point to an item that is not in the project, eg. an element of a board that was left out of the export
         bool Exists(fsData source, string id, string kind) {
             if ( GetProp(source, id) != null ) { return true; }
-            Debug.LogWarning($"Arcweave import: {kind} '{id}' was not found in the project, so it is skipped.");
+            // An item can be referenced many times, eg. by every jumper to an element of a board that was left out
+            if ( reportedMissing.Add(kind + ' ' + id) ) {
+                Debug.LogWarning($"Arcweave import: {kind} '{id}' was not found in the project, so it is skipped.");
+            }
             return false;
         }
 

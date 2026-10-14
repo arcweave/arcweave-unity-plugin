@@ -38,31 +38,48 @@ namespace Arcweave.Tests
             var project = Import(@"{
                 ""name"": ""Null Values Test"",
                 ""startingElement"": ""start"",
-                ""boards"": { ""main"": { ""name"": ""Main"", ""children"": null, ""elements"": [""start""], ""attributes"": [""title""] } },
-                ""elements"": { ""start"": { ""title"": ""Start"", ""components"": [""hero""], ""outputs"": [null],
+                ""boards"": {
+                    ""main"": { ""name"": ""Main"", ""children"": null, ""elements"": [""start""], ""attributes"": [""title""] },
+                    ""folder"": { ""name"": ""Empty Folder"", ""children"": [] },
+                    ""missing-board"": null
+                },
+                ""elements"": { ""start"": { ""title"": ""Start"", ""components"": [""hero"", ""villain""], ""outputs"": [null],
                     ""assets"": { ""cover"": { ""file"": null, ""id"": null, ""url"": null }, ""audio"": null } } },
-                ""components"": { ""hero"": { ""name"": ""Hero"", ""children"": null, ""assets"": { ""cover"": { ""id"": ""portrait"" } } } },
+                ""components"": {
+                    ""hero"": { ""name"": ""Hero"", ""children"": null, ""assets"": { ""cover"": { ""id"": ""portrait"" } } },
+                    ""villain"": { ""name"": ""Villain"", ""assets"": { ""cover"": { ""id"": ""nameless"" } } },
+                    ""group"": { ""name"": ""Empty Folder"", ""children"": [] }
+                },
                 ""attributes"": { ""title"": { ""name"": ""Title"", ""cType"": ""boards"", ""cId"": ""main"", ""value"": { ""type"": ""string"", ""plain"": null, ""data"": null } } },
-                ""variables"": { ""coins"": { ""name"": ""coins"", ""type"": ""integer"", ""value"": null } },
-                ""assets"": { ""portrait"": { ""name"": ""Portrait.png"", ""type"": ""image"", ""volume"": null } }
+                ""variables"": { ""coins"": { ""name"": ""coins"", ""type"": ""integer"", ""value"": null }, ""missing-variable"": null },
+                ""assets"": {
+                    ""portrait"": { ""name"": ""Portrait.png"", ""type"": ""image"", ""volume"": null },
+                    ""nameless"": { ""name"": null, ""type"": ""image"" }
+                }
             }");
 
-            // 'children: null' is not a folder
+            // 'children: null' is not a folder, but 'children: []' is an empty folder
             var board = project.Boards.Single();
             var start = board.NodeWithID<Element>("start");
-            Assert.That(project.Components.Single().Name, Is.EqualTo("Hero"));
-            Assert.That(start.Components.Single(), Is.SameAs(project.Components.Single()));
+            var hero = project.Components.Single(component => component.Name == "Hero");
+            var villain = project.Components.Single(component => component.Name == "Villain");
+            Assert.That(project.Components, Is.EquivalentTo(new[] { hero, villain }));
+            Assert.That(start.Components, Is.EqualTo(new[] { hero, villain }));
 
             // missing coordinates default to 0
             Assert.That(start.Pos, Is.EqualTo(Vector2Int.zero));
             Assert.That(start.Outputs, Is.Empty);
             Assert.That(start.cover, Is.Null);
             Assert.That(start.AudioAssets, Is.Null);
-            Assert.That(project.Components.Single().cover.filePath, Is.EqualTo("Portrait.png"));
+            Assert.That(hero.cover.filePath, Is.EqualTo("Portrait.png"));
+            Assert.That(villain.cover, Is.Null);
             Assert.That(board.Attributes.Single().Type, Is.EqualTo(IAttribute.DataType.StringRichText));
 
             Assert.That(project.GlobalVariables.Single().Value, Is.EqualTo(0));
             Assert.That(warnings, Has.Some.Contains("variable 'coins' has no value"));
+            Assert.That(warnings, Has.Some.Contains("variable 'missing-variable' was not found"));
+            Assert.That(warnings, Has.Some.Contains("board 'missing-board' was not found"));
+            Assert.That(warnings, Has.Some.Contains("asset 'nameless'"));
         }
 
         [Test]
@@ -114,11 +131,84 @@ namespace Arcweave.Tests
                 "connection 'to-nowhere' has no target", "asset 'ghost-asset'" } ) {
                 Assert.That(warnings, Has.Some.Contains(warning));
             }
+            // 'ghost-target' is referenced by both the jumper and 'to-nowhere', but reported once
+            Assert.That(warnings.Count(warning => warning.Contains("element 'ghost-target'")), Is.EqualTo(1));
 
             // Only the paths that lead to an element are options: directly and through the branch's else condition
             project.Initialize();
             var options = start.GetOptions();
             Assert.That(options.Paths.Select(path => path.TargetElement), Is.EqualTo(new[] { end, end }));
+        }
+
+        [Test]
+        public void TargetsThatAreNotOnAnImportedBoardLeadNowhere()
+        {
+            // 'elsewhere' is in the project, but its board was left out of the export
+            var project = Import(@"{
+                ""name"": ""Left Out Board Test"",
+                ""startingElement"": ""start"",
+                ""boards"": { ""main"": { ""name"": ""Main"", ""elements"": [""start""], ""jumpers"": [""jumper""] } },
+                ""elements"": {
+                    ""start"": { ""x"": 0, ""y"": 0, ""title"": ""Start"", ""outputs"": [""to-elsewhere"", ""to-jumper""] },
+                    ""elsewhere"": { ""x"": 0, ""y"": 0, ""title"": ""Elsewhere"", ""outputs"": [""elsewhere-to-nowhere""] }
+                },
+                ""jumpers"": { ""jumper"": { ""x"": 100, ""y"": 0, ""elementId"": ""elsewhere"" } },
+                ""connections"": {
+                    ""to-elsewhere"": { ""sourceid"": ""start"", ""sourceType"": ""elements"", ""targetid"": ""elsewhere"", ""targetType"": ""elements"" },
+                    ""to-jumper"": { ""sourceid"": ""start"", ""sourceType"": ""elements"", ""targetid"": ""jumper"", ""targetType"": ""jumpers"" },
+                    ""elsewhere-to-nowhere"": { ""sourceid"": ""elsewhere"", ""sourceType"": ""elements"", ""targetid"": ""ghost"", ""targetType"": ""elements"" }
+                }
+            }");
+
+            var board = project.Boards.Single();
+            var start = board.NodeWithID<Element>("start");
+            Assert.That(start.Outputs.Single(output => output.Id == "to-elsewhere").Target, Is.Null);
+            Assert.That(board.NodeWithID<Jumper>("jumper").Target, Is.Null);
+            Assert.That(warnings, Has.Some.Contains("connection 'to-elsewhere' leads to 'elsewhere', which is not on any imported board"));
+            Assert.That(warnings, Has.Some.Contains("jumper 'jumper' leads to 'elsewhere', which is not on any imported board"));
+            // Connections that can't be reached are not reported
+            Assert.That(warnings, Has.None.Contains("connection 'elsewhere-to-nowhere'"));
+
+            project.Initialize();
+            Assert.That(start.GetOptions().hasPaths, Is.False);
+        }
+
+        [Test]
+        public void BranchWithoutAnIfConditionUsesItsOtherConditions()
+        {
+            var project = Import(@"{
+                ""name"": ""No If Test"",
+                ""startingElement"": ""start"",
+                ""boards"": { ""main"": { ""name"": ""Main"", ""elements"": [""start"", ""end""], ""branches"": [""branch""] } },
+                ""elements"": {
+                    ""start"": { ""x"": 0, ""y"": 0, ""title"": ""Start"", ""outputs"": [""to-branch""] },
+                    ""end"": { ""x"": 200, ""y"": 0, ""title"": ""End"" }
+                },
+                ""branches"": { ""branch"": { ""x"": 100, ""y"": 0, ""conditions"": { ""ifCondition"": null, ""elseCondition"": ""else"" } } },
+                ""conditions"": { ""else"": { ""output"": ""else-to-end"" } },
+                ""connections"": {
+                    ""to-branch"": { ""sourceid"": ""start"", ""sourceType"": ""elements"", ""targetid"": ""branch"", ""targetType"": ""branches"" },
+                    ""else-to-end"": { ""sourceid"": ""else"", ""sourceType"": ""conditions"", ""targetid"": ""end"", ""targetType"": ""elements"" }
+                }
+            }");
+
+            var board = project.Boards.Single();
+            Assert.That(board.NodeWithID<Branch>("branch").Conditions.Single().Id, Is.EqualTo("else"));
+            Assert.That(warnings, Has.Some.Contains("branch 'branch' has no if condition"));
+
+            project.Initialize();
+            Assert.That(board.NodeWithID<Element>("start").GetOptions().Paths.Single().TargetElement, Is.SameAs(board.NodeWithID<Element>("end")));
+        }
+
+        [TestCase(@"""boards"": {}", TestName = "StartingElementWithoutBoardsFailsWithAClearMessage")]
+        [TestCase(@"""boards"": { ""main"": { ""name"": ""Main"", ""elements"": [] } }", TestName = "StartingElementThatIsNotOnABoardFailsWithAClearMessage")]
+        public void StartingElementThatIsNotOnAnImportedBoardFailsWithAClearMessage(string boards)
+        {
+            var json = @"{ ""name"": ""Left Out Start"", ""startingElement"": ""start"", " + boards + @",
+                ""elements"": { ""start"": { ""x"": 0, ""y"": 0, ""title"": ""Start"" } } }";
+
+            var exception = Assert.Throws<InvalidOperationException>(() => Import(json));
+            Assert.That(exception.Message, Is.EqualTo("The project's starting element 'start' is not on any imported board."));
         }
 
         [TestCase(@"null", "The project has no starting element", TestName = "ProjectWithoutAStartingElementFailsWithAClearMessage")]

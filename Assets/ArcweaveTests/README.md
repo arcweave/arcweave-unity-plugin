@@ -24,7 +24,7 @@ They cover media being disabled by default, the project being published only aft
 
 ## Incomplete project tests
 
-`Arcweave.Tests.IncompleteProjectTests` imports projects with `null` values, missing top-level collections, and ids of items that are not in the project, as when an export leaves out some boards. They check that these are skipped with a warning, that the remaining paths of the story still resolve, and that a project without a starting element fails with a clear message.
+`Arcweave.Tests.IncompleteProjectTests` imports projects with `null` values, missing top-level collections, and ids of items that are not in the project, as when an export leaves out some boards. They check that these are skipped with a warning reported once per missing item, that empty folders are still skipped, that connections and jumpers to items that are not on an imported board lead nowhere, that the remaining paths of the story still resolve, and that a project whose starting element is missing or not on an imported board fails with a clear message.
 
 ## Legacy fixture
 
