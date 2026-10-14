@@ -100,6 +100,10 @@ After successful import, the Inspector displays:
 - All global variables and their values
 - An **"Open Project Viewer"** button for viewing the project flowchart
 
+If you press Play before importing, `ArcweavePlayer` imports the project automatically. You can also import from code with `await aw.ImportProjectAsync()`, or `await aw.EnsureImportedAsync()` to import only when the asset has no playable project yet.
+
+> **Warning:** The API key is saved in the asset and ships with your build. Treat **From Web** as a development workflow and import the project in the editor before building, so your game doesn't need the API key or a network connection to start.
+
 
 ---
 

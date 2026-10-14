@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- Added `ArcweaveProjectAsset.ImportProjectAsync()`, `EnsureImportedAsync()`, `IsImported` and `IsImporting`. Concurrent imports of the same asset share a single download and parse.
+- Added `ArcweavePlayer.PlayProjectAsync()`. Overlapping calls, including calls made from the player's own event handlers or import callbacks, share one pending start, so the project only starts once.
+
+### Changed
+
+- `ArcweavePlayer.PlayProject()` now imports the project first when the asset has not been imported yet.
+
+### Fixed
+
+- Fixed `ImportProject` never calling `onError` when the import source is not configured or the json fails to parse, which could leave the inspector stuck on "Importing Project...".
+
 ## 3.0.0
 
 ### Added
