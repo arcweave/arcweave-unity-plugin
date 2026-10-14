@@ -22,7 +22,7 @@ namespace Arcweave.Project
         public INode Target { get; private set; }
 
         public bool isValid => !string.IsNullOrEmpty(Id);
-        public Project Project => Source.Project;
+        public Project Project => Source != null ? Source.Project : Target?.Project;
         // private System.Func<Project, string> runtimeLabelFunc { get; set; }
 
         public Connection(string id)
@@ -37,6 +37,8 @@ namespace Arcweave.Project
         }
 
         public Path ResolvePath(Path p) {
+            // A connection whose target was not found in the project leads nowhere
+            if ( Target == null ) { return Path.Invalid; }
             p.AppendConnection(this);
             RunLabelScript();
             if (RuntimeLabel != null)

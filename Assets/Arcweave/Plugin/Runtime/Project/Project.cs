@@ -52,7 +52,8 @@ namespace Arcweave.Project
             foreach ( var board in Boards ) {
                 board.InitializeInProject(this);
                 foreach ( var node in board.Nodes ) {
-                    node.InitializeInProject(this);
+                    // Projects imported before missing ids were skipped can contain null nodes
+                    node?.InitializeInProject(this);
                 }
             }
 

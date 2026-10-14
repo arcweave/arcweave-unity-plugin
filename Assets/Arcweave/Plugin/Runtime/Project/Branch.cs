@@ -35,7 +35,7 @@ namespace Arcweave.Project
         ///<summary>Returns the true condition.</summary>
         Condition GetTrueCondition() {
             foreach ( var condition in Conditions ) {
-                if ( condition.Evaluate() ) { return condition; }
+                if ( condition != null && condition.Evaluate() ) { return condition; }
             }
             return null;
         }
