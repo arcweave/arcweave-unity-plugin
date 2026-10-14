@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Changed
+
+- Renamed the project-level variable list to `Project.GlobalVariables` to distinguish it from board and component variables. Use `GetAllVariables()` to enumerate every scope.
+- Preserved global variables in previously imported Unity assets when migrating the serialized property name.
+
+### Deprecated
+
+- Deprecated `Project.Variables` in favor of `Project.GlobalVariables`, retaining it as an alias to the same list. The `IProject.Variables` contract remains compatible with existing callers and implementations.
+
 ## 3.0.0
 
 ### Added
