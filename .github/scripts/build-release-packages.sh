@@ -19,6 +19,10 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir "$work/src" "$work/package"
 
+# The packages only contain Assets/Arcweave, so they carry the license through a copy there.
+git diff --quiet "$ref:LICENSE" "$ref:Assets/Arcweave/LICENSE.txt" ||
+  { echo "Assets/Arcweave/LICENSE.txt differs from LICENSE" >&2; exit 1; }
+
 # Only committed files are packaged, so local untracked files never end up in a release.
 git archive --format=zip -o "$out_dir/$name.zip" "$ref:Assets" Arcweave Arcweave.meta
 git archive "$ref:Assets" Arcweave Arcweave.meta | tar -x -C "$work/src"
