@@ -1,0 +1,42 @@
+name: Release packages
+
+# Attaches ArcweaveForUnity.unitypackage and ArcweaveForUnity.zip to every published release.
+# The README and the marketing website link to them through
+# https://github.com/arcweave/arcweave-unity-plugin/releases/latest/download/<name>,
+# which serves the files of the release marked as Latest, so keep the file names stable.
+#
+# Running the workflow manually builds the packages from the selected branch and uploads
+# them as a workflow artifact, without touching any release.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build packages
+        run: bash .github/scripts/build-release-packages.sh HEAD dist
+
+      - name: Attach packages to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: >-
+          gh release upload "$TAG"
+          dist/ArcweaveForUnity.unitypackage dist/ArcweaveForUnity.zip
+          --repo "$GITHUB_REPOSITORY" --clobber
+
+      - name: Upload packages as a workflow artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ArcweaveForUnity
+          path: dist/
