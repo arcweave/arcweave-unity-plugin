@@ -21,6 +21,7 @@ namespace Arcweave.Project
             var validPaths = new List<Path>();
             foreach ( var output in element.Outputs )
             {
+                if ( output == null ) { continue; }
                 var save = Element.Project.SaveVariables();
                 var path = output.ResolvePath(new Path());
                 if ( path != null && path.isValid ) { validPaths.Add(path); }

@@ -34,6 +34,7 @@ namespace Arcweave.Project
         private Dictionary<string, Attribute> attributes;
         private Dictionary<string, Variable> variables;
         private Dictionary<string, Note> notes;
+        private HashSet<string> reportedMissing = new HashSet<string>();
 
         public ProjectMaker(string json, ArcweaveProjectAsset projectAsset) {
 
@@ -42,16 +43,16 @@ namespace Arcweave.Project
                 this.jproject = project;
             }
 
-            this.jboards = jproject.AsDictionary["boards"];
-            this.jelements = jproject.AsDictionary["elements"]; //inode
-            this.jbranches = jproject.AsDictionary["branches"]; //inode
-            this.jjumpers = jproject.AsDictionary["jumpers"]; //inode
-            this.jconditions = jproject.AsDictionary["conditions"]; //inode
-            this.jconnections = jproject.AsDictionary["connections"];
-            this.jcomponents = jproject.AsDictionary["components"];
-            this.jattributes = jproject.AsDictionary["attributes"];
-            this.jvariables = jproject.AsDictionary["variables"];
-            this.jnotes = jproject.AsDictionary["notes"];
+            this.jboards = GetCollection("boards");
+            this.jelements = GetCollection("elements"); //inode
+            this.jbranches = GetCollection("branches"); //inode
+            this.jjumpers = GetCollection("jumpers"); //inode
+            this.jconditions = GetCollection("conditions"); //inode
+            this.jconnections = GetCollection("connections");
+            this.jcomponents = GetCollection("components");
+            this.jattributes = GetCollection("attributes");
+            this.jvariables = GetCollection("variables");
+            this.jnotes = GetCollection("notes");
 
             this.boards = new Dictionary<string, Board>();
             this.nodes = new Dictionary<string, INode>();
@@ -63,16 +64,30 @@ namespace Arcweave.Project
         }
 
         public Project MakeProject() {
-            var name = jproject["name"]?.AsString;
-            var startElementid = jproject["startingElement"]?.AsString;
+            var name = GetProp(jproject, "name")?.AsString;
+            var startElementid = GetProp(jproject, "startingElement")?.AsString;
+            if ( string.IsNullOrEmpty(startElementid) ) {
+                throw new System.InvalidOperationException("The project has no starting element. Set one in Arcweave and import again.");
+            }
             var startElement = TryMakeElement(startElementid);
+            if ( startElement == null ) {
+                throw new System.InvalidOperationException($"The project's starting element '{startElementid}' was not found in the project.");
+            }
             var projBoards = new List<Board>();
             var projComponents = new List<Component>();
             var projVariables = new List<Variable>();
             foreach ( var key in jboards.AsDictionary.Keys ) {
                 var board = TryMakeBoard(key);
-                if ( board != null ) { projBoards.Add(board); } //null = has children
+                if ( board != null ) { projBoards.Add(board); } //null = has children or missing
             }
+
+            // Only nodes on an imported board are initialized, so the story must not start or lead anywhere else
+            var boardNodes = new HashSet<INode>(projBoards.SelectMany(board => board.Nodes));
+            if ( !boardNodes.Contains(startElement) ) {
+                throw new System.InvalidOperationException($"The project's starting element '{startElementid}' is not on any imported board.");
+            }
+            DetachTargetsOutsideBoards(boardNodes);
+
             foreach ( var key in jcomponents.AsDictionary.Keys ) {
                 var component = TryMakeComponent(key);
                 if ( component != null ) { projComponents.Add(component); } //null = has children
@@ -85,18 +100,40 @@ namespace Arcweave.Project
             return new Project(name, startElement, projBoards, projComponents, projVariables);
         }
 
+        //connections and jumpers can lead to nodes that exist but are not on an imported board, eg. when an export leaves out some boards
+        void DetachTargetsOutsideBoards(HashSet<INode> boardNodes) {
+            // Connections and jumpers that are not on an imported board can't be reached, so only the ones that are matter
+            foreach ( var connection in connections.Values ) {
+                if ( connection.Source != null && !boardNodes.Contains(connection.Source) ) { continue; }
+                if ( connection.Target == null ) {
+                    Debug.LogWarning($"Arcweave import: connection '{connection.Id}' has no target, so it leads nowhere.");
+                }
+                else if ( !boardNodes.Contains(connection.Target) ) {
+                    Debug.LogWarning($"Arcweave import: connection '{connection.Id}' leads to '{connection.Target.Id}', which is not on any imported board, so it leads nowhere.");
+                    connection.Set(connection.RawLabel, connection.Source, null);
+                }
+            }
+            foreach ( var jumper in boardNodes.OfType<Jumper>() ) {
+                if ( jumper.Target != null && !boardNodes.Contains(jumper.Target) ) {
+                    Debug.LogWarning($"Arcweave import: jumper '{jumper.Id}' leads to '{jumper.Target.Id}', which is not on any imported board, so it leads nowhere.");
+                    jumper.Set(jumper.Id, jumper.Pos, null);
+                }
+            }
+        }
+
         ///----------------------------------------------------------------------------------------------
 
         //...
         Board TryMakeBoard(string id) {
 
+            if ( !Exists(jboards, id, "board") ) { return null; }
             if ( HasChildren(jboards, id) ) { return null; }
 
             var name = GetProp(jboards, id, "name")?.AsString;
             var boardNodes = new List<INode>();
-            foreach ( var key in GetList(jboards, id, "elements") ) { boardNodes.Add(TryMakeElement(key.AsString)); }
-            foreach ( var key in GetList(jboards, id, "branches") ) { boardNodes.Add(TryMakeBranch(key.AsString)); }
-            foreach ( var key in GetList(jboards, id, "jumpers") ) { boardNodes.Add(TryMakeJumper(key.AsString)); }
+            foreach ( var key in GetList(jboards, id, "elements") ) { AddIfNotNull(boardNodes, TryMakeElement(GetId(key))); }
+            foreach ( var key in GetList(jboards, id, "branches") ) { AddIfNotNull(boardNodes, TryMakeBranch(GetId(key))); }
+            foreach ( var key in GetList(jboards, id, "jumpers") ) { AddIfNotNull(boardNodes, TryMakeJumper(GetId(key))); }
 
             foreach ( var branch in boardNodes.OfType<Branch>().ToArray() ) {
                 foreach ( var condition in branch.Conditions ) {
@@ -105,13 +142,11 @@ namespace Arcweave.Project
             }
 
             var boardNotes = new List<Note>();
-            foreach ( var key in GetList(jboards, id, "notes") ) { boardNotes.Add(TryMakeNote(key.AsString)); }
+            foreach ( var key in GetList(jboards, id, "notes") ) { AddIfNotNull(boardNotes, TryMakeNote(GetId(key))); }
 
             var boardAttributes = new List<Attribute>();
-            if ( HasProperty(jboards, id, "attributes", out var attributeids) && attributeids.IsList ) {
-                foreach ( var attributeid in attributeids.AsList ) {
-                    boardAttributes.Add(TryMakeAttribute(attributeid.AsString));
-                }
+            foreach ( var attributeid in GetList(jboards, id, "attributes") ) {
+                AddIfNotNull(boardAttributes, TryMakeAttribute(GetId(attributeid)));
             }
 
             var customId = GetProp(jboards, id, "customId")?.AsString;
@@ -126,6 +161,7 @@ namespace Arcweave.Project
         Note TryMakeNote(string id) {
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !notes.TryGetValue(id, out var note) ) {
+                if ( !Exists(jnotes, id, "note") ) { return null; }
                 notes[id] = note = new Note();
                 var pos = GetPos(GetProp(jnotes, id, "x"), GetProp(jnotes, id, "y"));
                 var content = GetProp(jnotes, id, "content")?.AsString;
@@ -139,6 +175,7 @@ namespace Arcweave.Project
         Element TryMakeElement(string id) {
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !nodes.TryGetValue(id, out var node) ) {
+                if ( !Exists(jelements, id, "element") ) { return null; }
                 nodes[id] = node = new Element();
                 var pos = GetPos(GetProp(jelements, id, "x"), GetProp(jelements, id, "y"));
                 var title = GetProp(jelements, id, "title")?.AsString;
@@ -146,18 +183,17 @@ namespace Arcweave.Project
                 var theme = GetProp(jelements, id, "theme")?.AsString;
                 var outputs = new List<Connection>();
                 foreach ( var connectionid in GetList(jelements, id, "outputs") ) {
-                    outputs.Add(TryMakeConnection(connectionid.AsString));
+                    AddIfNotNull(outputs, TryMakeConnection(GetId(connectionid)));
                 }
 
                 var components = new List<Component>();
                 foreach ( var componentid in GetList(jelements, id, "components") ) {
-                    var component = TryMakeComponent(componentid.AsString);
-                    if ( component != null ) components.Add(component); //null = has children
+                    AddIfNotNull(components, TryMakeComponent(GetId(componentid))); //null = has children or missing
                 }
 
                 var attributes = new List<Attribute>();
                 foreach ( var attributeid in GetList(jelements, id, "attributes") ) {
-                    attributes.Add(TryMakeAttribute(attributeid.AsString));
+                    AddIfNotNull(attributes, TryMakeAttribute(GetId(attributeid)));
                 }
 
                 var cover = MakeCover(jelements, id);
@@ -172,6 +208,7 @@ namespace Arcweave.Project
         Jumper TryMakeJumper(string id) {
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !nodes.TryGetValue(id, out var node) ) {
+                if ( !Exists(jjumpers, id, "jumper") ) { return null; }
                 nodes[id] = node = new Jumper();
                 var pos = GetPos(GetProp(jjumpers, id, "x"), GetProp(jjumpers, id, "y"));
                 var elementId = GetProp(jjumpers, id, "elementId")?.AsString;
@@ -185,20 +222,22 @@ namespace Arcweave.Project
         Branch TryMakeBranch(string id) {
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !nodes.TryGetValue(id, out var node) ) {
+                if ( !Exists(jbranches, id, "branch") ) { return null; }
                 nodes[id] = node = new Branch();
                 var pos = GetPos(GetProp(jbranches, id, "x"), GetProp(jbranches, id, "y"));
                 var conditions = new List<Condition>();
                 var ifConditionid = GetProp(jbranches, id, "conditions.ifCondition")?.AsString;
-                conditions.Add((Condition)TryMakeCondition(ifConditionid));
+                if ( string.IsNullOrEmpty(ifConditionid) ) {
+                    Debug.LogWarning($"Arcweave import: branch '{id}' has no if condition.");
+                }
+                AddIfNotNull(conditions, TryMakeCondition(ifConditionid));
 
                 foreach ( var elseIfid in GetList(jbranches, id, "conditions.elseIfConditions") ) {
-                    conditions.Add((Condition)TryMakeCondition(elseIfid.AsString));
+                    AddIfNotNull(conditions, TryMakeCondition(GetId(elseIfid)));
                 }
 
                 var elseid = GetProp(jbranches, id, "conditions.elseCondition")?.AsString;
-                if ( !string.IsNullOrEmpty(elseid) ) {
-                    conditions.Add((Condition)TryMakeCondition(elseid));
-                }
+                AddIfNotNull(conditions, TryMakeCondition(elseid));
                 var theme = GetProp(jbranches, id, "theme")?.AsString;
                 ( node as Branch ).Set(id, pos, conditions, theme);
             }
@@ -209,6 +248,7 @@ namespace Arcweave.Project
         Condition TryMakeCondition(string id) {
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !nodes.TryGetValue(id, out var node) ) {
+                if ( !Exists(jconditions, id, "condition") ) { return null; }
                 nodes[id] = node = new Condition();
                 var outputid = GetProp(jconditions, id, "output")?.AsString;
                 var script = GetProp(jconditions, id, "script")?.AsString;
@@ -222,6 +262,7 @@ namespace Arcweave.Project
         Connection TryMakeConnection(string id) {
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !connections.TryGetValue(id, out var connection) ) {
+                if ( !Exists(jconnections, id, "connection") ) { return null; }
                 connections[id] = connection = new Connection(id);
                 var label = GetProp(jconnections, id, "label")?.AsString;
                 var sourceid = GetProp(jconnections, id, "sourceid")?.AsString;
@@ -249,6 +290,7 @@ namespace Arcweave.Project
             if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !components.TryGetValue(id, out var component) ) {
 
+                if ( !Exists(jcomponents, id, "component") ) { return null; }
                 if ( HasChildren(jcomponents, id) ) { return null; }
 
                 components[id] = component = new Component();
@@ -256,7 +298,7 @@ namespace Arcweave.Project
                 var customId = GetProp(jcomponents, id, "customId")?.AsString;
                 var attributes = new List<Attribute>();
                 foreach ( var attributeid in GetList(jcomponents, id, "attributes") ) {
-                    attributes.Add(TryMakeAttribute(attributeid.AsString));
+                    AddIfNotNull(attributes, TryMakeAttribute(GetId(attributeid)));
                 }
                 var cover = MakeCover(jcomponents, id);
                 component.Set(id, customId, name, attributes, cover);
@@ -266,7 +308,9 @@ namespace Arcweave.Project
 
         //...
         Attribute TryMakeAttribute(string id) {
+            if ( string.IsNullOrEmpty(id) ) { return null; }
             if ( !attributes.TryGetValue(id, out var attribute) ) {
+                if ( !Exists(jattributes, id, "attribute") ) { return null; }
                 attributes[id] = attribute = new Attribute();
                 var name = GetProp(jattributes, id, "name")?.AsString;
                 var customId = GetProp(jattributes, id, "customId")?.AsString;
@@ -293,8 +337,7 @@ namespace Arcweave.Project
                     type = IAttribute.DataType.ComponentList;
                     var componentList = new List<Component>();
                     foreach ( var componentid in GetList(jattributes, id, "value.data") ) {
-                        var component = TryMakeComponent(componentid.AsString);
-                        if ( component != null ) { componentList.Add(component); } //null = has children
+                        AddIfNotNull(componentList, TryMakeComponent(GetId(componentid))); //null = has children or missing
                     }
                     data = componentList;
                 }
@@ -320,6 +363,7 @@ namespace Arcweave.Project
         //...
         Variable TryMakeVariable(string id) {
 
+            if ( !Exists(jvariables, id, "variable") ) { return null; }
             if ( HasChildren(jvariables, id) ) { return null; }
             if ( variables.TryGetValue(id, out var existingVariable) ) { return existingVariable; }
 
@@ -329,11 +373,19 @@ namespace Arcweave.Project
             var jvalue = GetProp(jvariables, id, "value");
             var cType = GetProp(jvariables, id, "cType")?.AsString;
 
-            if ( type == "integer" ) { value = (int)jvalue.AsInt64; }
+            if ( jvalue == null ) {
+                Debug.LogWarning($"Arcweave import: variable '{name}' has no value, so it starts with the default value of its type.");
+            }
+
+            if ( type == "integer" ) { value = jvalue != null ? (int)jvalue.AsInt64 : 0; }
 
             if (type == "float")
             {
-                if (jvalue.Type == fsDataType.Double)
+                if (jvalue == null)
+                {
+                    value = 0d;
+                }
+                else if (jvalue.Type == fsDataType.Double)
                 {
                     value = (double)jvalue.AsDouble;
                 }
@@ -342,12 +394,12 @@ namespace Arcweave.Project
                     value = (double)jvalue.AsInt64;
                 }
             }
-            if ( type == "string" ) { value = (string)jvalue.AsString; }
-            if ( type == "boolean" ) { value = (bool)jvalue.AsBool; }
+            if ( type == "string" ) { value = jvalue != null ? (string)jvalue.AsString : string.Empty; }
+            if ( type == "boolean" ) { value = jvalue != null && (bool)jvalue.AsBool; }
             if (!string.IsNullOrEmpty(cType) && cType == "boards")
             {
                 var boardId = GetProp(jvariables, id, "cId")?.AsString;
-                if (boards.TryGetValue(boardId, out var board))
+                if (boardId != null && boards.TryGetValue(boardId, out var board))
                 {
                     var variable = new Variable(id, name, value, board);
                     board.AddVariable(variable);
@@ -400,20 +452,24 @@ namespace Arcweave.Project
 
         //...
         Cover MakeCover(fsData source, string id) {
-            fsData coverSource = null;
-
-            if ( HasProperty(source, id, "assets.cover.file", out coverSource) ) {
-                return new Cover(Cover.Type.Image, coverSource.AsString);
+            var file = GetProp(source, id, "assets.cover.file")?.AsString;
+            if ( !string.IsNullOrEmpty(file) ) {
+                return new Cover(Cover.Type.Image, file);
             }
 
-            if ( HasProperty(source, id, "assets.cover.id", out coverSource) ) {
-                var assetId = coverSource.AsString;
-                coverSource = jproject["assets." + assetId + ".name"];
-                return new Cover(Cover.Type.Image, coverSource.AsString, assetId);
+            var assetId = GetProp(source, id, "assets.cover.id")?.AsString;
+            if ( !string.IsNullOrEmpty(assetId) ) {
+                var assetName = GetProp(jproject, "assets." + assetId + ".name")?.AsString;
+                if ( string.IsNullOrEmpty(assetName) ) {
+                    Debug.LogWarning($"Arcweave import: the cover of '{id}' uses asset '{assetId}', which was not found in the project's assets, so it has no cover.");
+                    return null;
+                }
+                return new Cover(Cover.Type.Image, assetName, assetId);
             }
 
-            if ( HasProperty(source, id, "assets.cover.url", out coverSource) ) {
-                return new Cover(Cover.Type.Youtube, coverSource.AsString);
+            var url = GetProp(source, id, "assets.cover.url")?.AsString;
+            if ( !string.IsNullOrEmpty(url) ) {
+                return new Cover(Cover.Type.Youtube, url);
             }
 
             return null;
@@ -423,7 +479,8 @@ namespace Arcweave.Project
         AudioAsset[] MakeAudioAssets(fsData source, string id)
         {
             // Check if "assets.audio" exists and is a list (array)
-            if (HasProperty(source, id, "assets.audio", out var audioProp) && audioProp.Type == fsDataType.Array)
+            var audioProp = GetProp(source, id, "assets.audio");
+            if (audioProp != null && audioProp.Type == fsDataType.Array)
             {
                 var audioList = audioProp.AsList;
                 var audioAssets = new AudioAsset[audioList.Count];
@@ -438,10 +495,10 @@ namespace Arcweave.Project
 
         private AudioAsset MakeAudioAsset(fsData audioEntry)
         {
-            var audioId = audioEntry["id"]?.AsString;
-            var mode = audioEntry["mode"]?.AsString;
-            string asset = audioEntry["asset"]?.AsString;
-            var delayProp = audioEntry["delay"];
+            var audioId = GetProp(audioEntry, "id")?.AsString;
+            var mode = GetProp(audioEntry, "mode")?.AsString;
+            string asset = GetProp(audioEntry, "asset")?.AsString;
+            var delayProp = GetProp(audioEntry, "delay");
             float delay = 0f;
             if (delayProp != null)
             {
@@ -455,8 +512,8 @@ namespace Arcweave.Project
                 return new AudioAsset(audioId, mode, asset, delay, null, 1f);
             }
             // Name and volume are stored in "assets" so we look for them using the "asset" value, which is the id of the audio asset
-            var name = jproject["assets." + asset + ".name"]?.AsString;
-            var volumeProp = jproject["assets." + asset + ".volume"];
+            var name = GetProp(jproject, "assets." + asset + ".name")?.AsString;
+            var volumeProp = GetProp(jproject, "assets." + asset + ".volume");
             float volume = 1f;
             if (volumeProp != null)
             {
@@ -467,8 +524,11 @@ namespace Arcweave.Project
         ///----------------------------------------------------------------------------------------------
 
         //...
-        fsData GetProp(fsData source, string id, string propertyPath) {
-            var result = source[id + '.' + propertyPath];
+        fsData GetProp(fsData source, string id, string propertyPath) => GetProp(source, id + '.' + propertyPath);
+
+        //missing and null properties are both returned as null
+        fsData GetProp(fsData source, string propertyPath) {
+            var result = source[propertyPath];
             return result == null || result.IsNull ? null : result;
         }
 
@@ -478,21 +538,44 @@ namespace Arcweave.Project
             return result != null && result.IsList ? result.AsList : new List<fsData>();
         }
 
+        //a top level collection of the project, eg. "elements", treated as empty when missing
+        fsData GetCollection(string key) {
+            var result = GetProp(jproject, key);
+            return result != null && result.IsDictionary ? result : new fsData(new Dictionary<string, fsData>());
+        }
+
+        //the id of a list entry, or null when the entry is not an id
+        static string GetId(fsData entry) => entry != null && entry.IsString ? entry.AsString : null;
+
+        //an id can point to an item that is not in the project, eg. an element of a board that was left out of the export
+        bool Exists(fsData source, string id, string kind) {
+            if ( GetProp(source, id) != null ) { return true; }
+            // An item can be referenced many times, eg. by every jumper to an element of a board that was left out
+            if ( reportedMissing.Add(kind + ' ' + id) ) {
+                Debug.LogWarning($"Arcweave import: {kind} '{id}' was not found in the project, so it is skipped.");
+            }
+            return false;
+        }
+
+        static void AddIfNotNull<T>(List<T> list, T item) where T : class {
+            if ( item != null ) { list.Add(item); }
+        }
+
         //...
         bool HasChildren(fsData source, string id) { return HasProperty(source, id, "children", out var result); }
 
         //...
         bool HasProperty(fsData source, string id, string propertyPath, out fsData result) {
-            result = source[id + '.' + propertyPath];
+            result = GetProp(source, id, propertyPath);
             return result != null;
         }
 
-        UnityEngine.Vector2Int GetPos(fsData x, fsData y)
-        {
-            var xValue = x.Type == fsDataType.Double ? (int)x.AsDouble : (int)x.AsInt64;
-            var yValue = y.Type == fsDataType.Double ? (int)y.AsDouble : (int)y.AsInt64;
+        //missing coordinates default to 0
+        UnityEngine.Vector2Int GetPos(fsData x, fsData y) => new UnityEngine.Vector2Int(GetCoordinate(x), GetCoordinate(y));
 
-            return new UnityEngine.Vector2Int(xValue, yValue);
+        static int GetCoordinate(fsData value) {
+            if ( value == null ) { return 0; }
+            return value.Type == fsDataType.Double ? (int)value.AsDouble : (int)value.AsInt64;
         }
     }
 }
