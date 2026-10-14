@@ -245,6 +245,55 @@ namespace Arcweave.Tests
             Assert.That(Directory.Exists(MediaFolder + "/nested"), Is.False);
         }
 
+        [UnityTest]
+        public IEnumerator UnsavedInstanceKeepsTheMediaOfThePreviousImport()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var copy = UnityEngine.Object.Instantiate(asset);
+            var coverImage = copy.Project.Boards.Single().Nodes.OfType<Element>().Single().cover.downloadedImage;
+            Assert.That(coverImage, Is.Not.Null);
+            var requests = server.RequestCount;
+
+            try {
+                yield return Await(copy.ImportProjectAsync());
+
+                Assert.That(server.RequestCount, Is.EqualTo(requests));
+                var element = copy.Project.Boards.Single().Nodes.OfType<Element>().Single();
+                Assert.That(element.cover.downloadedImage, Is.SameAs(coverImage));
+                Assert.That(element.AudioAssets.Single().downloadedClip, Is.SameAs(Music().downloadedClip));
+            }
+            finally {
+                UnityEngine.Object.DestroyImmediate(copy);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator FileThatCouldNotBeDeletedIsDeletedLaterAndNeverLinkedAgain()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var pngPath = Path(Cover().downloadedImage);
+
+            // The cover becomes a jpg while the old png can't be deleted
+            LogAssert.ignoreFailingMessages = true;
+            asset.projectJson = ProjectJson(coverName: "Cover.jpg");
+            server.SetFile(CoverId, Jpg(Color.blue));
+            using ( new FileStream(pngPath, FileMode.Open, FileAccess.Read, FileShare.None) ) {
+                yield return Import();
+            }
+            LogAssert.ignoreFailingMessages = false;
+            var jpgPath = Path(Cover().downloadedImage);
+            Assert.That(jpgPath, Does.EndWith(".jpg"));
+            Assert.That(File.Exists(pngPath), Is.True, "The locked png should still exist for this test to be meaningful.");
+
+            server.Enqueue(CoverId, new StubApiServer.Response { status = 500 });
+            yield return Import();
+
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(jpgPath));
+            Assert.That(File.Exists(pngPath), Is.False);
+        }
+
         ///----------------------------------------------------------------------------------------------
 
         private string MediaFolder => temporaryFolder + "/Project Media";
@@ -275,7 +324,7 @@ namespace Arcweave.Tests
             }
         }
 
-        private static string ProjectJson(bool withMusic = true, string coverId = CoverId)
+        private static string ProjectJson(bool withMusic = true, string coverId = CoverId, string coverName = "Cover.png")
         {
             var audio = withMusic ? $@", ""audio"": [{{ ""id"": ""music-instance"", ""mode"": ""loop"", ""asset"": ""{MusicId}"", ""delay"": 0 }}]" : "";
             return $@"{{
@@ -288,7 +337,7 @@ namespace Arcweave.Tests
                 ""components"": {{ ""hero"": {{ ""name"": ""Hero"", ""attributes"": [], ""assets"": {{ ""cover"": {{ ""id"": ""{HeroId}"" }} }} }} }},
                 ""attributes"": {{}}, ""variables"": {{}}, ""notes"": {{}},
                 ""assets"": {{
-                    ""{coverId}"": {{ ""name"": ""Cover.png"", ""type"": ""image"" }},
+                    ""{coverId}"": {{ ""name"": ""{coverName}"", ""type"": ""image"" }},
                     ""{HeroId}"": {{ ""name"": ""Hero.png"", ""type"": ""image"" }},
                     ""{MusicId}"": {{ ""name"": ""Music.wav"", ""type"": ""audio"", ""volume"": 1 }}
                 }}
@@ -302,6 +351,15 @@ namespace Arcweave.Tests
             var png = texture.EncodeToPNG();
             UnityEngine.Object.DestroyImmediate(texture);
             return png;
+        }
+
+        private static byte[] Jpg(Color color)
+        {
+            var texture = new Texture2D(2, 2);
+            texture.SetPixels(Enumerable.Repeat(color, 4).ToArray());
+            var jpg = texture.EncodeToJPG();
+            UnityEngine.Object.DestroyImmediate(texture);
+            return jpg;
         }
 
         ///<summary>A silent 16-bit mono PCM wav file.</summary>

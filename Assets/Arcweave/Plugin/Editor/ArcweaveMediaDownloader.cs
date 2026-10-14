@@ -102,12 +102,15 @@ namespace Arcweave
                 projectAsset.downloadedMedia = new List<ArcweaveProjectAsset.DownloadedMedia>();
             }
 
-            // Files downloaded by previous imports, by Arcweave asset id. Only these files are ever replaced or deleted.
+            // Files downloaded by previous imports. Only these files are ever replaced or deleted.
+            // The linked file of each Arcweave asset id comes first, followed by any files that could not be deleted yet.
+            var ownedPaths = new List<KeyValuePair<string, string>>();
             var previousPaths = new Dictionary<string, string>();
             foreach ( var media in projectAsset.downloadedMedia ) {
                 var path = AssetDatabase.GUIDToAssetPath(media.guid);
                 if ( !string.IsNullOrEmpty(path) && File.Exists(path) ) {
-                    previousPaths[media.assetId] = path;
+                    ownedPaths.Add(new KeyValuePair<string, string>(media.assetId, path));
+                    if ( !previousPaths.ContainsKey(media.assetId) ) { previousPaths[media.assetId] = path; }
                 }
             }
 
@@ -128,7 +131,7 @@ namespace Arcweave
             }
 
             var saved = 0;
-            var undeletedPaths = new Dictionary<string, string>();
+            var undeletedPaths = new List<KeyValuePair<string, string>>();
             AssetDatabase.StartAssetEditing();
             try {
                 foreach ( var download in downloads ) {
@@ -141,7 +144,7 @@ namespace Arcweave
                         : AssetDatabase.GenerateUniqueAssetPath($"{folder}/{download.Key}{extension}");
                     try {
                         if ( !File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(download.Value) ) {
-                            File.WriteAllBytes(path, download.Value);
+                            WriteFile(path, download.Value);
                             AssetDatabase.ImportAsset(path);
                         }
                         paths[download.Key] = path;
@@ -150,17 +153,16 @@ namespace Arcweave
                     catch ( Exception e ) {
                         // Eg. a read-only file checked in to version control
                         Debug.LogWarning($"Could not save '{names[download.Key]}' to {path}: {e.Message}");
-                        if ( path != previousPath && File.Exists(path) ) { TryDeleteFile(path); }
                         if ( hasPrevious ) { paths[download.Key] = previousPath; }
                     }
                 }
 
                 var linkedPaths = new HashSet<string>(paths.Values);
-                foreach ( var previous in previousPaths ) {
-                    if ( !linkedPaths.Contains(previous.Value) && !AssetDatabase.DeleteAsset(previous.Value) ) {
+                foreach ( var owned in ownedPaths.GroupBy(entry => entry.Value).Select(group => group.First()) ) {
+                    if ( !linkedPaths.Contains(owned.Value) && !AssetDatabase.DeleteAsset(owned.Value) ) {
                         // Still owned, so a later import tries again
-                        Debug.LogWarning($"Could not delete unused media file {previous.Value}.");
-                        undeletedPaths[previous.Key] = previous.Value;
+                        Debug.LogWarning($"Could not delete unused media file {owned.Value}.");
+                        undeletedPaths.Add(owned);
                     }
                 }
             }
@@ -260,6 +262,23 @@ namespace Arcweave
                 seconds = ( date - DateTimeOffset.UtcNow ).TotalSeconds;
             }
             return Math.Min(Math.Max(1, seconds), MAX_RETRY_SECONDS);
+        }
+
+        ///<summary>Writes the file through a temporary file, so a failed write never leaves it truncated. Replacing keeps its .meta and GUID.</summary>
+        static void WriteFile(string path, byte[] bytes) {
+            Directory.CreateDirectory("Temp");
+            var temporaryPath = System.IO.Path.Combine("Temp", "ArcweaveMedia-" + Guid.NewGuid().ToString("N") + System.IO.Path.GetExtension(path));
+            try {
+                File.WriteAllBytes(temporaryPath, bytes);
+                if ( File.Exists(path) ) {
+                    File.Replace(temporaryPath, path, null);
+                } else {
+                    File.Move(temporaryPath, path);
+                }
+            }
+            finally {
+                if ( File.Exists(temporaryPath) ) { TryDeleteFile(temporaryPath); }
+            }
         }
 
         static void TryDeleteFile(string path) {

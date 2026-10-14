@@ -128,11 +128,12 @@ namespace Arcweave
                 return Task.CompletedTask;
             }
 #if UNITY_EDITOR
-            if ( importSource == ImportSource.FromWeb ) {
+            // Media is saved next to the project asset, so an instance that is not saved as an asset can't download it
+            if ( importSource == ImportSource.FromWeb && UnityEditor.EditorUtility.IsPersistent(this) ) {
                 return ArcweaveMediaDownloader.DownloadAsync(this, project);
             }
 #endif
-            // Media can only be downloaded in the editor, so other imports, eg. in a player, keep the media of the previous import.
+            // Media can only be downloaded in the editor for a saved asset, so other imports, eg. in a player, keep the media of the previous import.
             CarryOverMedia(Project, project);
             return Task.CompletedTask;
         }

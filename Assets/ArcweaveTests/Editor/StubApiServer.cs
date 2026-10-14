@@ -17,7 +17,7 @@ namespace Arcweave.Tests
             public string retryAfter;
         }
 
-        private readonly HttpListener listener = new HttpListener();
+        private readonly HttpListener listener;
         private readonly object sync = new object();
         private readonly Dictionary<string, byte[]> files = new Dictionary<string, byte[]>();
         private readonly Dictionary<string, Queue<Response>> pendingResponses = new Dictionary<string, Queue<Response>>();
@@ -27,10 +27,20 @@ namespace Arcweave.Tests
         public string ApiUrl { get; }
 
         public StubApiServer() {
-            var port = FreePort();
-            ApiUrl = $"http://127.0.0.1:{port}/api/";
-            listener.Prefixes.Add($"http://127.0.0.1:{port}/");
-            listener.Start();
+            // Another process can take the free port before the listener binds it, so try a few
+            for ( var attempt = 1; ; attempt++ ) {
+                var port = FreePort();
+                try {
+                    listener = new HttpListener();
+                    listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+                    listener.Start();
+                    ApiUrl = $"http://127.0.0.1:{port}/api/";
+                    break;
+                }
+                catch ( Exception ) when ( attempt < 5 ) {
+                    listener.Close();
+                }
+            }
             Task.Run(Listen);
         }
 
