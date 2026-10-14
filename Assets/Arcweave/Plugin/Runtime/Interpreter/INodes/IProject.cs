@@ -14,6 +14,7 @@ namespace Arcweave.Interpreter.INodes
         public Dictionary<string, Arcweave.Project.Board> Boards { get; }
         public Dictionary<string, Arcweave.Project.Component> Components { get; }
 #else
+        // Keep the existing contract so callers and custom implementations remain compatible.
         public List<Arcweave.Project.Variable> Variables { get; }
         public List<Arcweave.Project.Board> Boards { get; }
         public List<Arcweave.Project.Component> Components { get; }

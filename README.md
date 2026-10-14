@@ -73,7 +73,7 @@ You will need:
 - Your Team workspace **API key** (found in your Workspace's API section).
 - Your **project hash** (found in Project Properties).
 
-Importing from web also downloads the images and audio your project uses (see [Media Downloaded from Web](#media-downloaded-from-web)), so you don't need to copy them into a `Resources` folder.
+Importing from web can also download the images and audio your project uses (see [Media Downloaded from Web](#media-downloaded-from-web)), so you don't need to copy them into a `Resources` folder.
 
 See the [Arcweave API Documentation](https://docs.arcweave.com/integrations/web-api) for details.
 
@@ -93,26 +93,30 @@ To import your data into Unity:
 Choose your import source:
 
 - **From Json**: Drag your `project.json` file into the "Project Json File" field.
-- **From Web**: Enter your **API Key** and **Project Hash**. Keep **Download Media** enabled to download the project's images and audio.
+- **From Web**: Enter your **API Key** and **Project Hash**. Optionally enable **Download Media** to download the project's images and audio.
 
 Click the **Import Project** button to begin the import.
 
 ### Media Downloaded from Web
 
-When **Download Media** is enabled, importing from web in the Unity Editor downloads every image used as an element or component cover and every audio file attached to an element through Arcweave's web API. The first import saves the files in a `<Project Asset Name> Media` folder next to the project asset, named after their Arcweave asset ids, and links them to the imported project, so they are included in builds without a `Resources` folder.
+**Download Media** is disabled by default, so your project only relies on media downloaded from Arcweave if you choose to. When it is enabled, importing from web in the Unity Editor downloads every image used as an element or component cover and every audio file attached to an element through Arcweave's web API. The first import saves the files in a `<Project Asset Name> Media` folder next to the project asset, named after their Arcweave asset ids, and links them to the imported project, so they are included in builds without a `Resources` folder.
 
 - Each import refreshes the media: changed files are updated in place and files the project no longer uses are deleted. The importer only overwrites or deletes files it downloaded for that project asset, so you can move or rename the folder and its files. A duplicated project asset downloads its own copy of the media.
 - If a file fails to download, the import continues, keeps any previously downloaded copy of that file, and logs a warning.
 - Unity cannot import some formats Arcweave accepts (`.webp` images and `.webm` audio). These are skipped with a warning.
-- Media downloads count towards your workspace's API rate limit. When the limit is reached, the importer waits and tries each media download again, up to five attempts in total, so importing projects with lots of media can take a while.
-- Media is not downloaded when importing from web in a built player.
+- Media downloads count towards your workspace's API rate limit. When the limit is reached, the importer waits up to a minute and tries each media download again, up to five attempts in total, so importing projects with lots of media can take a while. Click **Cancel** on the progress bar to stop downloading; media that was not downloaded keeps its previous copy.
+- Media is only downloaded in the Unity Editor, including when `ArcweavePlayer` imports the project on Play. Reimporting in a built player keeps the media downloaded in the editor for the assets the project still uses.
 
-Disable **Download Media** to provide images and audio yourself in a `Resources` folder, as described below.
+Leave **Download Media** disabled to provide images and audio yourself in a `Resources` folder, as described below. Disabling it later doesn't delete downloaded files, but the next import no longer uses them.
 
 After successful import, the Inspector displays:
 - The project name
 - All global variables and their values
 - An **"Open Project Viewer"** button for viewing the project flowchart
+
+If you press Play before importing, `ArcweavePlayer` imports the project automatically. You can also import from code with `await aw.ImportProjectAsync()`, or `await aw.EnsureImportedAsync()` to import only when the asset has no playable project yet.
+
+> **Warning:** The API key is saved in the asset and ships with your build. Treat **From Web** as a development workflow and import the project in the editor before building, so your game doesn't need the API key or a network connection to start.
 
 
 ---
@@ -141,7 +145,7 @@ Without this step, UI interactions (buttons, clicks) will not work in Unity 6+.
 
 ### Adding Image Assets
 
-Images are downloaded automatically when importing from web. If you import from JSON or disable **Download Media**:
+Images are downloaded when importing from web with **Download Media** enabled. Otherwise:
 
 1. Create a `Resources` folder in your Unity project (if it doesn't exist).
 2. Copy your image files into the `Resources` folder.
@@ -152,7 +156,7 @@ The plugin loads images dynamically using `Resources.Load()`.
 
 ### Adding Audio Assets
 
-Audio is downloaded automatically when importing from web. If you import from JSON or disable **Download Media**:
+Audio is downloaded when importing from web with **Download Media** enabled. Otherwise:
 
 1. Create a `Resources` folder in your Unity project (if it doesn't exist).
 2. Copy your audio files into the `Resources` folder.
@@ -291,7 +295,8 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 | `name` | string | Project name |
 | `boards` | List\<Board\> | All boards in the project |
 | `components` / `Components` | List\<Component\> | All components (characters/entities) |
-| `Variables` | List\<Variable\> | All global/project-scoped variables |
+| `GlobalVariables` | List\<Variable\> | All global/project-scoped variables |
+| `Variables` | List\<Variable\> | Deprecated alias for `GlobalVariables` |
 | `StartingElement` | Element | Entry point for the narrative |
 
 #### Methods
@@ -319,8 +324,9 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 
 Boards and components can define scoped variables in addition to project/global variables. In current exports, scoped variables are backed by boolean, integer, float, or plain-string attributes with a custom ID.
 
-- `Project.Variables` contains only project/global variables.
+- `Project.GlobalVariables` contains only project/global variables.
 - `Board.Variables` and `Component.Variables` contain their scoped variables.
+- `Project.GetAllVariables()` enumerates variables from all three scopes.
 - Scoped variables use the attribute's `CustomId` as their name and the owning container's `CustomId` as their scope.
 - The attribute ID remains the variable ID used by runtime changes and save data.
 - In Arcscript, scoped variables use `containerCustomId.variableName`.
@@ -336,6 +342,12 @@ project.SetVariable("health", 5, "hero");
 ```
 
 Both the source attribute and its board/component must have a `CustomId` for the attribute to become a scoped variable. Plain-string attributes with null data import as an empty string.
+
+#### Upgrading from `Project.Variables`
+
+Use `Project.GlobalVariables` when accessing the global-variable list. Existing `Project.Variables` code continues to work through a deprecated alias to the same list. `IProject.Variables` remains available so existing interpreter callers and custom implementations remain compatible.
+
+Previously imported Unity assets retain their global variables automatically; no reimport is required. The Arcweave JSON export format and variable save-state format are unchanged.
 
 ---
 
@@ -651,7 +663,7 @@ Event-driven narrative player (demo helper class).
 
 5. **Scoped variables require scope**: `Project.GetVariable("health")` only searches project/global variables. Pass the owning board or component `CustomId` to access a scoped variable.
 
-6. **Images and Audio clips come from web imports or a Resources folder**: Importing from web downloads cover images and audio clips. Otherwise they are loaded via `Resources.Load<T>()`, so place them in any `Resources` folder and ensure filenames match (without extension).
+6. **Images and Audio clips come from web imports or a Resources folder**: Importing from web with **Download Media** enabled downloads cover images and audio clips. Otherwise they are loaded via `Resources.Load<T>()`, so place them in any `Resources` folder and ensure filenames match (without extension).
 
 7. **Components are not MonoBehaviours**: Arcweave Components represent characters/entities in your narrative, not Unity components.
 
