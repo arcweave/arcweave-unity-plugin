@@ -40,6 +40,8 @@ The bundled demo uses the Unity UI package. If your project does not already inc
 
 **Note:** This repository is not structured as a UPM (Unity Package Manager) package and cannot be installed via Git URL.
 
+The `Assets/Arcweave/Tests` folder contains optional editor regression tests and can be omitted or deleted from your Unity project.
+
 ---
 
 ## Getting Data from Arcweave

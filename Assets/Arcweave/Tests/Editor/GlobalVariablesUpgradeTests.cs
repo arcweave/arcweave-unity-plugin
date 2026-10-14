@@ -29,7 +29,7 @@ namespace Arcweave.Tests
             var folderName = "ArcweaveUpgradeTest_" + Guid.NewGuid().ToString("N");
             temporaryFolder = "Assets/" + folderName;
             AssetDatabase.CreateFolder("Assets", folderName);
-            assetPath = temporaryFolder + "/Project.asset";
+            assetPath = temporaryFolder + "/UpgradeFixture.asset";
 
             // Import the old bytes on every run; never let Unity rewrite the source fixture.
             File.Copy(fixturePath, assetPath);
@@ -88,15 +88,21 @@ namespace Arcweave.Tests
         }
 
         [Test]
-        public void UpgradedAssetCanBeSavedAndReloaded()
+        public void UpgradedAssetCanSaveAndReloadNewGlobalVariables()
         {
+            // Reloading the original fixture must not be enough to pass this test.
+            asset.Project.GlobalVariables.Add(new Variable("bonus-id", "bonus", 29));
             EditorUtility.SetDirty(asset);
             AssetDatabase.SaveAssetIfDirty(asset);
             Resources.UnloadAsset(asset);
             AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
             asset = AssetDatabase.LoadAssetAtPath<ArcweaveProjectAsset>(assetPath);
             AssertValues(asset.Project, 7, 11, 13);
-            Assert.That(asset.Project.GetAllVariables().Count(), Is.EqualTo(3));
+            var addedGlobal = asset.Project.GetVariable("bonus");
+            Assert.That(addedGlobal, Is.Not.Null);
+            Assert.That(addedGlobal.Id, Is.EqualTo("bonus-id"));
+            Assert.That(addedGlobal.Value, Is.EqualTo(29));
+            Assert.That(asset.Project.GetAllVariables().Count(), Is.EqualTo(4));
         }
 
         [Test]
