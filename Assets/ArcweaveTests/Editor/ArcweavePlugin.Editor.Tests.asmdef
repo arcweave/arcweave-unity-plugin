@@ -1,0 +1,23 @@
+{
+    "name": "ArcweavePlugin.Editor.Tests",
+    "references": [
+        "ArcweavePlugin"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "defineConstraints": [
+        "ARCWEAVE_TEST_FRAMEWORK"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.test-framework",
+            "expression": "",
+            "define": "ARCWEAVE_TEST_FRAMEWORK"
+        }
+    ],
+    "autoReferenced": false
+}

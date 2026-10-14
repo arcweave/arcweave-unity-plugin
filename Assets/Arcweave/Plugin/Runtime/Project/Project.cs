@@ -18,8 +18,14 @@ namespace Arcweave.Project
         [field: UnityEngine.SerializeReference]
         public List<Component> components { get; private set; }
         public List<Component> Components => components;
+        ///<summary>Project-level variables only. Use GetAllVariables to include board and component scopes.</summary>
+        [field: FormerlySerializedAs("<Variables>k__BackingField")]
         [field: UnityEngine.SerializeReference]
-        public List<Variable> Variables { get; private set; }
+        public List<Variable> GlobalVariables { get; private set; }
+
+        ///<summary>Compatibility alias for GlobalVariables.</summary>
+        [System.Obsolete("Use GlobalVariables for globals, or GetAllVariables() for every scope.")]
+        public List<Variable> Variables => GlobalVariables;
 
         [UnityEngine.SerializeField] private string _startingElementId;
         [System.NonSerialized] private Element _startingElement;
@@ -34,7 +40,7 @@ namespace Arcweave.Project
             this.StartingElement = startingElement;
             this.Boards = boards;
             this.components = components;
-            Variables = variables;
+            GlobalVariables = variables;
         }
 
         ///----------------------------------------------------------------------------------------------
@@ -103,7 +109,7 @@ namespace Arcweave.Project
         {
             if (scope == null)
             {
-                return Variables.FirstOrDefault(variable => variable.Name == name);
+                return GlobalVariables.FirstOrDefault(variable => variable.Name == name);
             }
             var container = Boards.Cast<IHasVariables>()
                 .Concat(Components)
@@ -114,7 +120,7 @@ namespace Arcweave.Project
         ///<summary>Enumerates every global, board-scoped, and component-scoped variable.</summary>
         public IEnumerable<Variable> GetAllVariables()
         {
-            return (Variables ?? new List<Variable>())
+            return (GlobalVariables ?? new List<Variable>())
                 .Concat((Boards ?? new List<Board>()).SelectMany(board => board.Variables ?? new List<Variable>()))
                 .Concat((Components ?? new List<Component>()).SelectMany(component => component.Variables ?? new List<Variable>()));
         }

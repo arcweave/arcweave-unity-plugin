@@ -1,0 +1,103 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0ce372e11555dd74a9f16172c7054bf8, type: 3}
+  m_Name: UpgradeFixture
+  m_EditorClassIdentifier: ArcweavePlugin::Arcweave.ArcweaveProjectAsset
+  importSource: 0
+  projectJsonFile: {fileID: 0}
+  userAPIKey:
+  projectHash:
+  locale:
+  fallbackLocales: 0
+  <Project>k__BackingField:
+    <name>k__BackingField: PR28 upgrade
+    <Boards>k__BackingField:
+    - rid: 1909164828386656259
+    <components>k__BackingField:
+    - rid: 1909164828386656260
+    <Variables>k__BackingField:
+    - rid: 1909164828386656261
+    _startingElementId: start
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
+    - rid: 1909164828386656259
+      type: {class: Board, ns: Arcweave.Project, asm: ArcweavePlugin}
+      data:
+        <Id>k__BackingField: board-id
+        <CustomId>k__BackingField: intro
+        <Name>k__BackingField: Board
+        <Nodes>k__BackingField:
+        - rid: 1909164828386656262
+        <Notes>k__BackingField: []
+        <Variables>k__BackingField:
+        - rid: 1909164828386656263
+        <Attributes>k__BackingField: []
+    - rid: 1909164828386656260
+      type: {class: Component, ns: Arcweave.Project, asm: ArcweavePlugin}
+      data:
+        <Id>k__BackingField: component-id
+        <CustomId>k__BackingField: hero
+        <Name>k__BackingField: Hero
+        <Attributes>k__BackingField: []
+        <Variables>k__BackingField:
+        - <Name>k__BackingField: health
+          <Id>k__BackingField: hero-health
+          <Parent>k__BackingField:
+            rid: 1909164828386656260
+          valueSerialized: i13
+          parentIdSerialized:
+          _typeName: System.Int32
+          defaultValueSerialized: i13
+        <cover>k__BackingField:
+          <type>k__BackingField: 0
+          <filePath>k__BackingField:
+    - rid: 1909164828386656261
+      type: {class: Variable, ns: Arcweave.Project, asm: ArcweavePlugin}
+      data:
+        <Name>k__BackingField: coins
+        <Id>k__BackingField: coins-id
+        <Parent>k__BackingField:
+          rid: -2
+        valueSerialized: i7
+        parentIdSerialized:
+        _typeName: System.Int32
+        defaultValueSerialized: i7
+    - rid: 1909164828386656262
+      type: {class: Element, ns: Arcweave.Project, asm: ArcweavePlugin}
+      data:
+        <Id>k__BackingField: start
+        <Pos>k__BackingField: {x: 0, y: 0}
+        <Title>k__BackingField: Start
+        <RawContent>k__BackingField: <p>Start</p>
+        <RuntimeContent>k__BackingField:
+        <ColorTheme>k__BackingField:
+        <Components>k__BackingField: []
+        <Attributes>k__BackingField: []
+        <cover>k__BackingField:
+          <type>k__BackingField: 0
+          <filePath>k__BackingField:
+        <AudioAssets>k__BackingField: []
+        <Outputs>k__BackingField: []
+    - rid: 1909164828386656263
+      type: {class: Variable, ns: Arcweave.Project, asm: ArcweavePlugin}
+      data:
+        <Name>k__BackingField: health
+        <Id>k__BackingField: board-health
+        <Parent>k__BackingField:
+          rid: 1909164828386656259
+        valueSerialized: i11
+        parentIdSerialized:
+        _typeName: System.Int32
+        defaultValueSerialized: i11

@@ -71,7 +71,7 @@ namespace Arcweave
             GUILayout.Label("Global Variables:", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;
             bool hasGlobalVariables = false;
-            foreach ( var variable in aw.Project.Variables ) {
+            foreach ( var variable in aw.Project.GlobalVariables ) {
                 if ( variable.Parent == null ) {
                     hasGlobalVariables = true;
                     EditorGUILayout.LabelField(variable.Name, variable.Value?.ToString());

@@ -281,7 +281,8 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 | `name` | string | Project name |
 | `boards` | List\<Board\> | All boards in the project |
 | `components` / `Components` | List\<Component\> | All components (characters/entities) |
-| `Variables` | List\<Variable\> | All global/project-scoped variables |
+| `GlobalVariables` | List\<Variable\> | All global/project-scoped variables |
+| `Variables` | List\<Variable\> | Deprecated alias for `GlobalVariables` |
 | `StartingElement` | Element | Entry point for the narrative |
 
 #### Methods
@@ -309,8 +310,9 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 
 Boards and components can define scoped variables in addition to project/global variables. In current exports, scoped variables are backed by boolean, integer, float, or plain-string attributes with a custom ID.
 
-- `Project.Variables` contains only project/global variables.
+- `Project.GlobalVariables` contains only project/global variables.
 - `Board.Variables` and `Component.Variables` contain their scoped variables.
+- `Project.GetAllVariables()` enumerates variables from all three scopes.
 - Scoped variables use the attribute's `CustomId` as their name and the owning container's `CustomId` as their scope.
 - The attribute ID remains the variable ID used by runtime changes and save data.
 - In Arcscript, scoped variables use `containerCustomId.variableName`.
@@ -326,6 +328,12 @@ project.SetVariable("health", 5, "hero");
 ```
 
 Both the source attribute and its board/component must have a `CustomId` for the attribute to become a scoped variable. Plain-string attributes with null data import as an empty string.
+
+#### Upgrading from `Project.Variables`
+
+Use `Project.GlobalVariables` when accessing the global-variable list. Existing `Project.Variables` code continues to work through a deprecated alias to the same list. `IProject.Variables` remains available so existing interpreter callers and custom implementations remain compatible.
+
+Previously imported Unity assets retain their global variables automatically; no reimport is required. The Arcweave JSON export format and variable save-state format are unchanged.
 
 ---
 
