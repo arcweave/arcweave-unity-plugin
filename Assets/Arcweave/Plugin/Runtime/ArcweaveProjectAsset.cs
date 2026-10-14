@@ -42,7 +42,7 @@ namespace Arcweave
 
         //...
         protected void OnEnable() {
-            if ( Project != null ) {
+            if ( IsImported ) {
                 Project.Initialize();
             }
         }
@@ -70,7 +70,7 @@ namespace Arcweave
             return importTask;
         }
 
-        ///<summary>Import the project only if it has not been imported yet.</summary>
+        ///<summary>Import the project only if the asset has no playable project yet, or join the import already running.</summary>
         public Task EnsureImportedAsync() {
             if ( IsImported && !IsImporting ) {
                 return Task.CompletedTask;

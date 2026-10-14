@@ -30,7 +30,8 @@ namespace Arcweave
         public event OnWaitingInputNext onWaitInputNext;
 
         // The pending start, shared by overlapping calls so the project only starts once.
-        private Task startTask;
+        // It is set before any start code runs, so event handlers calling PlayProject join it too.
+        private TaskCompletionSource<bool> pendingStart;
 
         void Start() { if ( autoStart ) PlayProject(); }
 
@@ -47,10 +48,25 @@ namespace Arcweave
         /// Starts playing the project, importing it first if needed.
         /// Calls made while a start is still pending return that same pending start.
         public Task PlayProjectAsync() {
-            if ( startTask == null || startTask.IsCompleted ) {
-                startTask = StartProject();
+            var start = pendingStart;
+            if ( start == null ) {
+                start = pendingStart = new TaskCompletionSource<bool>();
+                RunStart(start);
             }
-            return startTask;
+            return start.Task;
+        }
+
+        async void RunStart(TaskCompletionSource<bool> start) {
+            System.Exception error = null;
+            try {
+                await StartProject();
+            }
+            catch ( System.Exception e ) {
+                error = e;
+            }
+            // Cleared before completing, so whoever awaits the start can restart the project right away.
+            pendingStart = null;
+            if ( error == null ) { start.SetResult(true); } else { start.SetException(error); }
         }
 
         async Task StartProject() {
@@ -63,6 +79,8 @@ namespace Arcweave
             if ( !aw.IsImported ) {
                 Debug.LogWarning("The Arcweave Project Asset has not been imported yet, importing it now.");
                 await aw.EnsureImportedAsync();
+                // Let anything else waiting on the same import (eg. an ImportProject callback calling PlayProject) join this start first.
+                await Task.Yield();
                 if ( this == null ) { return; } // destroyed while importing
                 if ( !aw.IsImported ) {
                     throw new System.InvalidOperationException("The imported Arcweave project has no starting element.");
