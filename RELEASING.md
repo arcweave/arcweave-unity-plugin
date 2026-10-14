@@ -40,8 +40,10 @@ Publishing the release runs the [Release packages](.github/workflows/release-pac
 Unity has no official way to upload to the Asset Store from CI, so this step is manual. Asset Store users don't get the new version until Unity approves it.
 
 - [ ] Open the [Publisher Portal](https://publisher.unity.com), select **Arcweave for Unity** and select **Create a new draft to edit**.
-- [ ] Open this repository's Unity project at the release tag (`git checkout vX.Y.Z`), with the [Asset Store Publishing Tools](https://docs.unity.com/en-us/asset-store/publishing/asset-packages/upload) installed.
+- [ ] Check out the release tag (`git checkout vX.Y.Z`) in a clone you've already opened in Unity, and open it in Unity. `Packages` and `ProjectSettings` aren't committed, so a fresh clone needs them copied from another clone first.
+- [ ] Install the [Asset Store Publishing Tools](https://docs.unity.com/en-us/asset-store/publishing/asset-packages/upload) from the Asset Store through **Window > Package Manager > My Assets**. The 12.0.0 version on Unity's GitHub doesn't compile in Unity 6000.5.
 - [ ] Select **Tools > Asset Store > Validator**, validate the `Assets/Arcweave` folder and fix any reported issues.
 - [ ] Select **Tools > Asset Store > Uploader**, log in, select the new draft and upload the `Assets/Arcweave` folder with **Export and Upload**. Only `Assets/Arcweave` should be exported, not `Assets/ArcweaveTests`.
+  The Asset Store lists the Unity version you upload from as the package's original Unity version, so use the oldest Unity version the plugin supports.
 - [ ] In the Publisher Portal, set the version to `X.Y.Z`, paste the version's `Changelog.md` section as the release notes, check the supported Unity versions, and select **Submit**.
 - [ ] Once Unity approves it, check that the [Asset Store page](https://assetstore.unity.com/packages/tools/integration/arcweave-for-unity-148326) shows the new version.
