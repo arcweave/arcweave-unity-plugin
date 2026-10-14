@@ -4,6 +4,8 @@ Install Unity's **Test Framework** (`com.unity.test-framework`) through Package 
 
 The test assembly is editor-only and is not referenced by the plugin or included in player builds. It is enabled only when the Test Framework package is installed, so importing the plugin does not require NUnit.
 
+The tests live outside `Assets/Arcweave` so they are not distributed with the plugin. Do not move them into the plugin folder.
+
 For a Unity project containing the plugin, tests can also run from the command line:
 
 ```text
