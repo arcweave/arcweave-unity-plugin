@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Threading.Tasks;
+using UnityEngine;
 using Arcweave.Project;
 
 namespace Arcweave
@@ -28,13 +29,44 @@ namespace Arcweave
         public event OnElementOptions onElementOptions;
         public event OnWaitingInputNext onWaitInputNext;
 
+        // The pending start, shared by overlapping calls so the project only starts once.
+        private Task startTask;
+
         void Start() { if ( autoStart ) PlayProject(); }
 
-        public void PlayProject() {
+        /// Starts playing the project, importing it first if needed. Use PlayProjectAsync to await it.
+        public async void PlayProject() {
+            try {
+                await PlayProjectAsync();
+            }
+            catch ( System.Exception e ) {
+                Debug.LogException(e);
+            }
+        }
+
+        /// Starts playing the project, importing it first if needed.
+        /// Calls made while a start is still pending return that same pending start.
+        public Task PlayProjectAsync() {
+            if ( startTask == null || startTask.IsCompleted ) {
+                startTask = StartProject();
+            }
+            return startTask;
+        }
+
+        async Task StartProject() {
 
             if ( aw == null ) {
                 Debug.LogError("There is no Arcweave Project assigned in the inspector of Arcweave Player");
                 return;
+            }
+
+            if ( !aw.IsImported ) {
+                Debug.LogWarning("The Arcweave Project Asset has not been imported yet, importing it now.");
+                await aw.EnsureImportedAsync();
+                if ( this == null ) { return; } // destroyed while importing
+                if ( !aw.IsImported ) {
+                    throw new System.InvalidOperationException("The imported Arcweave project has no starting element.");
+                }
             }
 
             aw.Project.Initialize();
