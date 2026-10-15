@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- Fixed importing projects whose element audio has a `delay` written as a string, such as The Castle template (`"delay": "1200"`), which failed with `Unable to cast <"1200"> (with type = System.String) to type System.Int64`. Audio delays and volumes are now read from numbers and numeric strings; other values are reported and replaced by the default instead of failing the import.
+- Fixed a `NullReferenceException` in the demo's `ArcweavePlayer.Save()` when saving after the project finished. Added `ArcweavePlayer.CanSave`, and the demo UI no longer shows **Load** when there was nothing to save.
+
 ## 3.1.0
 
 ### Added

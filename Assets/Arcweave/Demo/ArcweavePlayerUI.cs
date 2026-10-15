@@ -67,6 +67,7 @@ namespace Arcweave
         }
 
         void Save() {
+            if ( !player.CanSave ) { return; }
             player.Save();
             loadButton.gameObject.SetActive(true);
         }

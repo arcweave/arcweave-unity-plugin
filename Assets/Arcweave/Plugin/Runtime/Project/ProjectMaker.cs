@@ -441,12 +441,7 @@ namespace Arcweave.Project
             var audioId = audioEntry["id"]?.AsString;
             var mode = audioEntry["mode"]?.AsString;
             string asset = audioEntry["asset"]?.AsString;
-            var delayProp = audioEntry["delay"];
-            float delay = 0f;
-            if (delayProp != null)
-            {
-                delay = delayProp.Type == fsDataType.Double ? (float)delayProp.AsDouble : (float)delayProp.AsInt64;
-            }
+            float delay = GetFloat(audioEntry["delay"], 0f, $"delay of audio {audioId}");
 
             if (string.IsNullOrEmpty(asset))
             {
@@ -456,12 +451,7 @@ namespace Arcweave.Project
             }
             // Name and volume are stored in "assets" so we look for them using the "asset" value, which is the id of the audio asset
             var name = jproject["assets." + asset + ".name"]?.AsString;
-            var volumeProp = jproject["assets." + asset + ".volume"];
-            float volume = 1f;
-            if (volumeProp != null)
-            {
-                volume = volumeProp.Type == fsDataType.Double ? (float)volumeProp.AsDouble : (float)volumeProp.AsInt64;
-            }
+            float volume = GetFloat(jproject["assets." + asset + ".volume"], 1f, $"volume of audio asset {asset}");
             return new AudioAsset(audioId, mode, asset, delay, name, volume);
         }
         ///----------------------------------------------------------------------------------------------
@@ -493,6 +483,22 @@ namespace Arcweave.Project
             var yValue = y.Type == fsDataType.Double ? (int)y.AsDouble : (int)y.AsInt64;
 
             return new UnityEngine.Vector2Int(xValue, yValue);
+        }
+
+        //exports may write numbers as strings (eg. "delay": "1200"), so those are parsed too.
+        //missing or null values use the fallback, and values that are not numbers are reported and use it too.
+        float GetFloat(fsData value, float fallback, string description)
+        {
+            if ( value == null || value.IsNull ) { return fallback; }
+            if ( value.Type == fsDataType.Double ) { return (float)value.AsDouble; }
+            if ( value.Type == fsDataType.Int64 ) { return value.AsInt64; }
+            if ( value.Type == fsDataType.String &&
+                float.TryParse(value.AsString, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed) &&
+                !float.IsNaN(parsed) && !float.IsInfinity(parsed) ) {
+                return parsed;
+            }
+            Debug.LogWarning($"Ignoring the {description}, which is not a number: {value}");
+            return fallback;
         }
     }
 }
