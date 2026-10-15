@@ -1,0 +1,49 @@
+# Releasing
+
+Steps for publishing a new version of the plugin on GitHub and the Unity Asset Store.
+
+## 1. Prepare the release
+
+- [ ] Merge every pull request that should ship in this version.
+- [ ] Pick the version number following [Semantic Versioning](https://semver.org/): major for breaking changes, minor for new features or deprecations, patch for fixes only.
+- [ ] Open a pull request titled `chore: release vX.Y.Z` that renames `## Unreleased` in `Changelog.md` to `## X.Y.Z`, and merge it into `main`.
+
+## 2. Publish the GitHub release
+
+- [ ] Create a release on [GitHub](https://github.com/arcweave/arcweave-unity-plugin/releases/new) with a new tag `vX.Y.Z` on `main`, titled `vX.Y.Z`, and click **Generate release notes**. Or run:
+
+  ```sh
+  gh release create vX.Y.Z --target main --title vX.Y.Z --generate-notes
+  ```
+
+- [ ] Leave **Set as the latest release** ticked, unless the release is a fix for an older major version. The website and the README link to the files of the latest release, so they would otherwise point to the older version.
+
+## 3. Check the downloads
+
+Publishing the release runs the [Release packages](.github/workflows/release-packages.yml) workflow, which attaches `ArcweaveForUnity.unitypackage` and `ArcweaveForUnity.zip` to it.
+
+- [ ] Check that the [workflow run](https://github.com/arcweave/arcweave-unity-plugin/actions/workflows/release-packages.yml) succeeded and both files are on the release page.
+
+  If the run failed because of a temporary error, click **Re-run jobs**. A re-run uses the workflow and build script from the release tag, so if they needed a fix, merge it into `main` and attach the files from your machine instead:
+
+  ```sh
+  bash .github/scripts/build-release-packages.sh vX.Y.Z dist
+  gh release upload vX.Y.Z dist/ArcweaveForUnity.unitypackage dist/ArcweaveForUnity.zip --clobber
+  ```
+
+- [ ] Check that these links download the new files:
+  - https://github.com/arcweave/arcweave-unity-plugin/releases/latest/download/ArcweaveForUnity.unitypackage
+  - https://github.com/arcweave/arcweave-unity-plugin/releases/latest/download/ArcweaveForUnity.zip
+
+## 4. Update the Asset Store package
+
+Unity has no official way to upload to the Asset Store from CI, so this step is manual. Asset Store users don't get the new version until Unity approves it.
+
+- [ ] Open the [Publisher Portal](https://publisher.unity.com), select **Arcweave for Unity** and select **Create a new draft to edit**.
+- [ ] Check out the release tag (`git checkout vX.Y.Z`) in a clone you've already opened in Unity, and open it in Unity. `Packages` and `ProjectSettings` aren't committed, so a fresh clone needs them copied from another clone first.
+- [ ] Install the [Asset Store Publishing Tools](https://docs.unity.com/en-us/asset-store/publishing/asset-packages/upload) from the Asset Store through **Window > Package Manager > My Assets**. The 12.0.0 version on Unity's GitHub doesn't compile in Unity 6000.5.
+- [ ] Select **Tools > Asset Store > Validator**, validate the `Assets/Arcweave` folder and fix any reported issues.
+- [ ] Select **Tools > Asset Store > Uploader**, log in, select the new draft and upload the `Assets/Arcweave` folder with **Export and Upload**. Only `Assets/Arcweave` should be exported, not `Assets/ArcweaveTests`.
+  The Asset Store lists the Unity version you upload from as the package's original Unity version, so use the oldest Unity version the plugin supports.
+- [ ] In the Publisher Portal, set the version to `X.Y.Z`, paste the version's `Changelog.md` section as the release notes, check the supported Unity versions, and select **Submit**.
+- [ ] Once Unity approves it, check that the [Asset Store page](https://assetstore.unity.com/packages/tools/integration/arcweave-for-unity-148326) shows the new version.
