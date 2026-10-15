@@ -121,8 +121,15 @@ namespace Arcweave
 
         ///----------------------------------------------------------------------------------------------
 
+        /// True while an element is playing. There is nothing to save before the project starts or after it finishes.
+        public bool CanSave => currentElement != null;
+
         /// Saves the current element and the variables
         public void Save() {
+            if ( !CanSave ) {
+                Debug.LogWarning("There is no current element to save, the project is not playing.");
+                return;
+            }
             var id = currentElement.Id;
             var variables = aw.Project.SaveVariables();
             PlayerPrefs.SetString(SAVE_KEY+"_currentElement", id);
