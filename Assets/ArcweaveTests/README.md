@@ -24,7 +24,7 @@ They cover media being disabled by default, the project being published only aft
 
 ## Audio numbers tests
 
-`Arcweave.Tests.AudioNumbersTests` imports a project whose starting element plays one audio asset. Arcweave exports may write the audio `delay` as a string (for example, `"delay": "1200"` in The Castle template). They cover delays and volumes written as integers, decimals, numeric strings, `null` or omitted, and values that are not numbers, which are reported and replaced by the default (a delay of `0` and a volume of `1`) instead of failing the import.
+`Arcweave.Tests.AudioNumbersTests` imports a project whose starting element plays one audio asset. Arcweave exports may write the audio `delay` as a string (for example, `"delay": "1200"` in The Castle template). They cover delays and volumes written as integers (including zero, negative and large ones), decimals, numeric strings read regardless of the current culture, `null` or omitted, and values that are not numbers, which are reported and replaced by the default (a delay of `0` and a volume of `1`) instead of failing the import.
 
 ## Legacy fixture
 

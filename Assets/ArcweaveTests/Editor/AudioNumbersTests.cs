@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Arcweave.Project;
@@ -11,7 +12,10 @@ namespace Arcweave.Tests
     /// Checks that audio delays and volumes are imported from numbers and numeric strings, and that other values don't fail the import.</summary>
     public class AudioNumbersTests
     {
-        [TestCase("0", 0f, TestName = "IntegerDelay")]
+        [TestCase("1200", 1200f, TestName = "IntegerDelay")]
+        [TestCase("0", 0f, TestName = "ZeroDelay")]
+        [TestCase("-5", -5f, TestName = "NegativeIntegerDelay")]
+        [TestCase("9007199254740993", (float)9007199254740993L, TestName = "LargeIntegerDelay")]
         [TestCase("1.5", 1.5f, TestName = "DecimalDelay")]
         [TestCase("\"1200\"", 1200f, TestName = "IntegerStringDelay")]
         [TestCase("\"2.5\"", 2.5f, TestName = "DecimalStringDelay")]
@@ -25,13 +29,30 @@ namespace Arcweave.Tests
         }
 
         [TestCase("0.71", 0.71f, TestName = "DecimalVolume")]
-        [TestCase("1", 1f, TestName = "IntegerVolume")]
+        [TestCase("2", 2f, TestName = "IntegerVolume")]
+        [TestCase("0", 0f, TestName = "ZeroVolume")]
         [TestCase("\"0.5\"", 0.5f, TestName = "StringVolume")]
         [TestCase("null", 1f, TestName = "NullVolume")]
         [TestCase(null, 1f, TestName = "MissingVolume")]
         public void VolumeIsImported(string volume, float expected)
         {
             Assert.That(MakeAudio("0", volume).volume, Is.EqualTo(expected));
+        }
+
+        // Numeric strings are always read with the invariant culture, eg. "2.5" is not 25 where ',' is the decimal separator
+        [Test]
+        public void NumericStringsIgnoreTheCurrentCulture()
+        {
+            var culture = CultureInfo.CurrentCulture;
+            try {
+                CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+                var audio = MakeAudio("\"2.5\"", "\"0.5\"");
+                Assert.That(audio.delay, Is.EqualTo(2.5f));
+                Assert.That(audio.volume, Is.EqualTo(0.5f));
+            }
+            finally {
+                CultureInfo.CurrentCulture = culture;
+            }
         }
 
         [TestCase("\"soon\"", TestName = "TextDelay")]
