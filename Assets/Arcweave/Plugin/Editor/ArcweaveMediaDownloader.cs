@@ -138,6 +138,8 @@ namespace Arcweave
             var targetPaths = new Dictionary<string, string>();
             var fallbackPaths = new Dictionary<string, string>();
             var claimedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Targets that are the asset's own previous file, which are the only existing files that are ever overwritten
+            var ownedTargets = new HashSet<string>();
             foreach ( var id in downloads.Keys ) {
                 var extension = System.IO.Path.GetExtension(fileNames[id]).ToLowerInvariant();
                 var hasPrevious = previousPaths.TryGetValue(id, out var previousPath);
@@ -146,24 +148,16 @@ namespace Arcweave
 
                 // A file the user moved out of the media folder stays where they put it and is updated in place
                 var path = keepsPrevious && !IsInFolder(previousPath, folder) ? previousPath : null;
+                try {
+                    path = path ?? MirroredPath(id, keepsPrevious ? previousPath : null);
+                }
+                catch ( Exception e ) {
+                    // Eg. a folder that can't be listed. The previous copy is kept.
+                    Debug.LogWarning($"Could not find a path for '{names[id]}': {e.Message}");
+                    path = keepsPrevious ? previousPath : null;
+                }
                 if ( path == null ) {
-                    // The media folder is only created when a file needs a path in it
-                    if ( folder == null ) {
-                        var parentFolder = System.IO.Path.GetDirectoryName(assetPath).Replace('\\', '/');
-                        var folderName = System.IO.Path.GetFileName(AssetDatabase.GenerateUniqueAssetPath(parentFolder + "/" + projectAsset.name + " Media"));
-                        projectAsset.mediaFolderGuid = AssetDatabase.CreateFolder(parentFolder, folderName);
-                        folder = AssetDatabase.GUIDToAssetPath(projectAsset.mediaFolderGuid);
-                    }
-                    string[] folderNames = null;
-                    assetFolders?.TryGetValue(id, out folderNames);
-                    var desiredFolder = string.IsNullOrEmpty(folder) ? null : CreateFolders(projectAsset, folder, folderNames, claimedPaths);
-                    if ( desiredFolder != null ) {
-                        path = UniquePath(desiredFolder + "/" + fileNames[id], keepsPrevious ? previousPath : null, claimedPaths);
-                    } else if ( keepsPrevious ) {
-                        path = previousPath;
-                    } else {
-                        continue;
-                    }
+                    continue;
                 }
 
                 // Moving keeps the file's GUID, so references to it keep working after the asset is renamed or moved in Arcweave
@@ -176,8 +170,24 @@ namespace Arcweave
                         path = previousPath;
                     }
                 }
+                if ( keepsPrevious ) { ownedTargets.Add(path); }
                 targetPaths[id] = path;
                 claimedPaths.Add(path);
+            }
+
+            ///<summary>Returns a free path that mirrors the Arcweave folders, creating its folders, or the previous path or null if they can't be created.</summary>
+            string MirroredPath(string id, string previousPath) {
+                // The media folder is only created when a file needs a path in it
+                if ( folder == null ) {
+                    var parentFolder = System.IO.Path.GetDirectoryName(assetPath).Replace('\\', '/');
+                    var folderName = System.IO.Path.GetFileName(AssetDatabase.GenerateUniqueAssetPath(parentFolder + "/" + projectAsset.name + " Media"));
+                    projectAsset.mediaFolderGuid = AssetDatabase.CreateFolder(parentFolder, folderName);
+                    folder = AssetDatabase.GUIDToAssetPath(projectAsset.mediaFolderGuid);
+                }
+                string[] folderNames = null;
+                assetFolders?.TryGetValue(id, out folderNames);
+                var desiredFolder = string.IsNullOrEmpty(folder) ? null : CreateFolders(projectAsset, folder, folderNames, claimedPaths);
+                return desiredFolder == null ? previousPath : UniquePath(desiredFolder + "/" + fileNames[id], previousPath, claimedPaths);
             }
 
             var saved = 0;
@@ -189,6 +199,10 @@ namespace Arcweave
                     var path = target.Value;
                     var bytes = downloads[id];
                     try {
+                        // A callback, eg. of another editor extension, may have put a file at a free path since it was chosen
+                        if ( !ownedTargets.Contains(path) && File.Exists(path) ) {
+                            throw new IOException("Another file was saved at the path.");
+                        }
                         if ( !File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes) ) {
                             WriteFile(path, bytes);
                             AssetDatabase.ImportAsset(path);
@@ -391,7 +405,16 @@ namespace Arcweave
             }
         }
 
-        static bool IsEmpty(string folder) => !Directory.EnumerateFileSystemEntries(folder).Any();
+        ///<summary>True if the folder has nothing in it. A folder that can't be listed counts as not empty, so it is kept.</summary>
+        static bool IsEmpty(string folder) {
+            try {
+                return !Directory.EnumerateFileSystemEntries(folder).Any();
+            }
+            catch ( Exception e ) {
+                Debug.LogWarning($"Could not check whether {folder} is empty: {e.Message}");
+                return false;
+            }
+        }
 
         ///<summary>Downloads an asset file, waiting and retrying while rate limited. Returns null if the download fails or is canceled.</summary>
         static async Task<byte[]> FetchAsync(string url, string apiKey, string name, string info, float value, Progress progress) {

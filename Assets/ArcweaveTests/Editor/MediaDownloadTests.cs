@@ -502,6 +502,33 @@ namespace Arcweave.Tests
         }
 
         [UnityTest]
+        public IEnumerator FileSavedAtAPlannedPathDuringAMoveIsNeverOverwritten()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var userPath = MediaFolder + "/Images/Cover.jpg";
+            var userFile = Png(Color.yellow);
+            MoveCallback.onWillMoveAsset = (source, destination) => {
+                if ( !File.Exists(userPath) ) { File.WriteAllBytes(userPath, userFile); }
+            };
+
+            try {
+                // The cover needs a new file and the hero is moved, in either order
+                asset.projectJson = ProjectJson(coverName: "Cover.jpg", heroName: "Portrait.png");
+                server.SetFile(CoverId, Jpg(Color.blue));
+                yield return Import();
+            }
+            finally {
+                MoveCallback.onWillMoveAsset = null;
+            }
+
+            Assert.That(File.ReadAllBytes(userPath), Is.EqualTo(userFile));
+            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/Images/Portrait.png"));
+            Assert.That(Cover().downloadedImage, Is.Not.Null);
+            Assert.That(Path(Cover().downloadedImage), Is.Not.EqualTo(userPath));
+        }
+
+        [UnityTest]
         public IEnumerator FileTheUserMovedInsideTheMediaFolderIsMovedBack()
         {
             asset.downloadMedia = true;
