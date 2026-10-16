@@ -310,6 +310,62 @@ namespace Arcweave.Tests
         }
 
         [UnityTest]
+        public IEnumerator NamesWithCharactersNotAllowedInPathsOrOnlyAnExtensionAreDownloaded()
+        {
+            asset.downloadMedia = true;
+            asset.projectJson = ProjectJson(coverName: "a<b|c>\"d.png", heroName: ".png");
+
+            yield return Import();
+
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Images/a_b_c__d.png"));
+            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/Images/_.png"));
+            Assert.That(Music().downloadedClip, Is.Not.Null);
+        }
+
+        [UnityTest]
+        public IEnumerator FolderWithTheNameOfAFileInTheSameFolderGetsANumber([Values] bool fileIsTheCover)
+        {
+            // An Arcweave folder and an asset in the same folder, both named Album.png, downloaded in either order
+            asset.downloadMedia = true;
+            asset.projectJson = fileIsTheCover
+                ? ProjectJson(coverName: "Album.png", heroInPortraits: true, portraitsName: "Album.png")
+                : ProjectJson(heroName: "Album.png", coverInPortraits: true, portraitsName: "Album.png");
+
+            yield return Import();
+
+            var file = fileIsTheCover ? Path(Cover().downloadedImage) : Path(Hero().downloadedImage);
+            var inFolder = fileIsTheCover ? Path(Hero().downloadedImage) : Path(Cover().downloadedImage);
+            var expected = new[] {
+                new[] { MediaFolder + "/Images/Album.png", MediaFolder + "/Images/Album.png 1/" + ( fileIsTheCover ? "Hero.png" : "Cover.png" ) },
+                new[] { MediaFolder + "/Images/Album 1.png", MediaFolder + "/Images/Album.png/" + ( fileIsTheCover ? "Hero.png" : "Cover.png" ) },
+            };
+            Assert.That(expected, Has.Some.EqualTo(new[] { file, inFolder }));
+            Assert.That(File.Exists(file) && File.Exists(inFolder), Is.True);
+
+            yield return Import();
+
+            Assert.That(fileIsTheCover ? Path(Cover().downloadedImage) : Path(Hero().downloadedImage), Is.EqualTo(file));
+            Assert.That(fileIsTheCover ? Path(Hero().downloadedImage) : Path(Cover().downloadedImage), Is.EqualTo(inFolder));
+        }
+
+        [UnityTest]
+        public IEnumerator PathTakenByANameThatDiffersOnlyInCaseGetsANumber()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var userPath = MediaFolder + "/Images/Portrait.png";
+            var userFile = Png(Color.yellow);
+            File.WriteAllBytes(userPath, userFile);
+            AssetDatabase.ImportAsset(userPath, ImportAssetOptions.ForceSynchronousImport);
+
+            asset.projectJson = ProjectJson(coverName: "portrait.png");
+            yield return Import();
+
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Images/portrait 1.png"));
+            Assert.That(File.ReadAllBytes(userPath), Is.EqualTo(userFile));
+        }
+
+        [UnityTest]
         public IEnumerator AssetsWithTheSameNameInTheSameFolderAreBothDownloadedAndKeepTheirPaths()
         {
             asset.downloadMedia = true;
@@ -540,11 +596,15 @@ namespace Arcweave.Tests
 
         ///<summary>A project whose assets are in Arcweave folders: Images (with the hero, the cover and an Images/Portraits folder) and Audio (with the music).</summary>
         private static string ProjectJson(bool withMusic = true, string coverId = CoverId, string coverName = "Cover.png",
-            bool coverInPortraits = false, string heroName = "Hero.png", string imagesName = "Images")
+            bool coverInPortraits = false, string heroName = "Hero.png", string imagesName = "Images",
+            bool heroInPortraits = false, string portraitsName = "Portraits")
         {
             var audio = withMusic ? $@", ""audio"": [{{ ""id"": ""music-instance"", ""mode"": ""loop"", ""asset"": ""{MusicId}"", ""delay"": 0 }}]" : "";
-            var imagesChildren = coverInPortraits ? $@"""portraits-folder"", ""{HeroId}""" : $@"""portraits-folder"", ""{HeroId}"", ""{coverId}""";
-            var portraitsChildren = coverInPortraits ? $@"""{coverId}""" : "";
+            var imagesChildren = new[] { "portraits-folder" }
+                .Concat(heroInPortraits ? new string[0] : new[] { HeroId })
+                .Concat(coverInPortraits ? new string[0] : new[] { coverId });
+            var portraitsChildren = ( heroInPortraits ? new[] { HeroId } : new string[0] )
+                .Concat(coverInPortraits ? new[] { coverId } : new string[0]);
             return $@"{{
                 ""name"": ""Media Test"",
                 ""startingElement"": ""start"",
@@ -556,8 +616,8 @@ namespace Arcweave.Tests
                 ""attributes"": {{}}, ""variables"": {{}}, ""notes"": {{}},
                 ""assets"": {{
                     ""root-folder"": {{ ""root"": true, ""children"": [""images-folder"", ""audio-folder""] }},
-                    ""images-folder"": {{ ""name"": {Quote(imagesName)}, ""children"": [{imagesChildren}] }},
-                    ""portraits-folder"": {{ ""name"": ""Portraits"", ""children"": [{portraitsChildren}] }},
+                    ""images-folder"": {{ ""name"": {Quote(imagesName)}, ""children"": [{string.Join(", ", imagesChildren.Select(Quote))}] }},
+                    ""portraits-folder"": {{ ""name"": {Quote(portraitsName)}, ""children"": [{string.Join(", ", portraitsChildren.Select(Quote))}] }},
                     ""audio-folder"": {{ ""name"": ""Audio"", ""children"": [""{MusicId}""] }},
                     ""{coverId}"": {{ ""name"": {Quote(coverName)}, ""type"": ""image"" }},
                     ""{HeroId}"": {{ ""name"": {Quote(heroName)}, ""type"": ""image"" }},

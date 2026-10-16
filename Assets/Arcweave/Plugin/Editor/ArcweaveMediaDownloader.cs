@@ -66,6 +66,8 @@ namespace Arcweave
             var audioAssets = new Dictionary<string, List<AudioAsset>>();
             var names = new Dictionary<string, string>();
             CollectMedia(project, covers, audioAssets, names);
+            // Sanitized before any path operation, since some of them throw on characters that aren't allowed in paths
+            var fileNames = names.ToDictionary(entry => entry.Key, entry => SanitizeName(entry.Value));
 
             var downloads = new Dictionary<string, byte[]>();
             var ids = names.Keys.ToList();
@@ -73,7 +75,7 @@ namespace Arcweave
             for ( var i = 0; i < ids.Count && !progress.Canceled; i++ ) {
                 var id = ids[i];
                 var name = names[id];
-                var extension = System.IO.Path.GetExtension(name).ToLowerInvariant();
+                var extension = System.IO.Path.GetExtension(fileNames[id]).ToLowerInvariant();
                 var supportedExtensions = covers.ContainsKey(id) ? IMAGE_EXTENSIONS : AUDIO_EXTENSIONS;
                 if ( !supportedExtensions.Contains(extension) ) {
                     Debug.LogWarning($"Skipping '{name}' because Unity cannot import '{extension}' files.");
@@ -137,7 +139,7 @@ namespace Arcweave
             var fallbackPaths = new Dictionary<string, string>();
             var claimedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach ( var id in downloads.Keys ) {
-                var extension = System.IO.Path.GetExtension(names[id]).ToLowerInvariant();
+                var extension = System.IO.Path.GetExtension(fileNames[id]).ToLowerInvariant();
                 var hasPrevious = previousPaths.TryGetValue(id, out var previousPath);
                 var keepsPrevious = hasPrevious && System.IO.Path.GetExtension(previousPath).ToLowerInvariant() == extension;
                 if ( hasPrevious ) { fallbackPaths[id] = previousPath; }
@@ -154,9 +156,9 @@ namespace Arcweave
                     }
                     string[] folderNames = null;
                     assetFolders?.TryGetValue(id, out folderNames);
-                    var desiredFolder = string.IsNullOrEmpty(folder) ? null : CreateFolders(projectAsset, folder, folderNames);
+                    var desiredFolder = string.IsNullOrEmpty(folder) ? null : CreateFolders(projectAsset, folder, folderNames, claimedPaths);
                     if ( desiredFolder != null ) {
-                        path = UniquePath(desiredFolder + "/" + SanitizeName(names[id]), keepsPrevious ? previousPath : null, claimedPaths);
+                        path = UniquePath(desiredFolder + "/" + fileNames[id], keepsPrevious ? previousPath : null, claimedPaths);
                     } else if ( keepsPrevious ) {
                         path = previousPath;
                     } else {
@@ -287,7 +289,7 @@ namespace Arcweave
             }
 
             // Unity ignores hidden names, names ending with '~', 'cvs' and '.tmp'
-            if ( result[0] == '.' ) { result = "_" + result.Substring(1); }
+            if ( result[0] == '.' ) { result = "_" + result; }
             if ( result.EndsWith("~") || result.Equals("cvs", StringComparison.OrdinalIgnoreCase) || result.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase) ) {
                 result += "_";
             }
@@ -295,43 +297,38 @@ namespace Arcweave
         }
 
         ///<summary>Returns the folder inside the media folder that mirrors the Arcweave folders, creating any that are missing,
-        /// or null if it can't be created.</summary>
-        static string CreateFolders(ArcweaveProjectAsset projectAsset, string mediaFolder, string[] folderNames) {
+        /// or null if it can't be created. A folder whose name is taken by a file gets a number, like files do.</summary>
+        static string CreateFolders(ArcweaveProjectAsset projectAsset, string mediaFolder, string[] folderNames, HashSet<string> claimedPaths) {
             var folder = mediaFolder;
             foreach ( var folderName in folderNames ?? new string[0] ) {
                 var name = SanitizeName(folderName);
-                var path = folder + "/" + name;
-                if ( AssetDatabase.IsValidFolder(path) ) {
-                    // Uses the folder's own case, in case the lookup ignores it
-                    var existingPath = AssetDatabase.GUIDToAssetPath(AssetDatabase.AssetPathToGUID(path));
-                    folder = string.IsNullOrEmpty(existingPath) ? path : existingPath;
-                    continue;
+                string next = null;
+                for ( var number = 0; next == null; number++ ) {
+                    var candidate = number == 0 ? name : $"{name} {number}";
+                    var path = folder + "/" + candidate;
+                    // A file of this import may not be written yet
+                    if ( claimedPaths.Contains(path) ) { continue; }
+                    var existing = ExistingEntry(path);
+                    if ( existing != null ) {
+                        // Reuses a folder whose name differs only in case, since it is the same folder on case-insensitive file systems
+                        if ( AssetDatabase.IsValidFolder(existing) ) { next = existing; }
+                        continue;
+                    }
+                    var guid = AssetDatabase.CreateFolder(folder, candidate);
+                    if ( !string.IsNullOrEmpty(guid) ) { projectAsset.mediaSubfolderGuids.Add(guid); }
+                    if ( string.IsNullOrEmpty(guid) || AssetDatabase.GUIDToAssetPath(guid) != path ) {
+                        Debug.LogWarning($"Could not create the media folder {path}.");
+                        return null;
+                    }
+                    next = path;
                 }
-                // A folder whose name differs only in case is the same folder on case-insensitive file systems
-                var existing = Directory.Exists(folder)
-                    ? Directory.GetDirectories(folder).Select(directory => folder + "/" + System.IO.Path.GetFileName(directory))
-                        .FirstOrDefault(directory => string.Equals(directory, path, StringComparison.OrdinalIgnoreCase) && AssetDatabase.IsValidFolder(directory))
-                    : null;
-                if ( existing != null ) {
-                    folder = existing;
-                    continue;
-                }
-                if ( File.Exists(path) || Directory.Exists(path) ) {
-                    Debug.LogWarning($"Could not create the media folder {path} because a file with that name already exists.");
-                    return null;
-                }
-                var guid = AssetDatabase.CreateFolder(folder, name);
-                if ( !string.IsNullOrEmpty(guid) ) { projectAsset.mediaSubfolderGuids.Add(guid); }
-                if ( string.IsNullOrEmpty(guid) || AssetDatabase.GUIDToAssetPath(guid) != path ) {
-                    Debug.LogWarning($"Could not create the media folder {path}.");
-                    return null;
-                }
-                folder = path;
+                folder = next;
             }
             return folder;
         }
 
         ///<summary>Returns the path, or the first of "name 1.ext", "name 2.ext"... (as AssetDatabase.GenerateUniqueAssetPath names them) that is free.
+        /// Names that differ only in case are taken, since they are the same path on case-insensitive file systems and to Unity.
         /// The file's own previous path counts as free, so a file that had to be numbered keeps its name on later imports.
         /// Paths claimed by other files of this import are taken, since they may not be written yet.</summary>
         static string UniquePath(string path, string previousPath, HashSet<string> claimedPaths) {
@@ -339,14 +336,32 @@ namespace Arcweave
             var stem = System.IO.Path.GetFileNameWithoutExtension(path);
             var extension = System.IO.Path.GetExtension(path);
             for ( var number = 1; ; number++ ) {
-                if ( previousPath != null && string.Equals(path, previousPath, StringComparison.OrdinalIgnoreCase) ) {
-                    return path;
-                }
-                if ( !claimedPaths.Contains(path) && !File.Exists(path) && !Directory.Exists(path) ) {
-                    return path;
+                if ( !claimedPaths.Contains(path) ) {
+                    var existing = ExistingEntry(path);
+                    if ( existing == null || ( previousPath != null && IsSamePath(existing, previousPath) ) ) {
+                        return path;
+                    }
                 }
                 path = $"{folder}/{stem} {number}{extension}";
             }
+        }
+
+        ///<summary>Returns the path of the file or folder in the same folder whose name matches ignoring case, or null if there is none.</summary>
+        static string ExistingEntry(string path) {
+            var separator = path.LastIndexOf('/');
+            var folder = path.Substring(0, separator);
+            var name = path.Substring(separator + 1);
+            if ( !Directory.Exists(folder) ) { return null; }
+            var entry = Directory.EnumerateFileSystemEntries(folder)
+                .Select(System.IO.Path.GetFileName)
+                .FirstOrDefault(entryName => string.Equals(entryName, name, StringComparison.OrdinalIgnoreCase));
+            return entry == null ? null : folder + "/" + entry;
+        }
+
+        ///<summary>True if both paths are the same file: the same name in folders that match ignoring case, since the folder may be written in another case.</summary>
+        static bool IsSamePath(string path, string otherPath) {
+            return System.IO.Path.GetFileName(path) == System.IO.Path.GetFileName(otherPath)
+                && string.Equals(System.IO.Path.GetDirectoryName(path), System.IO.Path.GetDirectoryName(otherPath), StringComparison.OrdinalIgnoreCase);
         }
 
         static bool IsInFolder(string path, string folder) {
