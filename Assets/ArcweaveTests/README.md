@@ -16,7 +16,9 @@ Unity -batchmode -nographics -projectPath <project-path> -runTests -testPlatform
 
 `Arcweave.Tests.MediaDownloadTests` imports from web through `StubApiServer`, a local HTTP stub of the asset file endpoint of Arcweave's web API, so they need no API key or network access. `StubbedWebProjectAsset` points the project asset at the stub and returns the project json from the test. Each test creates its project asset and downloaded media in a temporary folder under `Assets` and deletes it afterward.
 
-They cover media being disabled by default, the project being published only after its media is linked, in-place updates and cleanup on reimport, failed and rate-limited downloads, read-only files, files moved during a download, keeping media when an import cannot download it, disabling media downloads, asset ids that are not valid file names, unsaved project asset instances, and files that could not be deleted.
+They cover media being disabled by default, the project being published only after its media is linked, in-place updates and cleanup on reimport, failed and rate-limited downloads, read-only files, files moved during a download, keeping media when an import cannot download it, disabling media downloads, asset ids not being used in paths, unsaved project asset instances, and files that could not be deleted. They also cover the readable paths: folders that mirror the Arcweave asset folders, sanitized names, assets with the same name, renaming and moving an asset in Arcweave (keeping the file's GUID), extension changes, moving media downloaded by 3.1.0 (named after asset ids) to readable paths while keeping its GUID and the references to it (through `MediaReferences`), files the downloader doesn't own at the desired path, files the user moved inside or out of the media folder, and deleting empty folders while keeping folders with other files.
+
+`Arcweave.Tests.MediaNameTests` checks how asset and folder names are sanitized: invalid characters, control characters, trailing dots and spaces, `.` and `..`, Windows reserved names, and names Unity ignores.
 
 ## Omitted lists tests
 

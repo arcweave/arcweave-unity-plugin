@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Changed
+
+- Media downloaded from web is now saved with its Arcweave name in folders that mirror the project's Arcweave asset folders (for example, `<Project Asset Name> Media/Images/monsignor.jpeg`), instead of being named after its asset id. Names are made safe on every platform. Media downloaded with 3.1.0 is moved to its readable path on the next import, keeping its GUID, so references to it in scenes and prefabs keep working. Renaming or moving an asset in Arcweave moves its file the same way. Folders the importer created are deleted once empty.
+
 ### Fixed
 
 - Fixed importing projects whose element audio has a `delay` written as a string, such as The Castle template (`"delay": "1200"`), which failed with `Unable to cast <"1200"> (with type = System.String) to type System.Int64`. Audio delays and volumes are now read from numbers and numeric strings; other values are reported and replaced by the default instead of failing the import.
