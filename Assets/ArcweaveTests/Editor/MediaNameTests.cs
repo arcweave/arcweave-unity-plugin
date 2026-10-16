@@ -25,6 +25,8 @@ namespace Arcweave.Tests
         [TestCase("com1.mp3", "com1_.mp3")]
         [TestCase("LPT9", "LPT9_")]
         [TestCase("aux .png", "aux _.png")]
+        [TestCase("com¹.png", "com¹_.png")]
+        [TestCase("LPT³", "LPT³_")]
         [TestCase("COM10.png", "COM10.png")]
         [TestCase("CONSOLE.png", "CONSOLE.png")]
         [TestCase(".hidden.png", "_.hidden.png")]
