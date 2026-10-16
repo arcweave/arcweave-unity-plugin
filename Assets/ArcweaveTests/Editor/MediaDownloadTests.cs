@@ -310,6 +310,18 @@ namespace Arcweave.Tests
         }
 
         [UnityTest]
+        public IEnumerator FoldersUnityTreatsSpeciallyAreRenamed()
+        {
+            asset.downloadMedia = true;
+            asset.projectJson = ProjectJson(imagesName: "Resources", coverInPortraits: true, portraitsName: "Editor");
+
+            yield return Import();
+
+            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/Resources_/Hero.png"));
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Resources_/Editor_/Cover.png"));
+        }
+
+        [UnityTest]
         public IEnumerator NamesWithCharactersNotAllowedInPathsOrOnlyAnExtensionAreDownloaded()
         {
             asset.downloadMedia = true;

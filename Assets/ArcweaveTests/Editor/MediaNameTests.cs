@@ -30,6 +30,10 @@ namespace Arcweave.Tests
         [TestCase("Backup~", "Backup~_")]
         [TestCase("cvs", "cvs_")]
         [TestCase("Draft.tmp", "Draft.tmp_")]
+        [TestCase("Resources", "Resources_")]
+        [TestCase("resources", "resources_")]
+        [TestCase("Editor", "Editor_")]
+        [TestCase("Resources.png", "Resources.png")]
         public void NameIsSanitized(string name, string expected)
         {
             var sanitize = typeof(ArcweaveProjectAsset).Assembly.GetType("Arcweave.ArcweaveMediaDownloader")

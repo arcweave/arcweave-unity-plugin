@@ -307,6 +307,11 @@ namespace Arcweave
             if ( result.EndsWith("~") || result.Equals("cvs", StringComparison.OrdinalIgnoreCase) || result.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase) ) {
                 result += "_";
             }
+            // Unity treats folders with these names specially anywhere in Assets: media in Resources is always built and
+            // must have a unique name across them, and media in Editor is left out of builds
+            if ( result.Equals("Resources", StringComparison.OrdinalIgnoreCase) || result.Equals("Editor", StringComparison.OrdinalIgnoreCase) ) {
+                result += "_";
+            }
             return result;
         }
 
