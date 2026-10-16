@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Media downloaded from web is now named after its Arcweave asset (for example, `<Project Asset Name> Media/monsignor.jpeg`) instead of its asset id. Names are made safe on every platform and shortened to 100 characters before the extension, and assets with the same name get a number. A file keeps its name once downloaded: renaming or moving the asset in Arcweave updates the same file, so references to it keep working. Media downloaded with 3.1.0 is renamed once, on the next import, keeping its GUID, so references to it in scenes and prefabs keep working.
+- Media downloaded from web is now named after its Arcweave asset (for example, `<Project Asset Name> Media/monsignor.jpeg`) instead of its asset id. Names are made safe on every platform and shortened to 100 characters (and 200 UTF-8 bytes) before the extension, and assets with the same name get a number. A file keeps its name once downloaded: renaming or moving the asset in Arcweave updates the same file, so references to it keep working. Media downloaded with 3.1.0 is renamed once, on the next import, keeping its GUID, so references to it in scenes and prefabs keep working.
 
 ### Fixed
 

@@ -24,8 +24,10 @@ namespace Arcweave
             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
         };
         private const string INVALID_NAME_CHARS = "<>:\"/\\|?*";
-        // Leaves room for the number of a unique path and for Unity's own paths, eg. in the Library folder
+        // Leaves room for the number of a unique path and for Unity's own paths, eg. in the Library folder.
+        // File systems such as ext4 and APFS limit a name to 255 bytes, which must also fit the extension, the number and ".meta".
         private const int MAX_NAME_LENGTH = 100;
+        private const int MAX_NAME_BYTES = 200;
         private const int MAX_ATTEMPTS = 5;
         private const int MAX_RETRY_SECONDS = 60;
         private const int POLL_MILLISECONDS = 100;
@@ -200,7 +202,7 @@ namespace Arcweave
                     try {
                         // Checked again right before writing, since a callback, eg. of another editor extension, may have moved the
                         // asset's file or saved another file at the path since it was chosen
-                        if ( isOwned ? OwnedPath(previousGuids[id]) != path : File.Exists(path) ) {
+                        if ( isOwned ? OwnedPath(previousGuids[id]) != path : ExistsIgnoringCase(path) ) {
                             throw new IOException("The file at the path changed during the import.");
                         }
                         if ( !File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes) ) {
@@ -280,12 +282,12 @@ namespace Arcweave
             return !string.IsNullOrEmpty(path) && File.Exists(path) ? path : null;
         }
 
-        ///<summary>True if the file is still where 3.1.0 saved it: in the media folder, named after its asset id.
-        /// A file the user renamed or moved is not.</summary>
+        ///<summary>True if the file is still where and how 3.1.0 saved it: in the media folder, named after its asset id with a
+        /// lowercase extension. A file the user renamed or moved, even only changing the case of its extension, is not.</summary>
         static bool IsNamedByVersion310(string path, string id, string mediaFolder) {
             return !string.IsNullOrEmpty(mediaFolder)
                 && string.Equals(System.IO.Path.GetDirectoryName(path).Replace('\\', '/'), mediaFolder, StringComparison.OrdinalIgnoreCase)
-                && System.IO.Path.GetFileNameWithoutExtension(path) == id;
+                && System.IO.Path.GetFileName(path) == id + System.IO.Path.GetExtension(path).ToLowerInvariant();
         }
 
         ///<summary>Collects the image covers and audio assets of the project grouped by Arcweave asset id.</summary>
@@ -307,7 +309,7 @@ namespace Arcweave
         }
 
         ///<summary>Makes a file name safe on every OS and visible to Unity, so it can never leave the media folder,
-        /// and shortens it to MAX_NAME_LENGTH characters before its extension.</summary>
+        /// and shortens it to MAX_NAME_LENGTH characters and MAX_NAME_BYTES UTF-8 bytes before its extension.</summary>
         internal static string SanitizeName(string name) {
             var builder = new StringBuilder(name ?? "");
             for ( var i = 0; i < builder.Length; i++ ) {
@@ -318,11 +320,25 @@ namespace Arcweave
 
             var extension = System.IO.Path.GetExtension(result);
             var stem = result.Substring(0, result.Length - extension.Length);
-            if ( stem.Length > MAX_NAME_LENGTH ) {
-                // Never splits a character made of two UTF-16 chars
-                var length = char.IsHighSurrogate(stem[MAX_NAME_LENGTH - 1]) ? MAX_NAME_LENGTH - 1 : MAX_NAME_LENGTH;
-                stem = stem.Substring(0, length).TrimEnd('.', ' ');
+            // Making the name safe adds at most one character, so it is shortened by one more if that goes over the limits
+            var safeStem = MakeSafe(Shorten(stem, MAX_NAME_LENGTH, MAX_NAME_BYTES));
+            if ( safeStem.Length > MAX_NAME_LENGTH || Encoding.UTF8.GetByteCount(safeStem) > MAX_NAME_BYTES ) {
+                safeStem = MakeSafe(Shorten(stem, MAX_NAME_LENGTH - 1, MAX_NAME_BYTES - 1));
             }
+            return safeStem + extension;
+        }
+
+        ///<summary>Returns the name if it fits the limits, or else its start that does, without splitting a character made of
+        /// two UTF-16 chars or ending with a dot or space.</summary>
+        static string Shorten(string name, int maxLength, int maxBytes) {
+            var length = Math.Min(name.Length, maxLength);
+            while ( length > 0 && ( ( length < name.Length && char.IsHighSurrogate(name[length - 1]) ) || Encoding.UTF8.GetByteCount(name.Substring(0, length)) > maxBytes ) ) {
+                length--;
+            }
+            return length == name.Length ? name : name.Substring(0, length).TrimEnd('.', ' ');
+        }
+
+        static string MakeSafe(string stem) {
             // Unity ignores hidden files, whose names start with a dot, eg. ".png"
             if ( stem.Length == 0 || stem[0] == '.' ) { stem = "_" + stem; }
 
@@ -332,7 +348,7 @@ namespace Arcweave
             if ( RESERVED_NAMES.Contains(device.TrimEnd(' ')) ) {
                 stem = device + "_" + stem.Substring(device.Length);
             }
-            return stem + extension;
+            return stem;
         }
 
         ///<summary>Returns the path, or a unique one from AssetDatabase.GenerateUniqueAssetPath ("name 1.ext", "name 2.ext"...) if it is taken.
@@ -354,8 +370,10 @@ namespace Arcweave
             return candidate;
         }
 
-        static bool IsTaken(string path, HashSet<string> claimedPaths) {
-            if ( claimedPaths.Contains(path) ) { return true; }
+        static bool IsTaken(string path, HashSet<string> claimedPaths) => claimedPaths.Contains(path) || ExistsIgnoringCase(path);
+
+        ///<summary>True if the folder has a file or folder whose name matches ignoring case.</summary>
+        static bool ExistsIgnoringCase(string path) {
             var separator = path.LastIndexOf('/');
             var folder = path.Substring(0, separator);
             var name = path.Substring(separator + 1);

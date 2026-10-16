@@ -493,6 +493,53 @@ namespace Arcweave.Tests
         }
 
         [UnityTest]
+        public IEnumerator OnlyFilesWithTheExactNameVersion310SavedAreRenamed()
+        {
+            // 3.1.0 lowercased extensions, so the cover of "Cover.PNG" is cover-asset.png. The user changed the hero's to .PNG.
+            AssetDatabase.CreateFolder(temporaryFolder, "Project Media");
+            var coverPath = MediaFolder + "/" + CoverId + ".png";
+            var heroPath = MediaFolder + "/" + HeroId + ".PNG";
+            File.WriteAllBytes(coverPath, Png(Color.red));
+            File.WriteAllBytes(heroPath, Png(Color.green));
+            AssetDatabase.ImportAsset(coverPath, ImportAssetOptions.ForceSynchronousImport);
+            AssetDatabase.ImportAsset(heroPath, ImportAssetOptions.ForceSynchronousImport);
+            var guids = new[] { AssetDatabase.AssetPathToGUID(coverPath), AssetDatabase.AssetPathToGUID(heroPath) };
+            SetDownloadedMedia(new[] { CoverId, HeroId }, guids);
+
+            asset.downloadMedia = true;
+            asset.projectJson = ProjectJson(coverName: "Cover.PNG");
+            yield return Import();
+
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Cover.PNG"));
+            Assert.That(AssetDatabase.AssetPathToGUID(MediaFolder + "/Cover.PNG"), Is.EqualTo(guids[0]));
+            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(heroPath));
+            Assert.That(AssetDatabase.AssetPathToGUID(heroPath), Is.EqualTo(guids[1]));
+        }
+
+        [UnityTest]
+        public IEnumerator DuplicatedProjectAssetDownloadsItsOwnMediaAndLeavesTheOriginalsAlone()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var coverPath = Path(Cover().downloadedImage);
+            var coverBytes = File.ReadAllBytes(coverPath);
+            var copyPath = temporaryFolder + "/Copy.asset";
+            Assert.That(AssetDatabase.CopyAsset(temporaryFolder + "/Project.asset", copyPath), Is.True);
+            var copy = AssetDatabase.LoadAssetAtPath<StubbedWebProjectAsset>(copyPath);
+
+            server.SetFile(CoverId, Png(Color.blue));
+            asset.projectJson = ProjectJson(withMusic: false);
+            copy.projectJson = asset.projectJson;
+            yield return Await(copy.ImportProjectAsync());
+
+            var copyCover = copy.Project.Boards.Single().Nodes.OfType<Element>().Single().cover;
+            Assert.That(Path(copyCover.downloadedImage), Is.EqualTo(temporaryFolder + "/Copy Media/Cover.png"));
+            Assert.That(File.ReadAllBytes(coverPath), Is.EqualTo(coverBytes), "The original's files are not updated.");
+            Assert.That(File.Exists(MediaFolder + "/Music.wav"), Is.True, "The original's unused files are not deleted.");
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(coverPath));
+        }
+
+        [UnityTest]
         public IEnumerator FileSavedAtAPlannedPathDuringAMoveIsNeverOverwritten()
         {
             // The hero is still named after its asset id by 3.1.0, so it is moved, while the cover needs a new file, in either order

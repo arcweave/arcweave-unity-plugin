@@ -1,4 +1,6 @@
+using System.Linq;
 using System.Reflection;
+using System.Text;
 using NUnit.Framework;
 
 namespace Arcweave.Tests
@@ -46,6 +48,41 @@ namespace Arcweave.Tests
             Assert.That(Sanitize(new string('a', 98) + ". b.png"), Is.EqualTo(new string('a', 98) + ".png"));
             // An emoji is two UTF-16 chars, the first of which would be the 100th
             Assert.That(Sanitize(new string('a', 99) + "\U0001F600.png"), Is.EqualTo(new string('a', 99) + ".png"));
+        }
+
+        [Test]
+        public void LongNameWithMultibyteCharactersIsShortenedToTwoHundredBytes()
+        {
+            // Each of these is 3 bytes in UTF-8, and file systems such as ext4 and APFS limit a name to 255 bytes
+            var han = "漢";
+            var sanitized = Sanitize(string.Concat(Enumerable.Repeat(han, 150)) + ".png");
+            Assert.That(sanitized, Is.EqualTo(string.Concat(Enumerable.Repeat(han, 66)) + ".png"));
+        }
+
+        [TestCase(".", 99, "_.", 98)]
+        [TestCase("CON.", 96, "CON_.", 95)]
+        public void NameMadeSafeAfterShorteningStillFitsTheLimit(string start, int count, string expectedStart, int expectedCount)
+        {
+            var sanitized = Sanitize(start + new string('a', count) + ".png");
+            Assert.That(sanitized, Is.EqualTo(expectedStart + new string('a', expectedCount) + ".png"));
+            Assert.That(sanitized.Length - ".png".Length, Is.EqualTo(100));
+        }
+
+        [Test]
+        public void ReservedNameFollowedBySpacesIsStillMadeSafeAfterShortening()
+        {
+            Assert.That(Sanitize("CON" + new string(' ', 150) + ".png"), Is.EqualTo("CON_.png"));
+        }
+
+        [Test]
+        public void SanitizedNamesStayWithinTheLimits([Values(".", "CON", "a", "漢", "\U0001F600")] string start)
+        {
+            for ( var count = 90; count < 260; count++ ) {
+                var stem = System.IO.Path.GetFileNameWithoutExtension(Sanitize(start + string.Concat(Enumerable.Repeat(start == "." ? "a" : start, count)) + ".png"));
+                Assert.That(stem.Length, Is.LessThanOrEqualTo(100));
+                Assert.That(Encoding.UTF8.GetByteCount(stem), Is.LessThanOrEqualTo(200));
+                Assert.That(stem, Does.Not.StartWith(".").And.Not.EndWith(".").And.Not.EndWith(" "));
+            }
         }
 
         static string Sanitize(string name)
