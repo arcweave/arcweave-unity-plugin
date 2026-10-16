@@ -16,7 +16,18 @@ Unity -batchmode -nographics -projectPath <project-path> -runTests -testPlatform
 
 `Arcweave.Tests.MediaDownloadTests` imports from web through `StubApiServer`, a local HTTP stub of the asset file endpoint of Arcweave's web API, so they need no API key or network access. `StubbedWebProjectAsset` points the project asset at the stub and returns the project json from the test. Each test creates its project asset and downloaded media in a temporary folder under `Assets` and deletes it afterward.
 
-They cover media being disabled by default, the project being published only after its media is linked, in-place updates and cleanup on reimport, failed and rate-limited downloads, read-only files, files moved during a download, keeping media when an import cannot download it, disabling media downloads, asset ids that are not valid file names, unsaved project asset instances, and files that could not be deleted.
+They cover media being disabled by default, the project being published only after its media is linked, in-place updates and cleanup on reimport, failed and rate-limited downloads, read-only files, files moved during a download, keeping media when an import cannot download it, disabling media downloads, asset ids not being used in paths, unsaved project asset instances, and files that could not be deleted. They also cover how files are named:
+- after their assets, directly in the media folder, without Arcweave's asset folders
+- sanitized and shortened names
+- assets with the same name
+- files the downloader doesn't own at the name, including names that differ only in case
+- renaming or moving an asset in Arcweave, which keeps the file, its name and its GUID
+- extension changes
+- the one-time renaming of media downloaded by 3.1.0 (named after asset ids), keeping its GUID and the references to it (through `MediaReferences`)
+- files the user renamed or moved
+- never overwriting a file another editor extension saves at a planned path during a rename (simulated with `MoveCallback`, an `AssetModificationProcessor` that only acts while a test sets its callback)
+
+`Arcweave.Tests.MediaNameTests` checks how asset names are sanitized: invalid characters, control characters, trailing dots and spaces, `.` and `..`, Windows reserved names, names Unity would hide, and shortening long names to 100 characters before the extension.
 
 ## Omitted lists tests
 
