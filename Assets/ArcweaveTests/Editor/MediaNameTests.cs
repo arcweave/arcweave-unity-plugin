@@ -51,6 +51,13 @@ namespace Arcweave.Tests
         }
 
         [Test]
+        public void NameIsComposed()
+        {
+            // "é" written as "e" and a combining accent
+            Assert.That(Sanitize("Café.png"), Is.EqualTo("Café.png"));
+        }
+
+        [Test]
         public void LongNameWithMultibyteCharactersIsShortenedToTwoHundredBytes()
         {
             // Each of these is 3 bytes in UTF-8, and file systems such as ext4 and APFS limit a name to 255 bytes

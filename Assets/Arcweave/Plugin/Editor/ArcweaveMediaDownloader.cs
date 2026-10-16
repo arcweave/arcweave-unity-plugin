@@ -311,7 +311,8 @@ namespace Arcweave
         ///<summary>Makes a file name safe on every OS and visible to Unity, so it can never leave the media folder,
         /// and shortens it to MAX_NAME_LENGTH characters and MAX_NAME_BYTES UTF-8 bytes before its extension.</summary>
         internal static string SanitizeName(string name) {
-            var builder = new StringBuilder(name ?? "");
+            // Composed, so names that only differ in how their characters are written are the same name, eg. in claimed paths
+            var builder = new StringBuilder(Normalize(name ?? ""));
             for ( var i = 0; i < builder.Length; i++ ) {
                 if ( char.IsControl(builder[i]) || INVALID_NAME_CHARS.IndexOf(builder[i]) >= 0 ) { builder[i] = '_'; }
             }
@@ -353,7 +354,7 @@ namespace Arcweave
 
         ///<summary>Returns the path, or a unique one from AssetDatabase.GenerateUniqueAssetPath ("name 1.ext", "name 2.ext"...) if it is taken.
         /// Paths claimed by other files of this import are taken, since they may not be written yet, and so are names that differ
-        /// only in case, since they are the same path on case-insensitive file systems and to Unity.</summary>
+        /// only in case or Unicode normalization, since some file systems and Unity treat them as the same path.</summary>
         static string UniquePath(string path, HashSet<string> claimedPaths) {
             var folder = path.Substring(0, path.LastIndexOf('/'));
             var stem = System.IO.Path.GetFileNameWithoutExtension(path);
@@ -372,13 +373,25 @@ namespace Arcweave
 
         static bool IsTaken(string path, HashSet<string> claimedPaths) => claimedPaths.Contains(path) || ExistsIgnoringCase(path);
 
-        ///<summary>True if the folder has a file or folder whose name matches ignoring case.</summary>
+        ///<summary>True if the file system has the path, or the folder has a file or folder whose name matches ignoring case and
+        /// Unicode normalization, since some file systems treat those as the same name, eg. "é" written as one or two characters on APFS.</summary>
         static bool ExistsIgnoringCase(string path) {
+            if ( File.Exists(path) || Directory.Exists(path) ) { return true; }
             var separator = path.LastIndexOf('/');
             var folder = path.Substring(0, separator);
-            var name = path.Substring(separator + 1);
+            var name = Normalize(path.Substring(separator + 1));
             return Directory.Exists(folder) && Directory.EnumerateFileSystemEntries(folder)
-                .Any(entry => string.Equals(System.IO.Path.GetFileName(entry), name, StringComparison.OrdinalIgnoreCase));
+                .Any(entry => string.Equals(Normalize(System.IO.Path.GetFileName(entry)), name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        ///<summary>Returns the composed form of the name, or the name itself if it can't be normalized, eg. with a lone surrogate.</summary>
+        static string Normalize(string name) {
+            try {
+                return name.Normalize(NormalizationForm.FormC);
+            }
+            catch ( ArgumentException ) {
+                return name;
+            }
         }
 
         ///<summary>Downloads an asset file, waiting and retrying while rate limited. Returns null if the download fails or is canceled.</summary>

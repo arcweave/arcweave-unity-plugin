@@ -410,6 +410,37 @@ namespace Arcweave.Tests
         }
 
         [UnityTest]
+        public IEnumerator NameThatIsTheSameAfterUnicodeNormalizationAsAFileTheDownloaderDoesNotOwnGetsANumber()
+        {
+            // APFS treats "é" written as one character or as "e" and a combining accent as the same name
+            asset.downloadMedia = true;
+            yield return Import();
+            var userPath = MediaFolder + "/Café.jpg";
+            var userFile = Png(Color.yellow);
+            File.WriteAllBytes(userPath, userFile);
+            AssetDatabase.ImportAsset(userPath, ImportAssetOptions.ForceSynchronousImport);
+
+            asset.projectJson = ProjectJson(coverName: "Café.jpg");
+            server.SetFile(CoverId, Jpg(Color.blue));
+            yield return Import();
+
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Café 1.jpg"));
+            Assert.That(File.ReadAllBytes(userPath), Is.EqualTo(userFile));
+        }
+
+        [UnityTest]
+        public IEnumerator AssetsWithNamesThatAreTheSameAfterUnicodeNormalizationAreBothDownloaded()
+        {
+            asset.downloadMedia = true;
+            asset.projectJson = ProjectJson(coverName: "Café.png", heroName: "Café.png");
+
+            yield return Import();
+
+            Assert.That(new[] { Path(Cover().downloadedImage), Path(Hero().downloadedImage) },
+                Is.EquivalentTo(new[] { MediaFolder + "/Café.png", MediaFolder + "/Café 1.png" }));
+        }
+
+        [UnityTest]
         public IEnumerator RenamingOrMovingInArcweaveKeepsTheFileAndItsGuid()
         {
             asset.downloadMedia = true;
