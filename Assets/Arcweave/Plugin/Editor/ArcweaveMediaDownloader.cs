@@ -24,6 +24,8 @@ namespace Arcweave
             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
         };
         private const string INVALID_NAME_CHARS = "<>:\"/\\|?*";
+        // Leaves room for the number of a unique path and for Unity's own paths, eg. in the Library folder
+        private const int MAX_NAME_LENGTH = 100;
         private const int MAX_ATTEMPTS = 5;
         private const int MAX_RETRY_SECONDS = 60;
         private const int POLL_MILLISECONDS = 100;
@@ -42,11 +44,10 @@ namespace Arcweave
         }
 
         ///<summary>Downloads the media of a newly made project of the project asset and links it to the project.
-        /// The files are named after the Arcweave assets and saved in folders that mirror the Arcweave asset folders, given as folder names by asset id.
         /// Never faults: media that cannot be downloaded or saved keeps its previous copy and logs a warning.</summary>
-        public static async Task DownloadAsync(ArcweaveProjectAsset projectAsset, Project.Project project, Dictionary<string, string[]> assetFolders) {
+        public static async Task DownloadAsync(ArcweaveProjectAsset projectAsset, Project.Project project) {
             try {
-                await DownloadMediaAsync(projectAsset, project, assetFolders);
+                await DownloadMediaAsync(projectAsset, project);
             }
             catch ( Exception e ) {
                 Debug.LogException(e);
@@ -56,7 +57,7 @@ namespace Arcweave
             }
         }
 
-        static async Task DownloadMediaAsync(ArcweaveProjectAsset projectAsset, Project.Project project, Dictionary<string, string[]> assetFolders) {
+        static async Task DownloadMediaAsync(ArcweaveProjectAsset projectAsset, Project.Project project) {
             if ( string.IsNullOrEmpty(AssetDatabase.GetAssetPath(projectAsset)) ) {
                 Debug.LogWarning("Skipping media download because the Arcweave project is not saved as an asset.");
                 return;
@@ -105,26 +106,27 @@ namespace Arcweave
                 projectAsset.mediaOwnerGuid = ownerGuid;
                 projectAsset.mediaFolderGuid = "";
                 projectAsset.downloadedMedia = new List<ArcweaveProjectAsset.DownloadedMedia>();
-                projectAsset.mediaSubfolderGuids = new List<string>();
             }
 
-            // Files downloaded by previous imports. Only these files are ever replaced, moved or deleted.
+            // Files downloaded by previous imports, by GUID. Only these files are ever replaced, moved or deleted.
             // The linked file of each Arcweave asset id comes first, followed by any files that could not be deleted yet.
             var owned = new List<ArcweaveProjectAsset.DownloadedMedia>();
-            var previousPaths = new Dictionary<string, string>();
+            var previousGuids = new Dictionary<string, string>();
             foreach ( var media in projectAsset.downloadedMedia ) {
-                var path = AssetDatabase.GUIDToAssetPath(media.guid);
-                if ( !string.IsNullOrEmpty(path) && File.Exists(path) ) {
+                if ( OwnedPath(media.guid) != null ) {
                     owned.Add(media);
-                    if ( !previousPaths.ContainsKey(media.assetId) ) { previousPaths[media.assetId] = path; }
+                    if ( !previousGuids.ContainsKey(media.assetId) ) { previousGuids[media.assetId] = media.guid; }
                 }
             }
 
+            // The owned file each asset stays linked to, by GUID, and the paths of new files. Owned files are found by GUID
+            // whenever they are used, since callbacks of other editor extensions can move files during the import.
             // A previous file is kept when its replacement cannot be downloaded or saved, so a failed import does not remove media.
+            var keptGuids = new Dictionary<string, string>();
             var paths = new Dictionary<string, string>();
             foreach ( var id in ids ) {
-                if ( !downloads.ContainsKey(id) && previousPaths.TryGetValue(id, out var previousPath) ) {
-                    paths[id] = previousPath;
+                if ( !downloads.ContainsKey(id) && previousGuids.TryGetValue(id, out var previousGuid) ) {
+                    keptGuids[id] = previousGuid;
                 }
             }
 
@@ -133,50 +135,49 @@ namespace Arcweave
                 folder = null;
             }
 
-            // The path of each downloaded file and the file it keeps when it can't be saved.
-            // Folders are created and files moved before the asset-editing batch, so they are in the asset database when the files are written.
+            // The path of each downloaded file, and whether it is the asset's own previous file.
+            // The media folder is created and files are moved before the asset-editing batch, so they are in the asset database when the files are written.
             var targetPaths = new Dictionary<string, string>();
-            var fallbackPaths = new Dictionary<string, string>();
-            var claimedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            // Targets that are the asset's own previous file, which are the only existing files that are ever overwritten
             var ownedTargets = new HashSet<string>();
+            var claimedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach ( var id in downloads.Keys ) {
                 var extension = System.IO.Path.GetExtension(fileNames[id]).ToLowerInvariant();
-                var hasPrevious = previousPaths.TryGetValue(id, out var previousPath);
-                var keepsPrevious = hasPrevious && System.IO.Path.GetExtension(previousPath).ToLowerInvariant() == extension;
-                if ( hasPrevious ) { fallbackPaths[id] = previousPath; }
+                var previousPath = previousGuids.TryGetValue(id, out var previousGuid) ? OwnedPath(previousGuid) : null;
+                var keepsPrevious = previousPath != null && System.IO.Path.GetExtension(previousPath).ToLowerInvariant() == extension;
 
-                // A file the user moved out of the media folder stays where they put it and is updated in place
-                var path = keepsPrevious && !IsInFolder(previousPath, folder) ? previousPath : null;
-                try {
-                    path = path ?? MirroredPath(id, keepsPrevious ? previousPath : null);
-                }
-                catch ( Exception e ) {
-                    // Eg. a folder that can't be listed. The previous copy is kept.
-                    Debug.LogWarning($"Could not find a path for '{names[id]}': {e.Message}");
-                    path = keepsPrevious ? previousPath : null;
+                // A file keeps its name and place once it is saved, so renaming or moving the asset in Arcweave or the file
+                // in Unity never breaks references to it. Only files still named after their asset id by 3.1.0 are renamed, once.
+                string path;
+                if ( keepsPrevious && ( !IsNamedByVersion310(previousPath, id, folder) || System.IO.Path.GetFileName(previousPath) == fileNames[id] ) ) {
+                    path = previousPath;
+                } else {
+                    try {
+                        path = NewPath(id);
+                    }
+                    catch ( Exception e ) {
+                        // Eg. a folder that can't be listed
+                        Debug.LogWarning($"Could not find a path for '{names[id]}': {e.Message}");
+                        path = null;
+                    }
+                    if ( keepsPrevious ) {
+                        // Moving keeps the file's GUID, so references to it keep working
+                        var error = path == null ? "" : AssetDatabase.MoveAsset(previousPath, path);
+                        if ( path == null || !string.IsNullOrEmpty(error) ) {
+                            if ( path != null ) { Debug.LogWarning($"Could not rename '{names[id]}' from {previousPath} to {path}: {error}"); }
+                            path = previousPath;
+                        }
+                    }
                 }
                 if ( path == null ) {
                     continue;
                 }
-
-                // Moving keeps the file's GUID, so references to it keep working after the asset is renamed or moved in Arcweave
-                if ( keepsPrevious && path != previousPath ) {
-                    var error = AssetDatabase.MoveAsset(previousPath, path);
-                    if ( string.IsNullOrEmpty(error) ) {
-                        fallbackPaths[id] = path;
-                    } else {
-                        Debug.LogWarning($"Could not move '{names[id]}' from {previousPath} to {path}: {error}");
-                        path = previousPath;
-                    }
-                }
-                if ( keepsPrevious ) { ownedTargets.Add(path); }
+                if ( keepsPrevious ) { ownedTargets.Add(id); }
                 targetPaths[id] = path;
                 claimedPaths.Add(path);
             }
 
-            ///<summary>Returns a free path that mirrors the Arcweave folders, creating its folders, or the previous path or null if they can't be created.</summary>
-            string MirroredPath(string id, string previousPath) {
+            ///<summary>Returns a free path in the media folder named after the asset, creating the folder, or null if it can't be created.</summary>
+            string NewPath(string id) {
                 // The media folder is only created when a file needs a path in it
                 if ( folder == null ) {
                     var parentFolder = System.IO.Path.GetDirectoryName(assetPath).Replace('\\', '/');
@@ -184,51 +185,53 @@ namespace Arcweave
                     projectAsset.mediaFolderGuid = AssetDatabase.CreateFolder(parentFolder, folderName);
                     folder = AssetDatabase.GUIDToAssetPath(projectAsset.mediaFolderGuid);
                 }
-                string[] folderNames = null;
-                assetFolders?.TryGetValue(id, out folderNames);
-                var desiredFolder = string.IsNullOrEmpty(folder) ? null : CreateFolders(projectAsset, folder, folderNames, claimedPaths);
-                return desiredFolder == null ? previousPath : UniquePath(desiredFolder + "/" + fileNames[id], previousPath, claimedPaths);
+                return string.IsNullOrEmpty(folder) ? null : UniquePath(folder + "/" + fileNames[id], claimedPaths);
             }
 
             var saved = 0;
-            var undeletedPaths = new List<KeyValuePair<string, string>>();
+            var undeleted = new List<ArcweaveProjectAsset.DownloadedMedia>();
             AssetDatabase.StartAssetEditing();
             try {
                 foreach ( var target in targetPaths ) {
                     var id = target.Key;
                     var path = target.Value;
                     var bytes = downloads[id];
+                    var isOwned = ownedTargets.Contains(id);
                     try {
-                        // A callback, eg. of another editor extension, may have put a file at a free path since it was chosen
-                        if ( !ownedTargets.Contains(path) && File.Exists(path) ) {
-                            throw new IOException("Another file was saved at the path.");
+                        // Checked again right before writing, since a callback, eg. of another editor extension, may have moved the
+                        // asset's file or saved another file at the path since it was chosen
+                        if ( isOwned ? OwnedPath(previousGuids[id]) != path : File.Exists(path) ) {
+                            throw new IOException("The file at the path changed during the import.");
                         }
                         if ( !File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes) ) {
                             WriteFile(path, bytes);
                             AssetDatabase.ImportAsset(path);
                         }
-                        paths[id] = path;
+                        if ( isOwned ) {
+                            keptGuids[id] = previousGuids[id];
+                        } else {
+                            paths[id] = path;
+                        }
                         saved++;
                     }
                     catch ( Exception e ) {
                         // Eg. a read-only file checked in to version control
                         Debug.LogWarning($"Could not save '{names[id]}' to {path}: {e.Message}");
-                        if ( fallbackPaths.TryGetValue(id, out var fallbackPath) ) { paths[id] = fallbackPath; }
+                        if ( previousGuids.TryGetValue(id, out var previousGuid) ) { keptGuids[id] = previousGuid; }
                     }
                 }
                 foreach ( var id in downloads.Keys.Where(id => !targetPaths.ContainsKey(id)) ) {
-                    if ( fallbackPaths.TryGetValue(id, out var fallbackPath) ) { paths[id] = fallbackPath; }
+                    if ( previousGuids.TryGetValue(id, out var previousGuid) ) { keptGuids[id] = previousGuid; }
                 }
 
-                // Owned files are compared by GUID, since some were moved
-                var linkedGuids = new HashSet<string>(paths.Values.Select(AssetDatabase.AssetPathToGUID));
+                var linkedGuids = new HashSet<string>(keptGuids.Values);
                 foreach ( var media in owned.GroupBy(media => media.guid).Select(group => group.First()) ) {
-                    var path = AssetDatabase.GUIDToAssetPath(media.guid);
-                    if ( string.IsNullOrEmpty(path) || linkedGuids.Contains(media.guid) ) { continue; }
+                    var path = OwnedPath(media.guid);
+                    if ( path == null || linkedGuids.Contains(media.guid) ) { continue; }
                     if ( !AssetDatabase.DeleteAsset(path) ) {
                         // Still owned, so a later import tries again
                         Debug.LogWarning($"Could not delete unused media file {path}.");
-                        undeletedPaths.Add(new KeyValuePair<string, string>(media.assetId, path));
+                        undeleted.Add(media);
                     }
                 }
             }
@@ -236,7 +239,10 @@ namespace Arcweave
                 AssetDatabase.StopAssetEditing();
             }
 
-            DeleteEmptyFolders(projectAsset);
+            foreach ( var kept in keptGuids ) {
+                var path = OwnedPath(kept.Value);
+                if ( path != null ) { paths[kept.Key] = path; }
+            }
 
             // Every cover and audio asset is linked, to its file or to nothing, so the project never references another asset's media.
             foreach ( var entry in covers ) {
@@ -260,11 +266,26 @@ namespace Arcweave
                 }
             }
 
-            projectAsset.downloadedMedia = paths.Concat(undeletedPaths)
+            projectAsset.downloadedMedia = paths
                 .Select(entry => new ArcweaveProjectAsset.DownloadedMedia(entry.Key, AssetDatabase.AssetPathToGUID(entry.Value)))
+                .Concat(undeleted)
                 .ToList();
             EditorUtility.SetDirty(projectAsset);
             Debug.Log($"Downloaded {saved} of {names.Count} media files for {projectAsset.name}");
+        }
+
+        ///<summary>Returns the path of a downloaded file by GUID, or null if it no longer exists.</summary>
+        static string OwnedPath(string guid) {
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            return !string.IsNullOrEmpty(path) && File.Exists(path) ? path : null;
+        }
+
+        ///<summary>True if the file is still where 3.1.0 saved it: in the media folder, named after its asset id.
+        /// A file the user renamed or moved is not.</summary>
+        static bool IsNamedByVersion310(string path, string id, string mediaFolder) {
+            return !string.IsNullOrEmpty(mediaFolder)
+                && string.Equals(System.IO.Path.GetDirectoryName(path).Replace('\\', '/'), mediaFolder, StringComparison.OrdinalIgnoreCase)
+                && System.IO.Path.GetFileNameWithoutExtension(path) == id;
         }
 
         ///<summary>Collects the image covers and audio assets of the project grouped by Arcweave asset id.</summary>
@@ -285,7 +306,8 @@ namespace Arcweave
             }
         }
 
-        ///<summary>Makes a file or folder name safe on every OS and visible to Unity, so it can never leave its folder.</summary>
+        ///<summary>Makes a file name safe on every OS and visible to Unity, so it can never leave the media folder,
+        /// and shortens it to MAX_NAME_LENGTH characters before its extension.</summary>
         internal static string SanitizeName(string name) {
             var builder = new StringBuilder(name ?? "");
             for ( var i = 0; i < builder.Length; i++ ) {
@@ -293,132 +315,52 @@ namespace Arcweave
             }
             // Windows drops trailing dots and spaces, which also turns "." and ".." into ""
             var result = builder.ToString().TrimEnd('.', ' ');
-            if ( result.Length == 0 ) { return "_"; }
+
+            var extension = System.IO.Path.GetExtension(result);
+            var stem = result.Substring(0, result.Length - extension.Length);
+            if ( stem.Length > MAX_NAME_LENGTH ) {
+                // Never splits a character made of two UTF-16 chars
+                var length = char.IsHighSurrogate(stem[MAX_NAME_LENGTH - 1]) ? MAX_NAME_LENGTH - 1 : MAX_NAME_LENGTH;
+                stem = stem.Substring(0, length).TrimEnd('.', ' ');
+            }
+            // Unity ignores hidden files, whose names start with a dot, eg. ".png"
+            if ( stem.Length == 0 || stem[0] == '.' ) { stem = "_" + stem; }
 
             // Windows reserves device names, even with an extension
-            var dot = result.IndexOf('.');
-            var stem = dot < 0 ? result : result.Substring(0, dot);
-            if ( RESERVED_NAMES.Contains(stem.TrimEnd(' ')) ) {
-                result = stem + "_" + result.Substring(stem.Length);
+            var dot = stem.IndexOf('.');
+            var device = dot < 0 ? stem : stem.Substring(0, dot);
+            if ( RESERVED_NAMES.Contains(device.TrimEnd(' ')) ) {
+                stem = device + "_" + stem.Substring(device.Length);
             }
-
-            // Unity ignores hidden names, names ending with '~', 'cvs' and '.tmp'
-            if ( result[0] == '.' ) { result = "_" + result; }
-            if ( result.EndsWith("~") || result.Equals("cvs", StringComparison.OrdinalIgnoreCase) || result.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase) ) {
-                result += "_";
-            }
-            // Unity treats folders with these names specially anywhere in Assets: media in Resources is always built and
-            // must have a unique name across them, and media in Editor is left out of builds
-            if ( result.Equals("Resources", StringComparison.OrdinalIgnoreCase) || result.Equals("Editor", StringComparison.OrdinalIgnoreCase) ) {
-                result += "_";
-            }
-            return result;
+            return stem + extension;
         }
 
-        ///<summary>Returns the folder inside the media folder that mirrors the Arcweave folders, creating any that are missing,
-        /// or null if it can't be created. A folder whose name is taken by a file gets a number, like files do.</summary>
-        static string CreateFolders(ArcweaveProjectAsset projectAsset, string mediaFolder, string[] folderNames, HashSet<string> claimedPaths) {
-            var folder = mediaFolder;
-            foreach ( var folderName in folderNames ?? new string[0] ) {
-                var name = SanitizeName(folderName);
-                string next = null;
-                for ( var number = 0; next == null; number++ ) {
-                    var candidate = number == 0 ? name : $"{name} {number}";
-                    var path = folder + "/" + candidate;
-                    // A file of this import may not be written yet
-                    if ( claimedPaths.Contains(path) ) { continue; }
-                    var existing = ExistingEntry(path);
-                    if ( existing != null ) {
-                        // Reuses a folder whose name differs only in case, since it is the same folder on case-insensitive file systems
-                        if ( AssetDatabase.IsValidFolder(existing) ) { next = existing; }
-                        continue;
-                    }
-                    var guid = AssetDatabase.CreateFolder(folder, candidate);
-                    if ( !string.IsNullOrEmpty(guid) ) { projectAsset.mediaSubfolderGuids.Add(guid); }
-                    if ( string.IsNullOrEmpty(guid) || AssetDatabase.GUIDToAssetPath(guid) != path ) {
-                        Debug.LogWarning($"Could not create the media folder {path}.");
-                        return null;
-                    }
-                    next = path;
-                }
-                folder = next;
-            }
-            return folder;
-        }
-
-        ///<summary>Returns the path, or the first of "name 1.ext", "name 2.ext"... (as AssetDatabase.GenerateUniqueAssetPath names them) that is free.
-        /// Names that differ only in case are taken, since they are the same path on case-insensitive file systems and to Unity.
-        /// The file's own previous path counts as free, so a file that had to be numbered keeps its name on later imports.
-        /// Paths claimed by other files of this import are taken, since they may not be written yet.</summary>
-        static string UniquePath(string path, string previousPath, HashSet<string> claimedPaths) {
+        ///<summary>Returns the path, or a unique one from AssetDatabase.GenerateUniqueAssetPath ("name 1.ext", "name 2.ext"...) if it is taken.
+        /// Paths claimed by other files of this import are taken, since they may not be written yet, and so are names that differ
+        /// only in case, since they are the same path on case-insensitive file systems and to Unity.</summary>
+        static string UniquePath(string path, HashSet<string> claimedPaths) {
             var folder = path.Substring(0, path.LastIndexOf('/'));
             var stem = System.IO.Path.GetFileNameWithoutExtension(path);
             var extension = System.IO.Path.GetExtension(path);
-            for ( var number = 1; ; number++ ) {
-                if ( !claimedPaths.Contains(path) ) {
-                    var existing = ExistingEntry(path);
-                    if ( existing == null || ( previousPath != null && IsSamePath(existing, previousPath) ) ) {
-                        return path;
-                    }
-                }
-                path = $"{folder}/{stem} {number}{extension}";
+            if ( !IsTaken(path, claimedPaths) ) {
+                return path;
             }
+            var candidate = AssetDatabase.GenerateUniqueAssetPath(path);
+            for ( var number = 1; string.IsNullOrEmpty(candidate) || IsTaken(candidate, claimedPaths); number++ ) {
+                var numbered = $"{folder}/{stem} {number}{extension}";
+                var unique = AssetDatabase.GenerateUniqueAssetPath(numbered);
+                candidate = string.IsNullOrEmpty(unique) ? numbered : unique;
+            }
+            return candidate;
         }
 
-        ///<summary>Returns the path of the file or folder in the same folder whose name matches ignoring case, or null if there is none.</summary>
-        static string ExistingEntry(string path) {
+        static bool IsTaken(string path, HashSet<string> claimedPaths) {
+            if ( claimedPaths.Contains(path) ) { return true; }
             var separator = path.LastIndexOf('/');
             var folder = path.Substring(0, separator);
             var name = path.Substring(separator + 1);
-            if ( !Directory.Exists(folder) ) { return null; }
-            var entry = Directory.EnumerateFileSystemEntries(folder)
-                .Select(System.IO.Path.GetFileName)
-                .FirstOrDefault(entryName => string.Equals(entryName, name, StringComparison.OrdinalIgnoreCase));
-            return entry == null ? null : folder + "/" + entry;
-        }
-
-        ///<summary>True if both paths are the same file: the same name in folders that match ignoring case, since the folder may be written in another case.</summary>
-        static bool IsSamePath(string path, string otherPath) {
-            return System.IO.Path.GetFileName(path) == System.IO.Path.GetFileName(otherPath)
-                && string.Equals(System.IO.Path.GetDirectoryName(path), System.IO.Path.GetDirectoryName(otherPath), StringComparison.OrdinalIgnoreCase);
-        }
-
-        static bool IsInFolder(string path, string folder) {
-            return !string.IsNullOrEmpty(folder) && path.StartsWith(folder + "/", StringComparison.OrdinalIgnoreCase);
-        }
-
-        ///<summary>Deletes the folders the downloader created that are empty, deepest first. A folder with anything in it is kept.</summary>
-        static void DeleteEmptyFolders(ArcweaveProjectAsset projectAsset) {
-            var mediaFolder = string.IsNullOrEmpty(projectAsset.mediaFolderGuid) ? null : AssetDatabase.GUIDToAssetPath(projectAsset.mediaFolderGuid);
-            if ( string.IsNullOrEmpty(mediaFolder) || !AssetDatabase.IsValidFolder(mediaFolder) ) {
-                return;
-            }
-            var folders = projectAsset.mediaSubfolderGuids
-                .Select(guid => new KeyValuePair<string, string>(guid, AssetDatabase.GUIDToAssetPath(guid)))
-                .Where(folder => !string.IsNullOrEmpty(folder.Value) && AssetDatabase.IsValidFolder(folder.Value))
-                .ToList();
-            var remaining = new List<string>();
-            foreach ( var folder in folders.OrderByDescending(folder => folder.Value.Count(c => c == '/')) ) {
-                // Folders the user moved out of the media folder are left alone
-                if ( !IsInFolder(folder.Value, mediaFolder) || !IsEmpty(folder.Value) || !AssetDatabase.DeleteAsset(folder.Value) ) {
-                    remaining.Add(folder.Key);
-                }
-            }
-            projectAsset.mediaSubfolderGuids = remaining;
-            if ( IsEmpty(mediaFolder) ) {
-                AssetDatabase.DeleteAsset(mediaFolder);
-            }
-        }
-
-        ///<summary>True if the folder has nothing in it. A folder that can't be listed counts as not empty, so it is kept.</summary>
-        static bool IsEmpty(string folder) {
-            try {
-                return !Directory.EnumerateFileSystemEntries(folder).Any();
-            }
-            catch ( Exception e ) {
-                Debug.LogWarning($"Could not check whether {folder} is empty: {e.Message}");
-                return false;
-            }
+            return Directory.Exists(folder) && Directory.EnumerateFileSystemEntries(folder)
+                .Any(entry => string.Equals(System.IO.Path.GetFileName(entry), name, StringComparison.OrdinalIgnoreCase));
         }
 
         ///<summary>Downloads an asset file, waiting and retrying while rate limited. Returns null if the download fails or is canceled.</summary>

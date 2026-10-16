@@ -87,9 +87,9 @@ namespace Arcweave.Tests
             yield return Await(import);
 
             Assert.That(asset.IsImported, Is.True);
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Images/Cover.png"));
-            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/Images/Hero.png"));
-            Assert.That(Path(Music().downloadedClip), Is.EqualTo(MediaFolder + "/Audio/Music.wav"));
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Cover.png"));
+            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/Hero.png"));
+            Assert.That(Path(Music().downloadedClip), Is.EqualTo(MediaFolder + "/Music.wav"));
             Assert.That(Cover().ResolveImage(), Is.SameAs(Cover().downloadedImage));
             Assert.That(Music().TryGetAudioClip(), Is.SameAs(Music().downloadedClip));
             Assert.That(server.Authorizations, Is.All.EqualTo("Bearer test-key"));
@@ -242,9 +242,9 @@ namespace Arcweave.Tests
             yield return Import();
 
             Assert.That(server.RequestCountFor(id), Is.EqualTo(1));
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Images/Cover.png"));
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Cover.png"));
             var files = Directory.GetFiles(MediaFolder, "*", SearchOption.AllDirectories).Where(file => !file.EndsWith(".meta")).Select(file => file.Replace('\\', '/'));
-            Assert.That(files, Is.EquivalentTo(new[] { MediaFolder + "/Images/Cover.png", MediaFolder + "/Images/Hero.png", MediaFolder + "/Audio/Music.wav" }));
+            Assert.That(files, Is.EquivalentTo(new[] { MediaFolder + "/Cover.png", MediaFolder + "/Hero.png", MediaFolder + "/Music.wav" }));
         }
 
         [UnityTest]
@@ -297,28 +297,28 @@ namespace Arcweave.Tests
         }
 
         [UnityTest]
-        public IEnumerator NamesAreSanitizedAndStayInsideTheMediaFolder()
+        public IEnumerator FilesAreNamedAfterTheirAssetsInTheMediaFolderWithoutItsArcweaveFolders()
         {
             asset.downloadMedia = true;
-            asset.projectJson = ProjectJson(imagesName: "..", coverName: "Act 1: Cover.png", heroName: "con.png");
 
             yield return Import();
 
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/_/Act 1_ Cover.png"));
-            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/_/con_.png"));
-            Assert.That(Directory.GetFiles(temporaryFolder).Select(System.IO.Path.GetFileName), Is.EquivalentTo(new[] { "Project.asset", "Project.asset.meta", "Project Media.meta" }));
+            var files = Directory.GetFiles(MediaFolder, "*", SearchOption.AllDirectories).Where(file => !file.EndsWith(".meta")).Select(file => file.Replace('\\', '/'));
+            Assert.That(files, Is.EquivalentTo(new[] { MediaFolder + "/Cover.png", MediaFolder + "/Hero.png", MediaFolder + "/Music.wav" }));
+            Assert.That(Directory.GetDirectories(MediaFolder), Is.Empty);
         }
 
         [UnityTest]
-        public IEnumerator FoldersUnityTreatsSpeciallyAreRenamed()
+        public IEnumerator NamesAreSanitizedAndStayInsideTheMediaFolder()
         {
             asset.downloadMedia = true;
-            asset.projectJson = ProjectJson(imagesName: "Resources", coverInPortraits: true, portraitsName: "Editor");
+            asset.projectJson = ProjectJson(coverName: "../Act 1: Cover.png", heroName: "con.png");
 
             yield return Import();
 
-            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/Resources_/Hero.png"));
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Resources_/Editor_/Cover.png"));
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/_.._Act 1_ Cover.png"));
+            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/con_.png"));
+            Assert.That(Directory.GetFiles(temporaryFolder).Select(System.IO.Path.GetFileName), Is.EquivalentTo(new[] { "Project.asset", "Project.asset.meta", "Project Media.meta" }));
         }
 
         [UnityTest]
@@ -329,56 +329,27 @@ namespace Arcweave.Tests
 
             yield return Import();
 
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Images/a_b_c__d.png"));
-            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/Images/_.png"));
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/a_b_c__d.png"));
+            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/_.png"));
             Assert.That(Music().downloadedClip, Is.Not.Null);
         }
 
         [UnityTest]
-        public IEnumerator FolderWithTheNameOfAFileInTheSameFolderGetsANumber([Values] bool fileIsTheCover)
+        public IEnumerator LongNamesAreShortenedAndStillUnique()
         {
-            // An Arcweave folder and an asset in the same folder, both named Album.png, downloaded in either order
+            // Two names that only differ after the first 100 characters
             asset.downloadMedia = true;
-            asset.projectJson = fileIsTheCover
-                ? ProjectJson(coverName: "Album.png", heroInPortraits: true, portraitsName: "Album.png")
-                : ProjectJson(heroName: "Album.png", coverInPortraits: true, portraitsName: "Album.png");
+            var prefix = new string('a', 100);
+            asset.projectJson = ProjectJson(coverName: prefix + "-cover.png", heroName: prefix + "-hero.png");
 
             yield return Import();
 
-            var file = fileIsTheCover ? Path(Cover().downloadedImage) : Path(Hero().downloadedImage);
-            var inFolder = fileIsTheCover ? Path(Hero().downloadedImage) : Path(Cover().downloadedImage);
-            var expected = new[] {
-                new[] { MediaFolder + "/Images/Album.png", MediaFolder + "/Images/Album.png 1/" + ( fileIsTheCover ? "Hero.png" : "Cover.png" ) },
-                new[] { MediaFolder + "/Images/Album 1.png", MediaFolder + "/Images/Album.png/" + ( fileIsTheCover ? "Hero.png" : "Cover.png" ) },
-            };
-            Assert.That(expected, Has.Some.EqualTo(new[] { file, inFolder }));
-            Assert.That(File.Exists(file) && File.Exists(inFolder), Is.True);
-
-            yield return Import();
-
-            Assert.That(fileIsTheCover ? Path(Cover().downloadedImage) : Path(Hero().downloadedImage), Is.EqualTo(file));
-            Assert.That(fileIsTheCover ? Path(Hero().downloadedImage) : Path(Cover().downloadedImage), Is.EqualTo(inFolder));
+            Assert.That(new[] { Path(Cover().downloadedImage), Path(Hero().downloadedImage) },
+                Is.EquivalentTo(new[] { MediaFolder + "/" + prefix + ".png", MediaFolder + "/" + prefix + " 1.png" }));
         }
 
         [UnityTest]
-        public IEnumerator PathTakenByANameThatDiffersOnlyInCaseGetsANumber()
-        {
-            asset.downloadMedia = true;
-            yield return Import();
-            var userPath = MediaFolder + "/Images/Portrait.png";
-            var userFile = Png(Color.yellow);
-            File.WriteAllBytes(userPath, userFile);
-            AssetDatabase.ImportAsset(userPath, ImportAssetOptions.ForceSynchronousImport);
-
-            asset.projectJson = ProjectJson(coverName: "portrait.png");
-            yield return Import();
-
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Images/portrait 1.png"));
-            Assert.That(File.ReadAllBytes(userPath), Is.EqualTo(userFile));
-        }
-
-        [UnityTest]
-        public IEnumerator AssetsWithTheSameNameInTheSameFolderAreBothDownloadedAndKeepTheirPaths()
+        public IEnumerator AssetsWithTheSameNameAreBothDownloadedAndKeepTheirPaths()
         {
             asset.downloadMedia = true;
             var heroImage = Png(Color.green);
@@ -388,7 +359,7 @@ namespace Arcweave.Tests
 
             var coverPath = Path(Cover().downloadedImage);
             var heroPath = Path(Hero().downloadedImage);
-            Assert.That(new[] { coverPath, heroPath }, Is.EquivalentTo(new[] { MediaFolder + "/Images/Cover.png", MediaFolder + "/Images/Cover 1.png" }));
+            Assert.That(new[] { coverPath, heroPath }, Is.EquivalentTo(new[] { MediaFolder + "/Cover.png", MediaFolder + "/Cover 1.png" }));
             Assert.That(File.ReadAllBytes(heroPath), Is.EqualTo(heroImage));
             var coverWriteTime = File.GetLastWriteTimeUtc(coverPath);
             var heroWriteTime = File.GetLastWriteTimeUtc(heroPath);
@@ -402,53 +373,82 @@ namespace Arcweave.Tests
         }
 
         [UnityTest]
-        public IEnumerator RenamingAndMovingInArcweaveMovesTheFileAndKeepsItsGuid()
+        public IEnumerator FileTheDownloaderDoesNotOwnAtTheNameIsNeverOverwritten()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var userPath = MediaFolder + "/Cover.jpg";
+            var userFile = Png(Color.yellow);
+            File.WriteAllBytes(userPath, userFile);
+            AssetDatabase.ImportAsset(userPath, ImportAssetOptions.ForceSynchronousImport);
+
+            // The cover becomes a jpg, which needs a new file
+            asset.projectJson = ProjectJson(coverName: "Cover.jpg");
+            server.SetFile(CoverId, Jpg(Color.blue));
+            yield return Import();
+
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Cover 1.jpg"));
+            Assert.That(File.ReadAllBytes(userPath), Is.EqualTo(userFile));
+        }
+
+        [UnityTest]
+        public IEnumerator NameThatDiffersOnlyInCaseFromAFileTheDownloaderDoesNotOwnGetsANumber()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var userPath = MediaFolder + "/cover.jpg";
+            var userFile = Png(Color.yellow);
+            File.WriteAllBytes(userPath, userFile);
+            AssetDatabase.ImportAsset(userPath, ImportAssetOptions.ForceSynchronousImport);
+
+            asset.projectJson = ProjectJson(coverName: "Cover.jpg");
+            server.SetFile(CoverId, Jpg(Color.blue));
+            yield return Import();
+
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Cover 1.jpg"));
+            Assert.That(File.ReadAllBytes(userPath), Is.EqualTo(userFile));
+        }
+
+        [UnityTest]
+        public IEnumerator RenamingOrMovingInArcweaveKeepsTheFileAndItsGuid()
         {
             asset.downloadMedia = true;
             yield return Import();
             var coverPath = Path(Cover().downloadedImage);
             var coverGuid = AssetDatabase.AssetPathToGUID(coverPath);
 
+            // Renamed and moved to another Arcweave folder
             var updatedCover = Png(Color.blue);
             server.SetFile(CoverId, updatedCover);
-            asset.projectJson = ProjectJson(coverName: "Portrait.png");
+            asset.projectJson = ProjectJson(coverName: "Portrait.png", coverInAudio: true);
             yield return Import();
 
-            var renamedPath = MediaFolder + "/Images/Portrait.png";
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(renamedPath));
-            Assert.That(AssetDatabase.AssetPathToGUID(renamedPath), Is.EqualTo(coverGuid));
-            Assert.That(File.ReadAllBytes(renamedPath), Is.EqualTo(updatedCover));
-            Assert.That(File.Exists(coverPath), Is.False);
-
-            asset.projectJson = ProjectJson(coverName: "Portrait.png", coverInPortraits: true);
-            yield return Import();
-
-            var movedPath = MediaFolder + "/Images/Portraits/Portrait.png";
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(movedPath));
-            Assert.That(AssetDatabase.AssetPathToGUID(movedPath), Is.EqualTo(coverGuid));
-            Assert.That(File.Exists(renamedPath), Is.False);
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(coverPath));
+            Assert.That(AssetDatabase.AssetPathToGUID(coverPath), Is.EqualTo(coverGuid));
+            Assert.That(File.ReadAllBytes(coverPath), Is.EqualTo(updatedCover));
+            Assert.That(File.Exists(MediaFolder + "/Portrait.png"), Is.False);
         }
 
         [UnityTest]
-        public IEnumerator ChangingTheExtensionMakesANewFileAndDeletesTheOldOne()
+        public IEnumerator ChangingTheExtensionMakesANewFileWithTheCurrentNameAndDeletesTheOldOne()
         {
             asset.downloadMedia = true;
             yield return Import();
             var pngPath = Path(Cover().downloadedImage);
             var pngGuid = AssetDatabase.AssetPathToGUID(pngPath);
 
-            asset.projectJson = ProjectJson(coverName: "Cover.jpg");
+            asset.projectJson = ProjectJson(coverName: "Portrait.jpg");
             server.SetFile(CoverId, Jpg(Color.blue));
             yield return Import();
 
-            var jpgPath = MediaFolder + "/Images/Cover.jpg";
+            var jpgPath = MediaFolder + "/Portrait.jpg";
             Assert.That(Path(Cover().downloadedImage), Is.EqualTo(jpgPath));
             Assert.That(AssetDatabase.AssetPathToGUID(jpgPath), Is.Not.EqualTo(pngGuid));
             Assert.That(File.Exists(pngPath), Is.False);
         }
 
         [UnityTest]
-        public IEnumerator MediaDownloadedByVersion310IsMovedToReadablePathsKeepingItsGuid()
+        public IEnumerator MediaDownloadedByVersion310IsRenamedOnceKeepingItsGuid()
         {
             // The media folder of 3.1.0: files named after their asset ids, tracked by GUID
             AssetDatabase.CreateFolder(temporaryFolder, "Project Media");
@@ -458,18 +458,11 @@ namespace Arcweave.Tests
             File.WriteAllBytes(oldPaths[2], Wav(100));
             foreach ( var path in oldPaths ) { AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport); }
             var guids = oldPaths.Select(AssetDatabase.AssetPathToGUID).ToArray();
+            SetDownloadedMedia(new[] { CoverId, HeroId, MusicId }, guids);
 
-            var serialized = new SerializedObject(asset);
-            serialized.FindProperty("mediaOwnerGuid").stringValue = AssetDatabase.AssetPathToGUID(temporaryFolder + "/Project.asset");
-            serialized.FindProperty("mediaFolderGuid").stringValue = AssetDatabase.AssetPathToGUID(MediaFolder);
-            var downloadedMedia = serialized.FindProperty("downloadedMedia");
-            var ids = new[] { CoverId, HeroId, MusicId };
-            downloadedMedia.arraySize = ids.Length;
-            for ( var i = 0; i < ids.Length; i++ ) {
-                downloadedMedia.GetArrayElementAtIndex(i).FindPropertyRelative("assetId").stringValue = ids[i];
-                downloadedMedia.GetArrayElementAtIndex(i).FindPropertyRelative("guid").stringValue = guids[i];
-            }
-            serialized.ApplyModifiedPropertiesWithoutUndo();
+            // The user renamed the hero's file, which keeps its name
+            var heroPath = MediaFolder + "/My Hero.png";
+            Assert.That(AssetDatabase.MoveAsset(oldPaths[1], heroPath), Is.Empty);
 
             // A user's asset that references the media, by GUID like scenes and prefabs do
             var referencesPath = temporaryFolder + "/References.asset";
@@ -482,7 +475,7 @@ namespace Arcweave.Tests
             asset.downloadMedia = true;
             yield return Import();
 
-            var newPaths = new[] { MediaFolder + "/Images/Cover.png", MediaFolder + "/Images/Hero.png", MediaFolder + "/Audio/Music.wav" };
+            var newPaths = new[] { MediaFolder + "/Cover.png", heroPath, MediaFolder + "/Music.wav" };
             Assert.That(new[] { Path(Cover().downloadedImage), Path(Hero().downloadedImage), Path(Music().downloadedClip) }, Is.EqualTo(newPaths));
             Assert.That(newPaths.Select(AssetDatabase.AssetPathToGUID), Is.EqualTo(guids));
             Assert.That(oldPaths.Where(File.Exists), Is.Empty);
@@ -491,42 +484,30 @@ namespace Arcweave.Tests
             references = AssetDatabase.LoadAssetAtPath<MediaReferences>(referencesPath);
             Assert.That(Path(references.image), Is.EqualTo(newPaths[0]));
             Assert.That(Path(references.clip), Is.EqualTo(newPaths[2]));
-        }
 
-        [UnityTest]
-        public IEnumerator FileTheDownloaderDoesNotOwnIsNeverOverwritten()
-        {
-            asset.downloadMedia = true;
-            yield return Import();
-            var coverGuid = AssetDatabase.AssetPathToGUID(Path(Cover().downloadedImage));
-            var userPath = MediaFolder + "/Images/Portrait.png";
-            var userFile = Png(Color.yellow);
-            File.WriteAllBytes(userPath, userFile);
-            AssetDatabase.ImportAsset(userPath, ImportAssetOptions.ForceSynchronousImport);
-
+            // Once renamed, the file keeps its name
             asset.projectJson = ProjectJson(coverName: "Portrait.png");
             yield return Import();
 
-            var coverPath = MediaFolder + "/Images/Portrait 1.png";
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(coverPath));
-            Assert.That(AssetDatabase.AssetPathToGUID(coverPath), Is.EqualTo(coverGuid));
-            Assert.That(File.ReadAllBytes(userPath), Is.EqualTo(userFile));
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(newPaths[0]));
         }
 
         [UnityTest]
         public IEnumerator FileSavedAtAPlannedPathDuringAMoveIsNeverOverwritten()
         {
+            // The hero is still named after its asset id by 3.1.0, so it is moved, while the cover needs a new file, in either order
             asset.downloadMedia = true;
             yield return Import();
-            var userPath = MediaFolder + "/Images/Cover.jpg";
+            var heroPath = Path(Hero().downloadedImage);
+            Assert.That(AssetDatabase.MoveAsset(heroPath, MediaFolder + "/" + HeroId + ".png"), Is.Empty);
+            var userPath = MediaFolder + "/Cover.jpg";
             var userFile = Png(Color.yellow);
             MoveCallback.onWillMoveAsset = (source, destination) => {
                 if ( !File.Exists(userPath) ) { File.WriteAllBytes(userPath, userFile); }
             };
 
             try {
-                // The cover needs a new file and the hero is moved, in either order
-                asset.projectJson = ProjectJson(coverName: "Cover.jpg", heroName: "Portrait.png");
+                asset.projectJson = ProjectJson(coverName: "Cover.jpg");
                 server.SetFile(CoverId, Jpg(Color.blue));
                 yield return Import();
             }
@@ -535,72 +516,30 @@ namespace Arcweave.Tests
             }
 
             Assert.That(File.ReadAllBytes(userPath), Is.EqualTo(userFile));
-            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(MediaFolder + "/Images/Portrait.png"));
+            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(heroPath));
             Assert.That(Cover().downloadedImage, Is.Not.Null);
             Assert.That(Path(Cover().downloadedImage), Is.Not.EqualTo(userPath));
         }
 
         [UnityTest]
-        public IEnumerator FileTheUserMovedInsideTheMediaFolderIsMovedBack()
+        public IEnumerator FileTheUserRenamedOrMovedStaysWhereItIs()
         {
             asset.downloadMedia = true;
             yield return Import();
-            var coverPath = Path(Cover().downloadedImage);
-            var coverGuid = AssetDatabase.AssetPathToGUID(coverPath);
-            Assert.That(AssetDatabase.MoveAsset(coverPath, MediaFolder + "/Mine.png"), Is.Empty);
-
-            yield return Import();
-
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(coverPath));
-            Assert.That(AssetDatabase.AssetPathToGUID(coverPath), Is.EqualTo(coverGuid));
-            Assert.That(File.Exists(MediaFolder + "/Mine.png"), Is.False);
-        }
-
-        [UnityTest]
-        public IEnumerator FileTheUserMovedOutOfTheMediaFolderStaysThere()
-        {
-            asset.downloadMedia = true;
-            yield return Import();
-            var movedPath = temporaryFolder + "/Mine.png";
-            Assert.That(AssetDatabase.MoveAsset(Path(Cover().downloadedImage), movedPath), Is.Empty);
+            var renamedPath = MediaFolder + "/Mine.png";
+            Assert.That(AssetDatabase.MoveAsset(Path(Cover().downloadedImage), renamedPath), Is.Empty);
+            var movedPath = temporaryFolder + "/Hero Elsewhere.png";
+            Assert.That(AssetDatabase.MoveAsset(Path(Hero().downloadedImage), movedPath), Is.Empty);
 
             var updatedCover = Png(Color.blue);
             server.SetFile(CoverId, updatedCover);
-            asset.projectJson = ProjectJson(coverName: "Portrait.png");
             yield return Import();
 
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(movedPath));
-            Assert.That(File.ReadAllBytes(movedPath), Is.EqualTo(updatedCover));
-            Assert.That(File.Exists(MediaFolder + "/Images/Portrait.png"), Is.False);
-        }
-
-        [UnityTest]
-        public IEnumerator EmptyFoldersAreDeletedButFoldersWithOtherFilesAreKept()
-        {
-            asset.downloadMedia = true;
-            yield return Import();
-            Assert.That(AssetDatabase.IsValidFolder(MediaFolder + "/Audio"), Is.True);
-            AssetDatabase.CreateFolder(MediaFolder, "Mine");
-
-            asset.projectJson = ProjectJson(withMusic: false);
-            yield return Import();
-
-            Assert.That(Directory.Exists(MediaFolder + "/Audio"), Is.False);
-            Assert.That(AssetDatabase.IsValidFolder(MediaFolder + "/Mine"), Is.True, "Folders the downloader did not create are kept.");
-
-            asset.projectJson = ProjectJson(withMusic: false, coverInPortraits: true);
-            yield return Import();
-            var portraits = MediaFolder + "/Images/Portraits";
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(portraits + "/Cover.png"));
-            var userFile = portraits + "/Notes.txt";
-            File.WriteAllText(userFile, "Mine");
-            AssetDatabase.ImportAsset(userFile, ImportAssetOptions.ForceSynchronousImport);
-
-            asset.projectJson = ProjectJson(withMusic: false);
-            yield return Import();
-
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Images/Cover.png"));
-            Assert.That(File.ReadAllText(userFile), Is.EqualTo("Mine"), "Folders with files the downloader does not own are kept.");
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(renamedPath));
+            Assert.That(File.ReadAllBytes(renamedPath), Is.EqualTo(updatedCover));
+            Assert.That(Path(Hero().downloadedImage), Is.EqualTo(movedPath));
+            Assert.That(File.Exists(MediaFolder + "/Cover.png"), Is.False);
+            Assert.That(File.Exists(MediaFolder + "/Hero.png"), Is.False);
         }
 
         ///----------------------------------------------------------------------------------------------
@@ -613,6 +552,21 @@ namespace Arcweave.Tests
         private AudioAsset Music() => Element().AudioAssets.Single();
 
         private static string Path(UnityEngine.Object media) => media == null ? null : AssetDatabase.GetAssetPath(media);
+
+        ///<summary>Makes the project asset own the files, as an earlier import would have.</summary>
+        private void SetDownloadedMedia(string[] assetIds, string[] guids)
+        {
+            var serialized = new SerializedObject(asset);
+            serialized.FindProperty("mediaOwnerGuid").stringValue = AssetDatabase.AssetPathToGUID(temporaryFolder + "/Project.asset");
+            serialized.FindProperty("mediaFolderGuid").stringValue = AssetDatabase.AssetPathToGUID(MediaFolder);
+            var downloadedMedia = serialized.FindProperty("downloadedMedia");
+            downloadedMedia.arraySize = assetIds.Length;
+            for ( var i = 0; i < assetIds.Length; i++ ) {
+                downloadedMedia.GetArrayElementAtIndex(i).FindPropertyRelative("assetId").stringValue = assetIds[i];
+                downloadedMedia.GetArrayElementAtIndex(i).FindPropertyRelative("guid").stringValue = guids[i];
+            }
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+        }
 
         private IEnumerator Import() => Await(asset.ImportProjectAsync());
 
@@ -633,32 +587,27 @@ namespace Arcweave.Tests
             }
         }
 
-        ///<summary>A project whose assets are in Arcweave folders: Images (with the hero, the cover and an Images/Portraits folder) and Audio (with the music).</summary>
+        ///<summary>A project whose assets are in Arcweave folders, which downloaded files don't mirror: Images (with the cover and the hero) and Audio (with the music).</summary>
         private static string ProjectJson(bool withMusic = true, string coverId = CoverId, string coverName = "Cover.png",
-            bool coverInPortraits = false, string heroName = "Hero.png", string imagesName = "Images",
-            bool heroInPortraits = false, string portraitsName = "Portraits")
+            string heroName = "Hero.png", bool coverInAudio = false)
         {
             var audio = withMusic ? $@", ""audio"": [{{ ""id"": ""music-instance"", ""mode"": ""loop"", ""asset"": ""{MusicId}"", ""delay"": 0 }}]" : "";
-            var imagesChildren = new[] { "portraits-folder" }
-                .Concat(heroInPortraits ? new string[0] : new[] { HeroId })
-                .Concat(coverInPortraits ? new string[0] : new[] { coverId });
-            var portraitsChildren = ( heroInPortraits ? new[] { HeroId } : new string[0] )
-                .Concat(coverInPortraits ? new[] { coverId } : new string[0]);
+            var imagesChildren = coverInAudio ? new[] { HeroId } : new[] { HeroId, coverId };
+            var audioChildren = coverInAudio ? new[] { MusicId, coverId } : new[] { MusicId };
             return $@"{{
                 ""name"": ""Media Test"",
                 ""startingElement"": ""start"",
                 ""boards"": {{ ""main"": {{ ""name"": ""Main"", ""elements"": [""start""], ""branches"": [], ""jumpers"": [], ""notes"": [] }} }},
                 ""elements"": {{ ""start"": {{ ""x"": 0, ""y"": 0, ""title"": ""Start"", ""content"": """", ""theme"": ""default"", ""outputs"": [], ""components"": [""hero""],
-                    ""assets"": {{ ""cover"": {{ ""id"": ""{coverId}"" }}{audio} }} }} }},
+                    ""assets"": {{ ""cover"": {{ ""id"": {Quote(coverId)} }}{audio} }} }} }},
                 ""branches"": {{}}, ""jumpers"": {{}}, ""conditions"": {{}}, ""connections"": {{}},
                 ""components"": {{ ""hero"": {{ ""name"": ""Hero"", ""attributes"": [], ""assets"": {{ ""cover"": {{ ""id"": ""{HeroId}"" }} }} }} }},
                 ""attributes"": {{}}, ""variables"": {{}}, ""notes"": {{}},
                 ""assets"": {{
                     ""root-folder"": {{ ""root"": true, ""children"": [""images-folder"", ""audio-folder""] }},
-                    ""images-folder"": {{ ""name"": {Quote(imagesName)}, ""children"": [{string.Join(", ", imagesChildren.Select(Quote))}] }},
-                    ""portraits-folder"": {{ ""name"": {Quote(portraitsName)}, ""children"": [{string.Join(", ", portraitsChildren.Select(Quote))}] }},
-                    ""audio-folder"": {{ ""name"": ""Audio"", ""children"": [""{MusicId}""] }},
-                    ""{coverId}"": {{ ""name"": {Quote(coverName)}, ""type"": ""image"" }},
+                    ""images-folder"": {{ ""name"": ""Images"", ""children"": [{string.Join(", ", imagesChildren.Select(Quote))}] }},
+                    ""audio-folder"": {{ ""name"": ""Audio"", ""children"": [{string.Join(", ", audioChildren.Select(Quote))}] }},
+                    {Quote(coverId)}: {{ ""name"": {Quote(coverName)}, ""type"": ""image"" }},
                     ""{HeroId}"": {{ ""name"": {Quote(heroName)}, ""type"": ""image"" }},
                     ""{MusicId}"": {{ ""name"": ""Music.wav"", ""type"": ""audio"", ""volume"": 1 }}
                 }}

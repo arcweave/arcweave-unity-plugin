@@ -85,44 +85,6 @@ namespace Arcweave.Project
             return new Project(name, startElement, projBoards, projComponents, projVariables);
         }
 
-        ///<summary>Returns the names of the Arcweave folders each asset is in, outermost first, by asset id. The root folder is not included.</summary>
-        public Dictionary<string, string[]> MakeAssetFolders() {
-            var folders = new Dictionary<string, string[]>();
-            if ( !jproject.AsDictionary.TryGetValue("assets", out var jassets) || !jassets.IsDictionary ) { return folders; }
-            var assets = jassets.AsDictionary;
-
-            // Folders are the assets with children
-            var parents = new Dictionary<string, string>();
-            foreach ( var entry in assets ) {
-                var children = Field(entry.Value, "children");
-                if ( children == null || !children.IsList ) { continue; }
-                foreach ( var child in children.AsList ) {
-                    if ( child.IsString && !parents.ContainsKey(child.AsString) ) { parents[child.AsString] = entry.Key; }
-                }
-            }
-
-            foreach ( var entry in assets ) {
-                if ( Field(entry.Value, "children") != null ) { continue; }
-                var path = new List<string>();
-                // Visited folders stop a malformed tree with a cycle
-                var visited = new HashSet<string> { entry.Key };
-                for ( var id = entry.Key; parents.TryGetValue(id, out var parent) && visited.Add(parent); id = parent ) {
-                    var folder = assets.TryGetValue(parent, out var value) ? value : null;
-                    var root = Field(folder, "root");
-                    if ( root != null && root.IsBool && root.AsBool ) { break; }
-                    var folderName = Field(folder, "name");
-                    path.Add(folderName != null && folderName.IsString ? folderName.AsString : "");
-                }
-                path.Reverse();
-                folders[entry.Key] = path.ToArray();
-            }
-            return folders;
-        }
-
-        static fsData Field(fsData source, string key) {
-            return source != null && source.IsDictionary && source.AsDictionary.TryGetValue(key, out var result) && !result.IsNull ? result : null;
-        }
-
         ///----------------------------------------------------------------------------------------------
 
         //...

@@ -45,8 +45,6 @@ namespace Arcweave
         [SerializeField, HideInInspector] internal string mediaOwnerGuid = "";
         [SerializeField, HideInInspector] internal string mediaFolderGuid = "";
         [SerializeField, HideInInspector] internal List<DownloadedMedia> downloadedMedia = new List<DownloadedMedia>();
-        // Folders the downloader created inside the media folder to mirror Arcweave's asset folders, so it can delete them once empty.
-        [SerializeField, HideInInspector] internal List<string> mediaSubfolderGuids = new List<string>();
 
         [field: SerializeField, HideInInspector]
         public Project.Project Project { get; private set; }
@@ -117,22 +115,22 @@ namespace Arcweave
                 json = await FetchProjectJson();
             }
 
-            var (project, assetFolders) = await MakeProject(json);
+            var project = await MakeProject(json);
             // The media is linked before the project is published, so nothing can start playing it without its media.
-            await LinkMedia(project, assetFolders);
+            await LinkMedia(project);
             Project = project;
             Debug.Log("Done");
         }
 
         //...
-        Task LinkMedia(Project.Project project, Dictionary<string, string[]> assetFolders) {
+        Task LinkMedia(Project.Project project) {
             if ( !downloadMedia ) {
                 return Task.CompletedTask;
             }
 #if UNITY_EDITOR
             // Media is saved next to the project asset, so an instance that is not saved as an asset can't download it
             if ( importSource == ImportSource.FromWeb && UnityEditor.EditorUtility.IsPersistent(this) ) {
-                return ArcweaveMediaDownloader.DownloadAsync(this, project, assetFolders);
+                return ArcweaveMediaDownloader.DownloadAsync(this, project);
             }
 #endif
             // Media can only be downloaded in the editor for a saved asset, so other imports, eg. in a player, keep the media of the previous import.
@@ -161,15 +159,15 @@ namespace Arcweave
             }
         }
 
-        ///<summary>Makes the project, and the Arcweave folders of its assets by asset id, which name the folders of downloaded media.</summary>
-        Task<(Project.Project project, Dictionary<string, string[]> assetFolders)> MakeProject(string json) {
+        //...
+        Task<Project.Project> MakeProject(string json) {
             // Parsing runs off the main thread so big projects don't freeze the editor or game.
             return Task.Run(() =>
             {
                 Debug.Log("Parsing Json...");
                 var maker = new Project.ProjectMaker(json, this);
                 Debug.Log("Making Project...");
-                return (maker.MakeProject(), maker.MakeAssetFolders());
+                return maker.MakeProject();
             });
         }
 
