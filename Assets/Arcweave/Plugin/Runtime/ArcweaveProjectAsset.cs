@@ -29,6 +29,17 @@ namespace Arcweave
         /// Disabled by default. When disabled, media is resolved by name from a 'Resources' folder.</summary>
         [HideInInspector] public bool downloadMedia = false;
 
+        [SerializeField, HideInInspector]
+        private Interpreter.RichTextTarget richTextTarget = Interpreter.RichTextTarget.LegacyText;
+
+        ///<summary>The text component that the project's runtime content, labels and rich text attributes are converted for.
+        /// LegacyText, the default, keeps bold and italic for uGUI Text and IMGUI. TextMeshPro also keeps underline and strikethrough,
+        /// for TextMeshPro and UI Toolkit. Does not need a new import.</summary>
+        public Interpreter.RichTextTarget RichTextTarget {
+            get { return richTextTarget; }
+            set { richTextTarget = value; ApplyRichTextTarget(Project); }
+        }
+
         // Media downloaded by web imports, tracked by GUID so it can be refreshed and cleaned up after moves and renames.
         // The owner GUID detects duplicated project assets, which must not manage the original asset's media.
         [Serializable]
@@ -64,8 +75,18 @@ namespace Arcweave
 
         //...
         protected void OnEnable() {
+            ApplyRichTextTarget(Project);
             if ( IsImported ) {
                 Project.Initialize();
+            }
+        }
+
+        // Also called after undo and inspector changes
+        protected void OnValidate() => ApplyRichTextTarget(Project);
+
+        void ApplyRichTextTarget(Project.Project project) {
+            if ( project != null ) {
+                project.RichTextTarget = richTextTarget;
             }
         }
 
@@ -116,6 +137,7 @@ namespace Arcweave
             }
 
             var project = await MakeProject(json);
+            ApplyRichTextTarget(project);
             // The media is linked before the project is published, so nothing can start playing it without its media.
             await LinkMedia(project);
             Project = project;

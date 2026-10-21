@@ -68,7 +68,7 @@ namespace Arcweave.Project
                 }
             }
 
-            RuntimeLabel = Utils.CleanString(output.Output);
+            RuntimeLabel = Utils.CleanString(output.Output, Project.RichTextTarget);
         }
     }
 }

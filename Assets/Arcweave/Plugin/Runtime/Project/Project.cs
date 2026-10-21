@@ -35,6 +35,10 @@ namespace Arcweave.Project
             set { _startingElementId = value.Id; _startingElement = value; }
         }
 
+        ///<summary>The text component that runtime content, labels and rich text attributes are converted for.
+        /// Set from the project asset's Rich Text Target.</summary>
+        public Interpreter.RichTextTarget RichTextTarget { get; set; }
+
         public Project(string name, Element startingElement, List<Board> boards, List<Component> components, List<Variable> variables) {
             this.name = name;
             this.StartingElement = startingElement;

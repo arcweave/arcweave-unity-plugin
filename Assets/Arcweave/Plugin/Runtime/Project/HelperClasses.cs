@@ -52,7 +52,7 @@ namespace Arcweave.Project
                 {
                     var i = new AwInterpreter(TargetElement.Project, TargetElement.Id);
                     var output = i.RunScript(TargetElement.Title);
-                    return Utils.CleanString(output.Output);
+                    return Utils.CleanString(output.Output, TargetElement.Project.RichTextTarget);
                 }
 
                 return null;

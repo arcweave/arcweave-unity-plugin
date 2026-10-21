@@ -31,6 +31,8 @@ namespace Arcweave.Project
 
         [SerializeField] private string data_stringRichTextRaw;
         [SerializeField] private string data_stringRichText;
+        // The rich text target data_stringRichText was converted for. Assets saved before it existed load the default, legacy text.
+        [SerializeField] private RichTextTarget data_stringRichTextTarget;
 
         [SerializeReference]
         private List<Component> data_componentList;
@@ -51,11 +53,13 @@ namespace Arcweave.Project
 
                 if (Type == IAttribute.DataType.StringRichText)
                 {
-                    if (string.IsNullOrEmpty(data_stringRichText))
+                    var target = project != null ? project.RichTextTarget : RichTextTarget.LegacyText;
+                    if (string.IsNullOrEmpty(data_stringRichText) || data_stringRichTextTarget != target)
                     {
                         var i = new AwInterpreter(project);
                         var output = i.RunScript(data_stringRichTextRaw);
-                        data_stringRichText = Utils.CleanString(output.Output);
+                        data_stringRichText = Utils.CleanString(output.Output, target);
+                        data_stringRichTextTarget = target;
                     }
 
                     return data_stringRichText;

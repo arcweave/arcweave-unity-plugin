@@ -97,6 +97,8 @@ Choose your import source:
 - **From Json**: Drag your `project.json` file into the "Project Json File" field.
 - **From Web**: Enter your **API Key** and **Project Hash**. Optionally enable **Download Media** to download the project's images and audio.
 
+If you show the text with TextMeshPro or UI Toolkit, set **Rich Text Target** to **TextMeshPro / UI Toolkit** to keep underline and strikethrough. See [Rich Text Target](#rich-text-target).
+
 Click the **Import Project** button to begin the import.
 
 ### Media Downloaded from Web
@@ -110,6 +112,19 @@ Click the **Import Project** button to begin the import.
 - Media is only downloaded in the Unity Editor, including when `ArcweavePlayer` imports the project on Play. Reimporting in a built player keeps the media downloaded in the editor for the assets the project still uses.
 
 Leave **Download Media** disabled to provide images and audio yourself in a `Resources` folder, as described below. Disabling it later doesn't delete downloaded files, but the next import no longer uses them.
+
+### Rich Text Target
+
+Arcweave's rich text is converted to Unity rich text tags. **Rich Text Target** sets which text component the project's text is shown in, since they support different tags:
+
+| Rich Text Target | For | Bold & italic | Underline & strikethrough |
+|------------------|-----|---------------|---------------------------|
+| **Legacy Text (uGUI Text, IMGUI)** (default) | uGUI `Text`, as in the demo, and IMGUI | `<b>`, `<i>` | Shown as plain text |
+| **TextMeshPro / UI Toolkit** | TextMeshPro and UI Toolkit | `<b>`, `<i>` | `<u>`, `<s>` |
+
+It applies to `Element.RuntimeContent`, `Connection.RuntimeLabel`, `Path.text` and rich text `Attribute.data`. You don't need to import the project again after changing it. From code, set `aw.RichTextTarget = RichTextTarget.TextMeshPro` (in `Arcweave.Interpreter`). The Project Viewer always uses legacy text.
+
+With **TextMeshPro / UI Toolkit**, a `<` typed in Arcweave is wrapped in `<noparse>` so it is shown as text, eg. a writer typing `<u>` sees `<u>`, not underlined text. Legacy Text has no way to escape `<`, so text the writer types that looks like a supported tag, such as `<b>`, is still applied.
 
 After successful import, the Inspector displays:
 - The project name
@@ -300,6 +315,7 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 | `GlobalVariables` | List\<Variable\> | All global/project-scoped variables |
 | `Variables` | List\<Variable\> | Deprecated alias for `GlobalVariables` |
 | `StartingElement` | Element | Entry point for the narrative |
+| `RichTextTarget` | RichTextTarget | Text component runtime text is converted for. Set by the project asset's **Rich Text Target** |
 
 #### Methods
 

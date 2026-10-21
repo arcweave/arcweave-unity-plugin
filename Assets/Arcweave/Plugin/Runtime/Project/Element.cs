@@ -92,7 +92,7 @@ namespace Arcweave.Project
                 }
             }
 
-            RuntimeContent = Utils.CleanString(output.Output);
+            RuntimeContent = Utils.CleanString(output.Output, Project.RichTextTarget);
         }
 
         ///----------------------------------------------------------------------------------------------

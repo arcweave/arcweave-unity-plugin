@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+- Added a **Rich Text Target** setting to the project asset inspector, also available as `ArcweaveProjectAsset.RichTextTarget` and `Project.RichTextTarget`. Set it to **TextMeshPro / UI Toolkit** to convert Arcweave underline and strikethrough to `<u>` and `<s>` in element content, connection labels, path text and rich text attributes. The default, **Legacy Text (uGUI Text, IMGUI)**, keeps the previous output, since legacy `Text` and IMGUI show these tags literally. The Project Viewer always uses legacy text.
+- Added `Utils.CleanString(string, RichTextTarget)`. `Utils.CleanString(string)` still converts for legacy text.
+
+### Changed
+
+- Rich text written with `<b>` and `<i>`, as in older content and REST API input, is now kept as bold and italic instead of being removed.
+- With **TextMeshPro / UI Toolkit**, a `<` typed by the writer is wrapped in `<noparse>` so it shows as text instead of starting a tag.
+- Text such as `{bold}` or `{code}` in content is no longer turned into formatting.
+
 ### Fixed
 
 - Fixed importing projects whose element audio has a `delay` written as a string, such as The Castle template (`"delay": "1200"`), which failed with `Unable to cast <"1200"> (with type = System.String) to type System.Int64`. Audio delays and volumes are now read from numbers and numeric strings; other values are reported and replaced by the default instead of failing the import.
