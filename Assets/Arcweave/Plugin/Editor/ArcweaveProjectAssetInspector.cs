@@ -12,6 +12,12 @@ namespace Arcweave
 
         private bool isImporting;
 
+        // In the order of Interpreter.RichTextTarget
+        private static readonly GUIContent[] RichTextTargetNames = {
+            new GUIContent("Legacy Text (uGUI Text, IMGUI)"),
+            new GUIContent("TextMeshPro / UI Toolkit"),
+        };
+
         public override void OnInspectorGUI() {
             base.OnInspectorGUI();
 
@@ -47,6 +53,14 @@ namespace Arcweave
                 {
                     aw.projectJsonFile = (TextAsset)EditorGUILayout.ObjectField(new GUIContent("Project JSON File", "The Arcweave project JSON file"), aw.projectJsonFile, typeof(TextAsset), false);
                 }
+            }
+
+            GUIContent richTextContent = new GUIContent("Rich Text Target", "The text component that shows the project's text. Legacy Text keeps bold and italic. TextMeshPro / UI Toolkit also keeps underline and strikethrough, which Legacy Text and IMGUI would show as tags.");
+            var richTextTarget = (Interpreter.RichTextTarget)EditorGUILayout.Popup(richTextContent, (int)aw.RichTextTarget, RichTextTargetNames);
+            if ( richTextTarget != aw.RichTextTarget ) {
+                Undo.RecordObject(aw, "Change Rich Text Target");
+                aw.RichTextTarget = richTextTarget;
+                EditorUtility.SetDirty(aw);
             }
 
             GUI.enabled = !isImporting && ( fromJson || fromWeb );
