@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Arcweave.Project
 {
-    /* 
+    /*
      * Support class to keep a save of the element visits
      */
     [Serializable]

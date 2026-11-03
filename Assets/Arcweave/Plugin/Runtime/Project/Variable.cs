@@ -14,10 +14,10 @@ namespace Arcweave.Project
         [field: SerializeField]
         public string Id { get; set; }
         private object _value;
-        public object Value 
-        { 
+        public object Value
+        {
             get => _value;
-            set 
+            set
             {
                 _value = value;
             }
@@ -59,7 +59,7 @@ namespace Arcweave.Project
                     {
                         _defaultValue = value;
                     }
-                    else 
+                    else
                     {
                         // If the value is a reference type it has to implement ICloneable to create a deep copy, otherwise we will lose the default value
                         if (value is ICloneable cloneable)
