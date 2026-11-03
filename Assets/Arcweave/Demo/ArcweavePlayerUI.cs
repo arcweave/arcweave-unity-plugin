@@ -61,9 +61,10 @@ namespace Arcweave
             loadButton.onClick.AddListener(Load);
 
 
-            loadButton.gameObject.SetActive(player.HasSave());
+            RefreshLoadButton();
 
             player.onElementEnter += OnElementEnter;
+            player.onSavesReset += RefreshLoadButton;
             player.onElementOptions += OnElementOptions;
             player.onWaitInputNext += OnWaitInputNext;
             player.onProjectFinish += OnProjectFinish;
@@ -80,6 +81,7 @@ namespace Arcweave
             loadButton.onClick.RemoveListener(Load);
 
             player.onElementEnter -= OnElementEnter;
+            player.onSavesReset -= RefreshLoadButton;
             player.onElementOptions -= OnElementOptions;
             player.onWaitInputNext -= OnWaitInputNext;
             player.onProjectFinish -= OnProjectFinish;
@@ -102,11 +104,25 @@ namespace Arcweave
                 return;
             }
 
-            ClearTempButtons();
-            if (!player.LoadAndNavigateToSavedState())
+            // Keep the current buttons until the load succeeds; new ones are created during the load.
+            var previousButtons = new List<Button>(tempButtons);
+            tempButtons.Clear();
+            if (player.LoadAndNavigateToSavedState())
             {
+                foreach (var button in previousButtons)
+                {
+                    Destroy(button.gameObject);
+                }
+            }
+            else
+            {
+                tempButtons.AddRange(previousButtons);
                 Debug.LogWarning("No saved state found");
             }
+        }
+
+        void RefreshLoadButton() {
+            loadButton.gameObject.SetActive(player.HasSave());
         }
 
         ///----------------------------------------------------------------------------------------------
@@ -240,7 +256,7 @@ namespace Arcweave
         }
 
         void ClearTempButtons() {
-            foreach (var button in tempButtons) 
+            foreach (var button in tempButtons)
             {
                 Destroy(button.gameObject);
             }

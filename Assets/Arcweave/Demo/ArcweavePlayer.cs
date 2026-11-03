@@ -36,6 +36,8 @@ namespace Arcweave
 
         private Element currentElement;
         private bool isInitialized = false;
+        // Element of the save restored by EnsureInitialized, consumed by StartProject.
+        private Element restoredElement;
 
         //events that that UI (or otherwise) can subscribe to get notified and act accordingly.
         public event OnProjectStart onProjectStart;
@@ -44,6 +46,8 @@ namespace Arcweave
         public event OnElementOptions onElementOptions;
         public event OnWaitingInputNext onWaitInputNext;
         public event OnProjectUpdated onProjectUpdated;
+        /// <summary>Raised after ResetVariables cleared the saved state.</summary>
+        public event System.Action onSavesReset;
 
         [SerializeField, Tooltip("Optional save handler component to handle save/load events. If not assigned, save/load events will be logged with a warning.")]
         private ArcweaveSaveHandler saveHandler;
@@ -69,27 +73,31 @@ namespace Arcweave
         /// <summary>
         /// Initialize the project if not already initialized
         /// </summary>
-        public void EnsureInitialized()
+        /// <returns>True if a save was found and its variables and visits were restored during this call.
+        /// The saved element is then available to StartProject; no navigation happens here.</returns>
+        public bool EnsureInitialized()
         {
             Debug.Log("[ArcweavePlayer] EnsureInitialized() called");
             if (isInitialized)
             {
                 Debug.Log("[ArcweavePlayer] Already initialized, skipping");
-                return;
+                return false;
             }
 
             if (aw == null || aw.Project == null)
             {
                 Debug.LogError("Cannot initialize Arcweave project - missing project asset");
-                return;
+                return false;
             }
 
             // Initialize the project
             aw.Project.Initialize();
 
+            restoredElement = null;
             if (saveHandler != null && saveHandler.HasSave())
             {
-                if (!RequestLoad())
+                restoredElement = RestoreSavedState();
+                if (restoredElement == null)
                 {
                     Debug.LogWarning("[ArcweavePlayer] Load request failed - save data was present but could not be loaded");
                 }
@@ -98,6 +106,7 @@ namespace Arcweave
             isInitialized = true;
 
             if (onProjectUpdated != null) onProjectUpdated(aw.Project);
+            return restoredElement != null;
         }
 
         /// <summary>
@@ -168,9 +177,10 @@ namespace Arcweave
             }
 
             // Ensure project is initialized (also restores the save, if any)
-            EnsureInitialized();
+            bool loadedSave = EnsureInitialized();
 
-            Element startingElement = FindStartingElement();
+            Element startingElement = loadedSave ? restoredElement : FindStartingElement();
+            restoredElement = null;
             if (startingElement == null)
             {
                 Debug.LogError("No starting element found with the specified criteria");
@@ -179,7 +189,8 @@ namespace Arcweave
 
             if (onProjectStart != null) onProjectStart(aw.Project);
 
-            Next(startingElement);
+            // A restored save must not be re-applied: no content commit, no visit increment, no autosave.
+            Next(startingElement, loadedSave);
         }
 
         /// <summary>
@@ -232,8 +243,15 @@ namespace Arcweave
 
             currentElement = element;
 
+            // A load restores saved state, so it must not count, commit variable changes or save again.
+            if (!isLoad)
+            {
+                currentElement.Visits++;
+            }
 
             // Prepare rendered content before notifying listeners.
+            // Limitation: on load the content is re-rendered against the saved (post-entry) variables, so
+            // dialogue that depends on variables changed by this element's own script may differ from what was shown.
             if (currentElement.HasContent())
             {
                 currentElement.RunContentScript(applyVariableChanges: !isLoad);
@@ -243,15 +261,9 @@ namespace Arcweave
                 Debug.LogWarning($"Element '{currentElement.Title}' has no content");
             }
 
-            /* If coming to the element from a load request don't do these steps*/
-            if (!isLoad)
+            if (!isLoad && saveMode == SaveMode.AutoSaveAlways)
             {
-                currentElement.Visits++;
-                // No paths means the project has reached an end.
-                if (saveMode == SaveMode.AutoSaveAlways)
-                {
-                    RequestSave();
-                }
+                RequestSave();
             }
 
             if (onElementEnter != null) onElementEnter(element);
@@ -320,10 +332,26 @@ namespace Arcweave
         public bool RequestLoad()
         {
             Debug.Log("[ArcweavePlayer] RequestLoad() called");
+            var element = RestoreSavedState();
+            if (element == null)
+            {
+                return false;
+            }
+
+            Debug.Log($"[ArcweavePlayer] State restored, navigating to element: {element.Title}");
+            Next(element, /*isLoad = */ true);
+            return true;
+        }
+
+        /// <summary>
+        /// Restores saved variables and visits and returns the saved element, without navigating. Null on failure.
+        /// </summary>
+        private Element RestoreSavedState()
+        {
             if (saveHandler == null)
             {
                 Debug.LogWarning("Load request was made but no handlers are set in the ArcweavePlayer");
-                return false;
+                return null;
             }
 
             string elementId, variables, visits;
@@ -332,12 +360,9 @@ namespace Arcweave
                 var element = aw.Project.ElementWithId(elementId);
                 if (element != null)
                 {
-                    Debug.Log($"[ArcweavePlayer] Loading variables before restoring state");
                     aw.Project.LoadVariables(variables);
                     aw.Project.LoadVisits(visits);
-                    Debug.Log($"[ArcweavePlayer] Variables loaded, navigating to element: {element.Title}");
-                    Next(element);
-                    return true;
+                    return element;
                 }
                 Debug.LogError($"Cannot load - element with ID '{elementId}' not found");
             }
@@ -346,29 +371,21 @@ namespace Arcweave
                 Debug.Log("[ArcweavePlayer] Load request handler returned false - no saved data available");
             }
 
-            return false;
+            return null;
         }
 
         /// <summary>
-        /// Load the current save and restore the project state, then navigate to the saved starting element.
+        /// Load the current save and restore the project state, then navigate to the saved element once.
         /// returns true if the load and navigation were successful; false otherwise.
         /// </summary>
         public bool LoadAndNavigateToSavedState()
         {
             if (RequestLoad())
             {
-                var startingElement = FindStartingElement();
-                if (startingElement != null)
-                {
-                    Next(startingElement, /*isLoad = */ true);
-                    return true;
-                }
-                Debug.LogError("No starting element found after loading saved state");
+                return true;
             }
-            else
-            {
-                Debug.LogWarning("No saved state to load");
-            }
+
+            Debug.LogWarning("No saved state to load");
             return false;
         }
         /// <summary>
@@ -387,6 +404,11 @@ namespace Arcweave
             {
                 aw.Project.Initialize(); // This will reset all variables to their default values
                 isInitialized = true;
+            }
+
+            if (onSavesReset != null)
+            {
+                onSavesReset();
             }
         }
 

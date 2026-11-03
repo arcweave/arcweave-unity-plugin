@@ -658,7 +658,7 @@ Event-driven narrative player (demo helper class).
 | Method | Description |
 |--------|-------------|
 | `void PlayProject()` | Start or restart the narrative |
-| `void EnsureInitialized()` | Initialize the project if not already initialized |
+| `bool EnsureInitialized()` | Initialize the project if not already initialized and restore the save, if any. Returns true if a save was restored |
 | `void RequestSave()` | Requests a save of the current game state |
 | `bool RequestLoad()` | Requests loading of a previously saved game state, returns true if successful |
 | `void ResetVariables()` | Resets all project variables to their default values and clears saved state |
