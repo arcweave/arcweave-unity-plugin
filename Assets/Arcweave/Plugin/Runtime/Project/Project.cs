@@ -294,37 +294,38 @@ namespace Arcweave.Project
 
         public void LoadVisits(string visitsSave)
         {
-            // Load visits
-            ArcweaveVisitsState visits = ArcweaveVisitsState.FromJson(visitsSave);
-            ArcweaveVisitsState.VisitsState[] visitStates = visits.GetVisits();
+            // Clear all visits first, even when the snapshot is empty: elements with 0 visits are not
+            // saved, so any count made after the checkpoint must not survive the load.
+            ResetVisits();
 
-            if (visitStates != null && visitStates.Length > 0)
+            ArcweaveVisitsState visits = ArcweaveVisitsState.FromJson(visitsSave);
+            ArcweaveVisitsState.VisitsState[] visitStates = visits?.GetVisits();
+
+            if (visitStates == null || visitStates.Length == 0)
             {
                 if (Debug.isDebugBuild)
                 {
-                    Debug.Log($"[Project] Loading {visitStates.Length} visit counts");
+                    Debug.Log("[Project] No visit data to restore");
                 }
-
-                // Clear all visits first, since visit with 0 count are not saved in the visitsSave string
-                // and we don't want to keep old visit counts that are not present in the saved state
-                ResetVisits();
-
-                foreach (var visitState in visitStates)
-                {
-                    var element = ElementWithId(visitState.elementId);
-                    if (element != null)
-                    {
-                        element.Visits = visitState.nVisit;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[Project] Could not find element with ID '{visitState.elementId}' to restore visits");
-                    }
-                }
+                return;
             }
-            else if (Debug.isDebugBuild)
+
+            if (Debug.isDebugBuild)
             {
-                Debug.Log("[Project] No visit data to restore");
+                Debug.Log($"[Project] Loading {visitStates.Length} visit counts");
+            }
+
+            foreach (var visitState in visitStates)
+            {
+                var element = ElementWithId(visitState.elementId);
+                if (element != null)
+                {
+                    element.Visits = visitState.nVisit;
+                }
+                else
+                {
+                    Debug.LogWarning($"[Project] Could not find element with ID '{visitState.elementId}' to restore visits");
+                }
             }
         }
 

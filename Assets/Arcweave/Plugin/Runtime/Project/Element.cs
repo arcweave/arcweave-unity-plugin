@@ -79,14 +79,14 @@ namespace Arcweave.Project
         ///----------------------------------------------------------------------------------------------
 
         /// <summary>
-        /// Runs the content script of the element and updates RuntimeContent.
+        /// Runs the content script of the element. This will also update
+        /// the RuntimeContent of the Element.
         /// </summary>
-        /// <param name="applyVariableChanges">If false, script output is rendered without applying variable mutations.</param>
-        public void RunContentScript(bool applyVariableChanges = true)
+        public void RunContentScript()
         {
             AwInterpreter i = new AwInterpreter(Project, Id);
             var output = i.RunScript(RawContent);
-            if (applyVariableChanges && output.Changes.Count > 0) {
+            if ( output.Changes.Count > 0 ) {
                 foreach ( var change in output.Changes ) {
                     Project.SetVariableById(change.Key, change.Value);
                 }

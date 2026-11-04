@@ -212,7 +212,7 @@ The demo consists of two main components that work together:
               │
               ▼
     ┌─────────────────┐
-    │   Initialize    │ ← Resets all variables and visits
+    │   Initialize    │ ← Resets variables and visits, restores the save (if any)
     │     Project     │
     └────────┬────────┘
               │
@@ -223,7 +223,7 @@ The demo consists of two main components that work together:
               │
               ▼
     ┌─────────────────┐
-    │  Enter Element  │ ← element.Visits++ (incremented)
+    │  Enter Element  │ ← Visits++, then RunContentScript()
     │                 │
     └────────┬────────┘
               │
@@ -276,7 +276,7 @@ The demo consists of two main components that work together:
 | `element.Visits++` | Element | Track how many times element was visited |
 | `element.GetOptions()` | Element | Get available paths from current element |
 | `element.RuntimeContent` | Element | Get evaluated dialogue text |
-| `element.RunContentScript()` | Element | Execute Arcscript and update RuntimeContent |
+| `element.RunContentScript()` | Element | Execute Arcscript and update RuntimeContent (`ArcweavePlayer` already calls it before `onElementEnter`) |
 | `element.GetCoverOrFirstComponentImage()` | Element | Get element's cover or first component image |
 | `element.GetAudioAssets()` | Element | Get audio assets attached to the element |
 | `path.ExecuteAppendedConnectionLabels()` | Path | Run Arcscript in connection labels |
@@ -407,7 +407,7 @@ A narrative node containing dialogue content.
 
 | Method | Description |
 |--------|-------------|
-| `void RunContentScript()` | Evaluate Arcscript in content → updates RuntimeContent |
+| `void RunContentScript()` | Evaluate Arcscript in content → updates RuntimeContent and applies the variable changes. `ArcweavePlayer` calls it for you before `onElementEnter` |
 | `Options GetOptions()` | Get available paths (evaluates branch conditions) |
 | `bool HasContent()` | Check if element has content |
 | `bool HasComponent(string name)` | Check if element has component by name |
@@ -651,16 +651,21 @@ Event-driven narrative player (demo helper class).
 | `onElementOptions` | `(Options, Action<int>)` | Multiple choices available |
 | `onWaitInputNext` | `(Action)` | Single path, waiting for continue |
 | `onProjectUpdated` | `(Project)` | Fired when project is updated (e.g., after loading) |
+| `onSavesReset` | `()` | Fired after `ResetVariables()` cleared the saved state |
 
 
 #### Methods
 
 | Method | Description |
 |--------|-------------|
-| `void PlayProject()` | Start or restart the narrative |
+| `void PlayProject()` | Start the narrative from the starting element, importing the project first if needed. After the first start it does not reset variables or visits: use `RestartProject()` for a fresh run |
+| `Task PlayProjectAsync()` | Same as `PlayProject()`, but awaitable. Overlapping calls share the same pending start |
+| `void RestartProject()` | Clear the save, reset variables, visits and starting element, and play from the beginning |
 | `bool EnsureInitialized()` | Initialize the project if not already initialized and restore the save, if any. Returns true if a save was restored |
+| `bool CanSave` | True while an element is playing; there is nothing to save before the start or after the end |
 | `void RequestSave()` | Requests a save of the current game state |
-| `bool RequestLoad()` | Requests loading of a previously saved game state, returns true if successful |
+| `bool RequestLoad()` | Restores the saved variables and visits and navigates to the saved element, returns true if successful |
+| `bool LoadAndNavigateToSavedState()` | Same as `RequestLoad()`; used by the demo UI's Load button |
 | `void ResetVariables()` | Resets all project variables to their default values and clears saved state |
 | `bool HasSave()` | Returns true if a save file exists |
 
@@ -673,11 +678,18 @@ Event-driven narrative player (demo helper class).
 | `void ResetSave()` | Clears all saved data |
 | `bool HasSave()` | Returns true if save data exists |
 
+### Saving and loading
+
+- A save stores the current element, the variables as they were **when that element was entered** (before its content script ran) and the visit counts. Loading restores them and re-enters the element without counting a new visit, so the same dialogue is shown and the element's variable changes are applied once.
+- Variables changed by your own code while an element is on screen are not part of a save made at that point.
+- Dialogue that uses non-deterministic Arcscript (e.g. `random()`) can render differently after a load.
+- With `SaveMode.AutoSaveAlways` the player saves every time it enters an element and on quit; with `SaveMode.Manual` it only saves when you call `RequestSave()`.
+
 ## Important Notes
 
 1. **Unity 6+ requires Input System update**: If using Unity 6 or newer, the EventSystem must use the new Input System module. Select EventSystem in Hierarchy, find Standalone Input Module in Inspector, and click "Replace with InputSystemUIInputModule". Without this, UI buttons won't respond to clicks. See [Unity 6+ Input System Fix](#unity-6-input-system-fix).
 
-2. **RuntimeContent requires RunContentScript()**: The `RuntimeContent` property is not automatically evaluated. You must call `RunContentScript()` before reading it.
+2. **RuntimeContent requires RunContentScript()**: The `RuntimeContent` property is not automatically evaluated. You must call `RunContentScript()` before reading it. `ArcweavePlayer` already calls it before raising `onElementEnter`, so a handler on that event must only read `RuntimeContent`: calling `RunContentScript()` again would apply the element's variable changes twice.
 
 3. **GetOptions() has side effects**: This method internally saves and restores variable state while evaluating branch conditions.
 
@@ -737,6 +749,8 @@ Unity 6 requires the new Input System for UI interactions.
 element.RunContentScript();
 ```
 
+When you use `ArcweavePlayer`, it already does this before `onElementEnter`: just read `RuntimeContent` in your handler.
+
 ### "NullReferenceException" when accessing variables?
 
 **Problem:** Variables are null or throw errors.
@@ -758,12 +772,12 @@ project.Initialize();
 
 ### Save/Load not working?
 
-**Problem:** `Load()` doesn't restore the correct state.
+**Problem:** `RequestLoad()` doesn't restore the correct state.
 
 **Solution:**
-- Ensure you called `Save()` before `Load()`
+- Ensure `saveHandler` is assigned on the `ArcweavePlayer` and that you called `RequestSave()` (or use `AutoSaveAlways`) before loading
 - PlayerPrefs persists between sessions - use `PlayerPrefs.DeleteAll()` to clear if testing
-- Check the save keys exist: `PlayerPrefs.HasKey("arcweave_save_currentElement")`
+- Check the save keys exist: `arcweave_save_currentElement`, `arcweave_save_variables` and `arcweave_save_visits` (`HasSave()` needs all three)
 
 ### Import button is disabled?
 

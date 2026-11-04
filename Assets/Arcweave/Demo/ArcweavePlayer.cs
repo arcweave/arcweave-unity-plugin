@@ -11,7 +11,7 @@ namespace Arcweave
     {
         /// <summary>No automatic saving. Use RequestSave() manually to save progress.</summary>
         Manual,
-        /// <summary>Automatically saves when the project reaches an end element (no more paths) and on quit </summary>
+        /// <summary>Automatically saves every time a new element is entered, and on quit</summary>
         AutoSaveAlways
     }
 
@@ -38,6 +38,9 @@ namespace Arcweave
         private bool isInitialized = false;
         // Element of the save restored by EnsureInitialized, consumed by StartProject.
         private Element restoredElement;
+        // Variables as they were when the current element was entered, before its content script ran.
+        // This is what a save stores, so a load re-enters the element from the same state and renders the same dialogue.
+        private string preEntryVariables;
 
         //events that that UI (or otherwise) can subscribe to get notified and act accordingly.
         public event OnProjectStart onProjectStart;
@@ -189,7 +192,7 @@ namespace Arcweave
 
             if (onProjectStart != null) onProjectStart(aw.Project);
 
-            // A restored save must not be re-applied: no content commit, no visit increment, no autosave.
+            // A restored save is re-entered without counting a new visit and without autosaving over it.
             Next(startingElement, loadedSave);
         }
 
@@ -243,18 +246,21 @@ namespace Arcweave
 
             currentElement = element;
 
-            // A load restores saved state, so it must not count, commit variable changes or save again.
+            // Keep the state from before this element's script runs: that is what a save stores.
+            preEntryVariables = aw.Project.SaveVariables();
+
+            // A load restores the visits of the save, which already include this element.
             if (!isLoad)
             {
                 currentElement.Visits++;
             }
 
-            // Prepare rendered content before notifying listeners.
-            // Limitation: on load the content is re-rendered against the saved (post-entry) variables, so
-            // dialogue that depends on variables changed by this element's own script may differ from what was shown.
+            // Prepare rendered content before notifying listeners. On a load the saved variables are the
+            // pre-entry ones, so running the script again reproduces the same variable changes and dialogue.
+            // Limitation: expressions that are not deterministic (e.g. random()) can render differently.
             if (currentElement.HasContent())
             {
-                currentElement.RunContentScript(applyVariableChanges: !isLoad);
+                currentElement.RunContentScript();
             }
             else
             {
@@ -286,6 +292,7 @@ namespace Arcweave
             }
 
             currentElement = null;
+            preEntryVariables = null;
             if (onProjectFinish != null) onProjectFinish(aw.Project);
         }
 
@@ -309,7 +316,9 @@ namespace Arcweave
             }
 
             var id = currentElement.Id;
-            var variables = aw.Project.SaveVariables();
+            // Variables from when the element was entered (see Next). Changes made by game code while the
+            // element is on screen are not part of the save.
+            var variables = preEntryVariables ?? aw.Project.SaveVariables();
             var visits = aw.Project.SaveVisits();
 
             if (saveHandler != null)
@@ -399,6 +408,8 @@ namespace Arcweave
             {
                 saveHandler.ResetSave();
             }
+
+            preEntryVariables = null;
 
             if (aw != null && aw.Project != null)
             {
