@@ -683,7 +683,7 @@ Event-driven narrative player (demo helper class).
 - A save stores the current element, the variables as they were **when that element was entered** (before its content script ran) and the visit counts. Loading restores them and re-enters the element without counting a new visit, so the same dialogue is shown and the element's variable changes are applied once.
 - Variables changed by your own code while an element is on screen are not part of a save made at that point.
 - Dialogue that uses non-deterministic Arcscript (e.g. `random()`) can render differently after a load.
-- With `SaveMode.AutoSaveAlways` the player saves every time it enters an element and on quit; with `SaveMode.Manual` it only saves when you call `RequestSave()`.
+- With `SaveMode.AutoSaveAlways` the player saves every time it enters an element and on quit; with `SaveMode.Manual` it only saves when you call `RequestSave()`. The demo UI shows the Save and Load buttons only in `Manual` mode, since in `AutoSaveAlways` the save would be overwritten at every element.
 
 ## Important Notes
 

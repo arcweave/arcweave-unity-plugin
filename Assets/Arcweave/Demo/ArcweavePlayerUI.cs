@@ -61,10 +61,10 @@ namespace Arcweave
             loadButton.onClick.AddListener(Load);
 
 
-            RefreshLoadButton();
+            RefreshSaveButtons();
 
             player.onElementEnter += OnElementEnter;
-            player.onSavesReset += RefreshLoadButton;
+            player.onSavesReset += RefreshSaveButtons;
             player.onElementOptions += OnElementOptions;
             player.onWaitInputNext += OnWaitInputNext;
             player.onProjectFinish += OnProjectFinish;
@@ -81,7 +81,7 @@ namespace Arcweave
             loadButton.onClick.RemoveListener(Load);
 
             player.onElementEnter -= OnElementEnter;
-            player.onSavesReset -= RefreshLoadButton;
+            player.onSavesReset -= RefreshSaveButtons;
             player.onElementOptions -= OnElementOptions;
             player.onWaitInputNext -= OnWaitInputNext;
             player.onProjectFinish -= OnProjectFinish;
@@ -121,8 +121,14 @@ namespace Arcweave
             }
         }
 
-        void RefreshLoadButton() {
-            loadButton.gameObject.SetActive(player.HasSave());
+        /// <summary>
+        /// With AutoSaveAlways the save is overwritten at every element, so Save and Load are hidden.
+        /// With Manual, Load is shown only when a save exists.
+        /// </summary>
+        void RefreshSaveButtons() {
+            var manual = player.saveMode == SaveMode.Manual;
+            saveButton.gameObject.SetActive(manual);
+            loadButton.gameObject.SetActive(manual && player.HasSave());
         }
 
         ///----------------------------------------------------------------------------------------------
