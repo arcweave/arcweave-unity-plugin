@@ -36,8 +36,11 @@ namespace Arcweave
 
         private Element currentElement;
         private bool isInitialized = false;
-        // Element of the save restored by EnsureInitialized, consumed by StartProject.
+        // Element of the save restored by EnsureInitialized. It is kept until StartProject uses it, even if
+        // EnsureInitialized was called earlier by someone else (e.g. a DialogueTrigger).
         private Element restoredElement;
+        // True once StartProject has started the project. A later PlayProject() restarts it from a clean state.
+        private bool hasStarted;
         // Variables as they were when the current element was entered, before its content script ran.
         // This is what a save stores, so a load re-enters the element from the same state and renders the same dialogue.
         private string preEntryVariables;
@@ -179,9 +182,23 @@ namespace Arcweave
                 }
             }
 
-            // Ensure project is initialized (also restores the save, if any)
-            bool loadedSave = EnsureInitialized();
+            if (hasStarted)
+            {
+                // The project already ran: PlayProject() restarts it from a clean state, like before the save system.
+                // The save is left alone (RestartProject() and ResetVariables() are the ones that clear it).
+                aw.Project.Initialize();
+                restoredElement = null;
+                isInitialized = true;
+                if (onProjectUpdated != null) onProjectUpdated(aw.Project);
+            }
+            else
+            {
+                // Ensure project is initialized (also restores the save, if any). If someone already did,
+                // restoredElement still holds the resume point.
+                EnsureInitialized();
+            }
 
+            bool loadedSave = restoredElement != null;
             Element startingElement = loadedSave ? restoredElement : FindStartingElement();
             restoredElement = null;
             if (startingElement == null)
@@ -189,6 +206,8 @@ namespace Arcweave
                 Debug.LogError("No starting element found with the specified criteria");
                 return;
             }
+
+            hasStarted = true;
 
             if (onProjectStart != null) onProjectStart(aw.Project);
 
@@ -410,6 +429,8 @@ namespace Arcweave
             }
 
             preEntryVariables = null;
+            restoredElement = null;
+            hasStarted = false;
 
             if (aw != null && aw.Project != null)
             {

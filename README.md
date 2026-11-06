@@ -658,9 +658,9 @@ Event-driven narrative player (demo helper class).
 
 | Method | Description |
 |--------|-------------|
-| `void PlayProject()` | Start the narrative from the starting element, importing the project first if needed. After the first start it does not reset variables or visits: use `RestartProject()` for a fresh run |
+| `void PlayProject()` | Start or restart the narrative from the starting element, importing the project first if needed. The first call resumes the save, if any; calling it again on a project that already ran restarts it from a clean state and leaves the save untouched |
 | `Task PlayProjectAsync()` | Same as `PlayProject()`, but awaitable. Overlapping calls share the same pending start |
-| `void RestartProject()` | Clear the save, reset variables, visits and starting element, and play from the beginning |
+| `void RestartProject()` | Like a restart with `PlayProject()`, but also clears the save |
 | `bool EnsureInitialized()` | Initialize the project if not already initialized and restore the save, if any. Returns true if a save was restored |
 | `bool CanSave` | True while an element is playing; there is nothing to save before the start or after the end |
 | `void RequestSave()` | Requests a save of the current game state |
