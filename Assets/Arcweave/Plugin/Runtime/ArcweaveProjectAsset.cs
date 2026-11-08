@@ -36,21 +36,56 @@ namespace Arcweave
         {
             public string assetId;
             public string guid;
+            // The downloaded asset itself, so builds include it and can relink it without the AssetDatabase.
+            // Empty for assets imported before this field existed, and for files that are tracked but no longer used.
+            public UnityEngine.Object media;
 
-            public DownloadedMedia(string assetId, string guid) {
+            public DownloadedMedia(string assetId, string guid, UnityEngine.Object media = null) {
                 this.assetId = assetId;
                 this.guid = guid;
+                this.media = media;
             }
         }
         [SerializeField, HideInInspector] internal string mediaOwnerGuid = "";
         [SerializeField, HideInInspector] internal string mediaFolderGuid = "";
         [SerializeField, HideInInspector] internal List<DownloadedMedia> downloadedMedia = new List<DownloadedMedia>();
 
-        [field: SerializeField, HideInInspector]
-        public Project.Project Project { get; private set; }
+        // The imported project is stored as its json text and rebuilt when first used, instead of serializing the whole object graph.
+        // Serializing the graph makes Unity (and packages such as SerializeReferenceEditor) walk every node whenever the asset is selected.
+        [SerializeField, HideInInspector] private string projectJson = "";
+        [SerializeField, HideInInspector] private string projectName = "";
+
+        [NonSerialized] private Project.Project project;
+        [NonSerialized] private bool buildFailed;
+
+        ///<summary>The imported project, rebuilt from the stored json the first time it is needed. Null if nothing is imported.</summary>
+        public Project.Project Project {
+            get {
+                if ( project == null && HasProject && !buildFailed ) {
+                    try {
+                        var built = new Project.ProjectMaker(projectJson, this).MakeProject();
+                        FinishLoad(built);
+                        project = built;
+                    }
+                    catch ( Exception e ) {
+                        buildFailed = true;
+                        Debug.LogError("Arcweave project could not be rebuilt, import it again: " + e.Message);
+                    }
+                }
+                return project;
+            }
+            private set { project = value; }
+        }
+
+        ///<summary>True when the asset stores an imported project. Unlike Project, this never builds it.</summary>
+        public bool HasProject => project != null || !string.IsNullOrEmpty(projectJson);
+        ///<summary>The name of the imported project. Unlike Project, this never builds it.</summary>
+        public string ProjectName => project != null ? project.name : projectName;
 
         ///<summary>True when the asset holds a project that can be played.</summary>
-        public bool IsImported => Project != null && Project.Boards != null && Project.StartingElement != null;
+        public bool IsImported => IsPlayable(Project);
+
+        static bool IsPlayable(Project.Project candidate) => candidate != null && candidate.Boards != null && candidate.StartingElement != null;
         ///<summary>True while an import is running.</summary>
         public bool IsImporting => importTask != null && !importTask.IsCompleted;
 
@@ -60,13 +95,21 @@ namespace Arcweave
         ///----------------------------------------------------------------------------------------------
 
         [ContextMenu("Clear Data")]
-        void ClearData() => Project = null;
+        void ClearData() {
+            project = null;
+            projectJson = "";
+            projectName = "";
+            buildFailed = false;
+#if UNITY_EDITOR
+            UnityEditor.EditorUtility.SetDirty(this);
+#endif
+        }
 
         //...
         protected void OnEnable() {
-            if ( IsImported ) {
-                Project.Initialize();
-            }
+            // The project is rebuilt from the stored json on first use
+            project = null;
+            buildFailed = false;
         }
 
         ///<summary>Import project from json text file or web and get callback when finished.</summary>
@@ -94,10 +137,41 @@ namespace Arcweave
 
         ///<summary>Import the project only if the asset has no playable project yet, or join the import already running.</summary>
         public Task EnsureImportedAsync() {
-            if ( IsImported && !IsImporting ) {
+            if ( IsImporting ) {
+                return importTask;
+            }
+            if ( IsPlayable(project) ) {
                 return Task.CompletedTask;
             }
+            if ( HasProject && !buildFailed ) {
+                // Rebuild the stored project off the main thread, like an import does
+                importTask = LoadStoredProjectAsync();
+                return importTask;
+            }
             return ImportProjectAsync();
+        }
+
+        //...
+        async Task LoadStoredProjectAsync() {
+            Project.Project built;
+            try {
+                built = await MakeProject(projectJson);
+            }
+            catch ( Exception ) {
+                // The next EnsureImportedAsync imports again instead of retrying a json that cannot be read
+                buildFailed = true;
+                throw;
+            }
+            if ( project == null ) {
+                FinishLoad(built);
+                project = built;
+            }
+        }
+
+        ///<summary>Links the saved media to a project that was just rebuilt, and gets it ready to use.</summary>
+        void FinishLoad(Project.Project built) {
+            LinkSavedMedia(built);
+            built.Initialize();
         }
 
         //...
@@ -118,6 +192,9 @@ namespace Arcweave
             var project = await MakeProject(json);
             // The media is linked before the project is published, so nothing can start playing it without its media.
             await LinkMedia(project);
+            projectJson = json;
+            projectName = project.name;
+            buildFailed = false;
             Project = project;
             Debug.Log("Done");
         }
@@ -134,27 +211,37 @@ namespace Arcweave
             }
 #endif
             // Media can only be downloaded in the editor for a saved asset, so other imports, eg. in a player, keep the media of the previous import.
-            CarryOverMedia(Project, project);
+            LinkSavedMedia(project);
             return Task.CompletedTask;
         }
 
-        ///<summary>Links the media of the previous project to the covers and audio of the new one that use the same Arcweave asset.</summary>
-        static void CarryOverMedia(Project.Project previous, Project.Project project) {
-            if ( previous == null || previous.Boards == null ) {
+        ///<summary>Links the saved media of previous imports to the covers and audio of the project that use the same Arcweave asset.
+        /// Does nothing unless the project relies on downloaded media.</summary>
+        void LinkSavedMedia(Project.Project target) {
+            if ( !downloadMedia || downloadedMedia == null || downloadedMedia.Count == 0 ) {
                 return;
             }
+            // The first entry of each Arcweave asset id is the one in use
             var images = new Dictionary<string, Texture2D>();
-            foreach ( var cover in previous.GetAssetCovers() ) {
-                if ( cover.downloadedImage != null ) { images[cover.assetId] = cover.downloadedImage; }
-            }
             var clips = new Dictionary<string, AudioClip>();
-            foreach ( var audioAsset in previous.GetAssetAudio() ) {
-                if ( audioAsset.downloadedClip != null ) { clips[audioAsset.asset] = audioAsset.downloadedClip; }
+            var seen = new HashSet<string>();
+            foreach ( var entry in downloadedMedia ) {
+                if ( string.IsNullOrEmpty(entry.assetId) || !seen.Add(entry.assetId) ) { continue; }
+                var media = entry.media;
+#if UNITY_EDITOR
+                // Assets saved before the media itself was stored are found through their GUID
+                if ( media == null && !string.IsNullOrEmpty(entry.guid) ) {
+                    var path = UnityEditor.AssetDatabase.GUIDToAssetPath(entry.guid);
+                    if ( !string.IsNullOrEmpty(path) ) { media = UnityEditor.AssetDatabase.LoadMainAssetAtPath(path); }
+                }
+#endif
+                if ( media is Texture2D image ) { images[entry.assetId] = image; }
+                else if ( media is AudioClip clip ) { clips[entry.assetId] = clip; }
             }
-            foreach ( var cover in project.GetAssetCovers() ) {
+            foreach ( var cover in target.GetAssetCovers() ) {
                 if ( images.TryGetValue(cover.assetId, out var image) ) { cover.downloadedImage = image; }
             }
-            foreach ( var audioAsset in project.GetAssetAudio() ) {
+            foreach ( var audioAsset in target.GetAssetAudio() ) {
                 if ( clips.TryGetValue(audioAsset.asset, out var clip) ) { audioAsset.downloadedClip = clip; }
             }
         }

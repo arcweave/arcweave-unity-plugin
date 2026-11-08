@@ -192,9 +192,10 @@ namespace Arcweave
                 }
             }
 
-            projectAsset.downloadedMedia = paths.Concat(undeletedPaths)
-                .Select(entry => new ArcweaveProjectAsset.DownloadedMedia(entry.Key, AssetDatabase.AssetPathToGUID(entry.Value)))
-                .ToList();
+            // Linked files also keep a reference to the asset itself, so builds include it. Files that are no longer used keep only their GUID.
+            var linkedMedia = paths.Select(entry => new ArcweaveProjectAsset.DownloadedMedia(entry.Key, AssetDatabase.AssetPathToGUID(entry.Value), AssetDatabase.LoadMainAssetAtPath(entry.Value)));
+            var unusedMedia = undeletedPaths.Select(entry => new ArcweaveProjectAsset.DownloadedMedia(entry.Key, AssetDatabase.AssetPathToGUID(entry.Value)));
+            projectAsset.downloadedMedia = linkedMedia.Concat(unusedMedia).ToList();
             EditorUtility.SetDirty(projectAsset);
             Debug.Log($"Downloaded {saved} of {names.Count} media files for {projectAsset.name}");
         }
