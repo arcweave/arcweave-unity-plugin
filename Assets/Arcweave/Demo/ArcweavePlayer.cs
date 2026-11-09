@@ -35,7 +35,10 @@ namespace Arcweave
         public SaveMode saveMode = SaveMode.AutoSaveAlways;
 
         private Element currentElement;
-        private bool isInitialized = false;
+        // The project that was initialized. If aw.Project is replaced (e.g. ImportProjectAsync or Import in the
+        // inspector) the new one is not initialized yet, so it is initialized again.
+        private Project.Project initializedProject;
+        private bool IsInitialized => initializedProject != null && initializedProject == aw?.Project;
         // Element of the save restored by EnsureInitialized. It is kept until StartProject uses it, even if
         // EnsureInitialized was called earlier by someone else (e.g. a DialogueTrigger).
         private Element restoredElement;
@@ -44,6 +47,8 @@ namespace Arcweave
         // Variables as they were when the current element was entered, before its content script ran.
         // This is what a save stores, so a load re-enters the element from the same state and renders the same dialogue.
         private string preEntryVariables;
+        // Visit counts taken at the same moment as preEntryVariables, before this entry is counted.
+        private string preEntryVisits;
 
         //events that that UI (or otherwise) can subscribe to get notified and act accordingly.
         public event OnProjectStart onProjectStart;
@@ -84,7 +89,7 @@ namespace Arcweave
         public bool EnsureInitialized()
         {
             Debug.Log("[ArcweavePlayer] EnsureInitialized() called");
-            if (isInitialized)
+            if (IsInitialized)
             {
                 Debug.Log("[ArcweavePlayer] Already initialized, skipping");
                 return false;
@@ -97,9 +102,8 @@ namespace Arcweave
             }
 
             // Initialize the project
-            aw.Project.Initialize();
+            InitializeProject();
 
-            restoredElement = null;
             if (saveHandler != null && saveHandler.HasSave())
             {
                 restoredElement = RestoreSavedState();
@@ -109,10 +113,27 @@ namespace Arcweave
                 }
             }
 
-            isInitialized = true;
-
             if (onProjectUpdated != null) onProjectUpdated(aw.Project);
             return restoredElement != null;
+        }
+
+        /// <summary>
+        /// Initializes aw.Project (variables, visits, starting element) and drops anything kept from a previous run
+        /// or from a previous project.
+        /// </summary>
+        private void InitializeProject()
+        {
+            aw.Project.Initialize();
+
+            // Elements of a replaced project are not part of the new one.
+            if (initializedProject != aw.Project)
+            {
+                currentElement = null;
+            }
+            initializedProject = aw.Project;
+            restoredElement = null;
+            preEntryVariables = null;
+            preEntryVisits = null;
         }
 
         /// <summary>
@@ -186,9 +207,7 @@ namespace Arcweave
             {
                 // The project already ran: PlayProject() restarts it from a clean state, like before the save system.
                 // The save is left alone (RestartProject() and ResetVariables() are the ones that clear it).
-                aw.Project.Initialize();
-                restoredElement = null;
-                isInitialized = true;
+                InitializeProject();
                 if (onProjectUpdated != null) onProjectUpdated(aw.Project);
             }
             else
@@ -211,7 +230,7 @@ namespace Arcweave
 
             if (onProjectStart != null) onProjectStart(aw.Project);
 
-            // A restored save is re-entered without counting a new visit and without autosaving over it.
+            // A restored save is re-entered from its pre-entry state, without autosaving over it.
             Next(startingElement, loadedSave);
         }
 
@@ -220,7 +239,6 @@ namespace Arcweave
         /// </summary>
         public void RestartProject()
         {
-            isInitialized = false;
             ResetVariables();
             PlayProject();
         }
@@ -265,17 +283,15 @@ namespace Arcweave
 
             currentElement = element;
 
-            // Keep the state from before this element's script runs: that is what a save stores.
+            // Keep the state from before this entry (variables and visits, taken at the same moment):
+            // that is what a save stores.
             preEntryVariables = aw.Project.SaveVariables();
+            preEntryVisits = aw.Project.SaveVisits();
 
-            // A load restores the visits of the save, which already include this element.
-            if (!isLoad)
-            {
-                currentElement.Visits++;
-            }
+            currentElement.Visits++;
 
-            // Prepare rendered content before notifying listeners. On a load the saved variables are the
-            // pre-entry ones, so running the script again reproduces the same variable changes and dialogue.
+            // Prepare rendered content before notifying listeners. A load restores the pre-entry state and enters
+            // the element again, so the visit count and the script run exactly as the first time.
             // Limitation: expressions that are not deterministic (e.g. random()) can render differently.
             if (currentElement.HasContent())
             {
@@ -312,6 +328,7 @@ namespace Arcweave
 
             currentElement = null;
             preEntryVariables = null;
+            preEntryVisits = null;
             if (onProjectFinish != null) onProjectFinish(aw.Project);
         }
 
@@ -335,10 +352,10 @@ namespace Arcweave
             }
 
             var id = currentElement.Id;
-            // Variables from when the element was entered (see Next). Changes made by game code while the
-            // element is on screen are not part of the save.
+            // Variables and visits from when the element was entered (see Next). Changes made by game code while
+            // the element is on screen are not part of the save.
             var variables = preEntryVariables ?? aw.Project.SaveVariables();
-            var visits = aw.Project.SaveVisits();
+            var visits = preEntryVisits ?? aw.Project.SaveVisits();
 
             if (saveHandler != null)
             {
@@ -360,6 +377,17 @@ namespace Arcweave
         public bool RequestLoad()
         {
             Debug.Log("[ArcweavePlayer] RequestLoad() called");
+            if (aw == null || aw.Project == null)
+            {
+                return false;
+            }
+
+            // A replaced project (e.g. re-imported) is not initialized: its elements would have no Project.
+            if (!IsInitialized)
+            {
+                InitializeProject();
+            }
+
             var element = RestoreSavedState();
             if (element == null)
             {
@@ -429,13 +457,13 @@ namespace Arcweave
             }
 
             preEntryVariables = null;
+            preEntryVisits = null;
             restoredElement = null;
             hasStarted = false;
 
             if (aw != null && aw.Project != null)
             {
-                aw.Project.Initialize(); // This will reset all variables to their default values
-                isInitialized = true;
+                InitializeProject(); // This will reset all variables to their default values
             }
 
             if (onSavesReset != null)
