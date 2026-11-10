@@ -13,10 +13,32 @@ namespace Arcweave
 
         private bool isImporting;
 
-        // Foldouts are closed by default, so the lists below are only drawn when the user asks for them
-        private bool showGlobals;
-        private bool showBoards;
-        private bool showComponents;
+        // Foldouts are closed by default, so the lists below are only drawn when the user asks for them.
+        // Their state is kept per asset for the whole editor session, so it survives selecting another asset and script reloads.
+        private string foldoutKeyPrefix;
+
+        private bool showGlobals
+        {
+            get => SessionState.GetBool(foldoutKeyPrefix + "globals", false);
+            set => SessionState.SetBool(foldoutKeyPrefix + "globals", value);
+        }
+
+        private bool showBoards
+        {
+            get => SessionState.GetBool(foldoutKeyPrefix + "boards", false);
+            set => SessionState.SetBool(foldoutKeyPrefix + "boards", value);
+        }
+
+        private bool showComponents
+        {
+            get => SessionState.GetBool(foldoutKeyPrefix + "components", false);
+            set => SessionState.SetBool(foldoutKeyPrefix + "components", value);
+        }
+
+        private void OnEnable()
+        {
+            foldoutKeyPrefix = "Arcweave.ProjectAssetInspector." + AssetDatabase.GetAssetPath(target) + ".";
+        }
 
         // Boards and components that have variables, found once per project instead of on every repaint.
         // Only the structure is cached: the variable values are still read when drawing, so they stay live.
@@ -43,7 +65,13 @@ namespace Arcweave
 
         // Variable values only change while playing, so only then is a continuous repaint needed.
         // Unity asks this only while this asset is shown in an Inspector.
-        public override bool RequiresConstantRepaint() => Application.isPlaying && !isImporting;
+        public override bool RequiresConstantRepaint() => Application.isPlaying && !isImporting && IsAnyFoldoutOpen();
+
+        //Check if any of the foldout option was opened
+        public bool IsAnyFoldoutOpen()
+        {
+            return ( showGlobals || showBoards || showComponents );
+        }
 
         public override void OnInspectorGUI() {
             // base.OnInspectorGUI() and serializedObject.Update() are deliberately not used: they serialize the whole asset,
@@ -55,6 +83,7 @@ namespace Arcweave
             EditorGUI.BeginChangeCheck();
             var importSource = (ArcweaveProjectAsset.ImportSource)EditorGUILayout.EnumPopup("Import Source", aw.importSource);
             if ( EditorGUI.EndChangeCheck() ) {
+                Undo.RecordObject(aw, "Change Import Source");
                 aw.importSource = importSource;
                 EditorUtility.SetDirty(aw);
             }
