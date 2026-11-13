@@ -18,6 +18,39 @@ public class ArcweaveSaveHandler : MonoBehaviour
     // Time (unscaled) of the first save that is not on disk yet.
     private float unwrittenSince;
 
+#region MonoBehaviour Callbacks
+    private void Update()
+    {
+        if (hasUnwrittenSave && Time.unscaledTime - unwrittenSince >= maxSecondsBeforeDiskWrite)
+        {
+            WriteToDisk();
+        }
+    }
+
+    // Mobile OSes can kill a paused app without calling OnApplicationQuit, so the save is written as soon as
+    // the app goes to the background.
+    private void OnApplicationPause(bool paused)
+    {
+        if (paused && hasUnwrittenSave) WriteToDisk();
+    }
+
+    private void OnApplicationFocus(bool focused)
+    {
+        if (!focused && hasUnwrittenSave) WriteToDisk();
+    }
+
+    private void OnApplicationQuit()
+    {
+        if (hasUnwrittenSave) WriteToDisk();
+    }
+
+    // When the handler is destroyed (e.g. a scene change) nothing would write the pending save anymore.
+    private void OnDestroy()
+    {
+        if (hasUnwrittenSave) WriteToDisk();
+    }
+#endregion
+
     /// <summary>
     /// Stores the save in PlayerPrefs. With writeToDiskNow false the disk write (PlayerPrefs.Save, a slow synchronous
     /// write) is postponed and batched with later saves: it happens within maxSecondsBeforeDiskWrite, or earlier
@@ -61,36 +94,6 @@ public class ArcweaveSaveHandler : MonoBehaviour
         }
     }
 
-    private void Update()
-    {
-        if (hasUnwrittenSave && Time.unscaledTime - unwrittenSince >= maxSecondsBeforeDiskWrite)
-        {
-            WriteToDisk();
-        }
-    }
-
-    // Mobile OSes can kill a paused app without calling OnApplicationQuit, so the save is written as soon as
-    // the app goes to the background.
-    private void OnApplicationPause(bool paused)
-    {
-        if (paused && hasUnwrittenSave) WriteToDisk();
-    }
-
-    private void OnApplicationFocus(bool focused)
-    {
-        if (!focused && hasUnwrittenSave) WriteToDisk();
-    }
-
-    private void OnApplicationQuit()
-    {
-        if (hasUnwrittenSave) WriteToDisk();
-    }
-
-    // When the handler is destroyed (e.g. a scene change) nothing would write the pending save anymore.
-    private void OnDestroy()
-    {
-        if (hasUnwrittenSave) WriteToDisk();
-    }
 
     public bool HandleLoadRequest(out string elementId, out string variables, out string visits)
     {
@@ -152,4 +155,5 @@ public class ArcweaveSaveHandler : MonoBehaviour
 
         return true;
     }
+
 }
