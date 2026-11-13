@@ -251,8 +251,7 @@ namespace Arcweave.Project
             StartingElement = startingElement;
         }
 
-        ///-------------------------- VISITS --------------------------------------------------------------------------------
-
+#region Visits
         ///<summary>Returns the number of visits of an element with id.</summary>
         public int Visits(string id) { return ElementWithId(id).Visits; }
 
@@ -277,6 +276,15 @@ namespace Arcweave.Project
         public string SaveVisits()
         {
             var visitDictionary = new Dictionary<string, int>();
+            CollectVisits(visitDictionary);
+
+            ArcweaveVisitsState visitsState = new ArcweaveVisitsState(visitDictionary);
+            return visitsState.ToJson();
+        }
+
+        ///<summary>Adds the visit count of every visited element (count above 0) to the dictionary.</summary>
+        private void CollectVisits(Dictionary<string, int> visitDictionary)
+        {
             foreach (var board in Boards)
             {
                 foreach (var element in board.Nodes.OfType<Element>())
@@ -287,9 +295,6 @@ namespace Arcweave.Project
                     }
                 }
             }
-
-            ArcweaveVisitsState visitsState = new ArcweaveVisitsState(visitDictionary);
-            return visitsState.ToJson();
         }
 
         public void LoadVisits(string visitsSave)
@@ -328,6 +333,51 @@ namespace Arcweave.Project
                 }
             }
         }
+#endregion Visits
+
+#region Snapshots
+
+        ///<summary>
+        /// Captures the current variable values and visit counts into the snapshot, without serializing them.
+        /// The snapshot is cleared first, so the same instance can be reused. Turn it into save strings with
+        /// SaveVariables(snapshot) and SaveVisits(snapshot) only when a save is actually made.
+        ///</summary>
+        public void CaptureState(StateSnapshot snapshot)
+        {
+            snapshot.Clear();
+            foreach (var variable in GetAllVariables())
+            {
+                // Variable values are strings, ints, doubles or bools, which never change in place,
+                // so keeping the reference is enough.
+                snapshot.variables.Add(variable);
+                snapshot.values.Add(variable.Value);
+            }
+            CollectVisits(snapshot.visits);
+            snapshot.project = this;
+        }
+
+        ///<summary>Same as SaveVariables(), but with the values held by a snapshot captured from this project.</summary>
+        public string SaveVariables(StateSnapshot snapshot)
+        {
+            EnsureSnapshotOfThisProject(snapshot);
+            return new State(snapshot.variables, snapshot.values).ToJson();
+        }
+
+        ///<summary>Same as SaveVisits(), but with the visit counts held by a snapshot captured from this project.</summary>
+        public string SaveVisits(StateSnapshot snapshot)
+        {
+            EnsureSnapshotOfThisProject(snapshot);
+            return new ArcweaveVisitsState(snapshot.visits).ToJson();
+        }
+
+        private void EnsureSnapshotOfThisProject(StateSnapshot snapshot)
+        {
+            if (snapshot == null || snapshot.project != this)
+            {
+                throw new System.ArgumentException("The snapshot was not captured from this project.", nameof(snapshot));
+            }
+        }
+#endregion Snapshots
 
     }// end of class
 

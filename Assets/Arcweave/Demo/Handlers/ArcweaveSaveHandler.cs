@@ -9,27 +9,87 @@ public class ArcweaveSaveHandler : MonoBehaviour
     [SerializeField, Tooltip("Activate to print debug logs for save handler")]
     private bool debug = false;
 
-    public bool HandleSaveRequest(string elementId, string variables, string visits)
+    [SerializeField, Min(0f), Tooltip("Saves that are not written to disk right away (autosaves) are written at most this many seconds later. " +
+        "They are also written when the app is paused, loses focus or quits. This is the most progress a crash can lose.")]
+    private float maxSecondsBeforeDiskWrite = 5f;
+
+    // True when PlayerPrefs holds a save that is not on disk yet.
+    private bool hasUnwrittenSave;
+    // Time (unscaled) of the first save that is not on disk yet.
+    private float unwrittenSince;
+
+    /// <summary>
+    /// Stores the save in PlayerPrefs. With writeToDiskNow false the disk write (PlayerPrefs.Save, a slow synchronous
+    /// write) is postponed and batched with later saves: it happens within maxSecondsBeforeDiskWrite, or earlier
+    /// when the app is paused, loses focus or quits.
+    /// </summary>
+    public bool HandleSaveRequest(string elementId, string variables, string visits, bool writeToDiskNow = true)
     {
         if(debug)
         {
-            Debug.Log($"[ArcweaveSaveHandler] HandleSaveRequest() - ElementID: {elementId}");
+            Debug.Log($"[ArcweaveSaveHandler] HandleSaveRequest() - ElementID: {elementId}, writeToDiskNow: {writeToDiskNow}");
             Debug.Log($"[ArcweaveSaveHandler] Variables to save: {variables}");
             Debug.Log($"[ArcweaveSaveHandler] Visits to save: {visits}");
         }
-
 
         PlayerPrefs.SetString(SAVE_KEY + "_currentElement", elementId);
         PlayerPrefs.SetString(SAVE_KEY + "_variables", variables);
         PlayerPrefs.SetString(SAVE_KEY + "_visits", visits);
 
-        PlayerPrefs.Save();
-        if (debug)
+        if (writeToDiskNow)
         {
-            Debug.Log("[ArcweaveSaveHandler] Save completed successfully");
+            WriteToDisk();
+        }
+        else if (!hasUnwrittenSave)
+        {
+            hasUnwrittenSave = true;
+            unwrittenSince = Time.unscaledTime;
         }
 
         return true;
+    }
+
+    /// <summary>Writes PlayerPrefs to disk now, including any save that was postponed.</summary>
+    public void WriteToDisk()
+    {
+        PlayerPrefs.Save();
+        hasUnwrittenSave = false;
+
+        if (debug)
+        {
+            Debug.Log("[ArcweaveSaveHandler] Save written to disk");
+        }
+    }
+
+    private void Update()
+    {
+        if (hasUnwrittenSave && Time.unscaledTime - unwrittenSince >= maxSecondsBeforeDiskWrite)
+        {
+            WriteToDisk();
+        }
+    }
+
+    // Mobile OSes can kill a paused app without calling OnApplicationQuit, so the save is written as soon as
+    // the app goes to the background.
+    private void OnApplicationPause(bool paused)
+    {
+        if (paused && hasUnwrittenSave) WriteToDisk();
+    }
+
+    private void OnApplicationFocus(bool focused)
+    {
+        if (!focused && hasUnwrittenSave) WriteToDisk();
+    }
+
+    private void OnApplicationQuit()
+    {
+        if (hasUnwrittenSave) WriteToDisk();
+    }
+
+    // When the handler is destroyed (e.g. a scene change) nothing would write the pending save anymore.
+    private void OnDestroy()
+    {
+        if (hasUnwrittenSave) WriteToDisk();
     }
 
     public bool HandleLoadRequest(out string elementId, out string variables, out string visits)
@@ -72,7 +132,7 @@ public class ArcweaveSaveHandler : MonoBehaviour
         PlayerPrefs.DeleteKey(SAVE_KEY + "_currentElement");
         PlayerPrefs.DeleteKey(SAVE_KEY + "_variables");
         PlayerPrefs.DeleteKey(SAVE_KEY + "_visits");
-        PlayerPrefs.Save();
+        WriteToDisk();
 
         if (debug)
         {

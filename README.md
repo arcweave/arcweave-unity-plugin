@@ -323,6 +323,9 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 | `void LoadVariables(string json)`                           | Restore current global and scoped variable state from JSON |
 | `string SaveVisits()`                                       | Serialize visit counts to JSON |
 | `void LoadVisits(string visitsSave)`                        | Restore visit counts from JSON |
+| `void CaptureState(StateSnapshot snapshot)`                 | Copy current variable values and visit counts into a reusable in-memory snapshot, without serializing |
+| `string SaveVariables(StateSnapshot snapshot)`              | Serialize the variable values held by a snapshot to JSON |
+| `string SaveVisits(StateSnapshot snapshot)`                 | Serialize the visit counts held by a snapshot to JSON |
 | `int Visits(string elementId)`                              | Get visit count for an element |
 | `void ResetVisits()`                                        | Reset all visit counts to 0 |
 
@@ -674,10 +677,15 @@ Event-driven narrative player (demo helper class).
 
 | Method | Description |
 |--------|-------------|
-| `bool HandleSaveRequest(string elementId, string variables, string visits)` | Handles saving game state |
+| `bool HandleSaveRequest(string elementId, string variables, string visits, bool writeToDiskNow = true)` | Stores the game state. With `writeToDiskNow` false the disk write is postponed (see below) |
+| `void WriteToDisk()` | Writes PlayerPrefs to disk now, including a postponed save |
 | `bool HandleLoadRequest(out string elementId, out string variables, out string visits)` | Handles loading game state |
 | `void ResetSave()` | Clears all saved data |
 | `bool HasSave()` | Returns true if save data exists |
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `maxSecondsBeforeDiskWrite` | float | A postponed save (an autosave) is written to disk at most this many seconds later. Default 5 |
 
 ### Saving and loading
 
@@ -686,7 +694,9 @@ Event-driven narrative player (demo helper class).
 - If `aw.Project` is replaced while the player exists (`ImportProjectAsync()`, Import in the inspector), the player initializes the new project the next time it starts or calls `EnsureInitialized()`.
 - A save that can't be loaded (corrupt data, or an element that no longer exists in the project) is logged as an error and deleted, and the project starts from its starting element.
 - Dialogue that uses non-deterministic Arcscript (e.g. `random()`) can render differently after a load.
-- With `SaveMode.AutoSaveAlways` the player saves every time it enters an element and on quit; with `SaveMode.Manual` it only saves when you call `RequestSave()`. The demo UI shows the Save and Load buttons only in `Manual` mode, since in `AutoSaveAlways` the save would be overwritten at every element.
+- With `SaveMode.AutoSaveAlways` the player saves every time it enters an element; with `SaveMode.Manual` it only saves when you call `RequestSave()`. The demo UI shows the Save and Load buttons only in `Manual` mode, since in `AutoSaveAlways` the save would be overwritten at every element.
+- `PlayerPrefs.Save()` is a slow synchronous disk write, so autosaves are not written right away: `ArcweaveSaveHandler` writes them at most `maxSecondsBeforeDiskWrite` (5 by default) later, and also when the app is paused, loses focus, quits or the handler is destroyed. A crash can lose at most that much progress. `RequestSave()` and `ResetSave()` are written to disk right away.
+- The state at element entry is kept in memory as a `StateSnapshot` (`Project.CaptureState`) and only turned into JSON when a save is made. Without a save handler nothing is captured.
 
 ## Important Notes
 

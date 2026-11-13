@@ -6,6 +6,7 @@ using UnityEditor;
 namespace Arcweave
 {
     [CustomEditor(typeof(ArcweavePlayer))]
+    [CanEditMultipleObjects]
     public class ArcweavePlayerEditor : Editor
     {
         public override void OnInspectorGUI()
@@ -22,7 +23,17 @@ namespace Arcweave
             // Add a header for the editor tools section
             EditorGUILayout.LabelField("Editor Tools", EditorStyles.boldLabel);
 
+            // Every ArcweaveSaveHandler uses the same PlayerPrefs keys, so with several players selected one reset
+            // clears the save for all of them. Prefer a player that has a handler assigned.
             ArcweavePlayer player = (ArcweavePlayer)target;
+            foreach (var selected in targets)
+            {
+                if (((ArcweavePlayer)selected).HasSaveHandler)
+                {
+                    player = (ArcweavePlayer)selected;
+                    break;
+                }
+            }
 
             if (GUILayout.Button("Reset Save File", GUILayout.Height(30)))
             {

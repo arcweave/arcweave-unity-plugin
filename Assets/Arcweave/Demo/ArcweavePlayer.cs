@@ -11,7 +11,8 @@ namespace Arcweave
     {
         /// <summary>No automatic saving. Use RequestSave() manually to save progress.</summary>
         Manual,
-        /// <summary>Automatically saves every time a new element is entered, and on quit</summary>
+        /// <summary>Automatically saves every time a new element is entered. The save handler writes it to disk
+        /// at most a few seconds later, and when the app is paused, loses focus or quits.</summary>
         AutoSaveAlways
     }
 
@@ -44,11 +45,10 @@ namespace Arcweave
         private Element restoredElement;
         // True once StartProject has started the project. A later PlayProject() restarts it from a clean state.
         private bool hasStarted;
-        // Variables as they were when the current element was entered, before its content script ran.
-        // This is what a save stores, so a load re-enters the element from the same state and renders the same dialogue.
-        private string preEntryVariables;
-        // Visit counts taken at the same moment as preEntryVariables, before this entry is counted.
-        private string preEntryVisits;
+        // Variables and visit counts captured before the current element was entered. Saves use this state so a load
+        // re-enters the element from the same state and renders the same dialogue. It holds values, not JSON:
+        // the JSON is only built when a save is made.
+        private readonly StateSnapshot preEntryState = new StateSnapshot();
 
         //events that that UI (or otherwise) can subscribe to get notified and act accordingly.
         public event OnProjectStart onProjectStart;
@@ -132,8 +132,13 @@ namespace Arcweave
             }
             initializedProject = aw.Project;
             restoredElement = null;
-            preEntryVariables = null;
-            preEntryVisits = null;
+            ClearPreEntryState();
+        }
+
+        /// <summary>Forgets the state captured when the current element was entered.</summary>
+        private void ClearPreEntryState()
+        {
+            preEntryState.Clear();
         }
 
         /// <summary>
@@ -278,8 +283,7 @@ namespace Arcweave
             {
                 Debug.LogError("Cannot navigate to null element");
                 currentElement = null;
-                preEntryVariables = null;
-                preEntryVisits = null;
+                ClearPreEntryState();
                 if (onProjectFinish != null) onProjectFinish(aw.Project);
                 return;
             }
@@ -288,10 +292,17 @@ namespace Arcweave
             hasStarted = true;
             currentElement = element;
 
-            // Keep the state from before this entry (variables and visits, taken at the same moment):
-            // that is what a save stores.
-            preEntryVariables = aw.Project.SaveVariables();
-            preEntryVisits = aw.Project.SaveVisits();
+            // Keep the state from before this entry (variables and visits, taken at the same moment): that is what a
+            // save stores. Only values are copied here; the JSON is built in RequestSave, when a save is actually made.
+            // Without a save handler nothing can be saved, so nothing is captured.
+            if (HasSaveHandler)
+            {
+                aw.Project.CaptureState(preEntryState);
+            }
+            else
+            {
+                ClearPreEntryState();
+            }
 
             currentElement.Visits++;
 
@@ -307,9 +318,10 @@ namespace Arcweave
                 Debug.LogWarning($"Element '{currentElement.Title}' has no content");
             }
 
-            if (!isLoad && saveMode == SaveMode.AutoSaveAlways)
+            if (!isLoad && saveMode == SaveMode.AutoSaveAlways && HasSaveHandler)
             {
-                RequestSave();
+                // Autosaves are not written to disk right away; the save handler batches the disk writes.
+                Save(writeToDiskNow: false);
             }
 
             if (onElementEnter != null) onElementEnter(element);
@@ -332,8 +344,7 @@ namespace Arcweave
             }
 
             currentElement = null;
-            preEntryVariables = null;
-            preEntryVisits = null;
+            ClearPreEntryState();
             if (onProjectFinish != null) onProjectFinish(aw.Project);
         }
 
@@ -350,8 +361,14 @@ namespace Arcweave
         /// Requests a save of the current game state.
         /// If a saveHandler is assigned, it will handle saving the current element ID and project variables.
         /// This can be called manually at any time, or automatically based on the saveMode setting.
+        /// A manual save is written to disk right away.
         /// </summary>
         public void RequestSave()
+        {
+            Save(writeToDiskNow: true);
+        }
+
+        private void Save(bool writeToDiskNow)
         {
             if (!CanSave)
             {
@@ -359,20 +376,28 @@ namespace Arcweave
                 return;
             }
 
+            if (!HasSaveHandler)
+            {
+                Debug.LogWarning("Save request was made but no handlers are set in the ArcweavePlayer");
+                return;
+            }
+
             var id = currentElement.Id;
             // Variables and visits from when the element was entered (see Next). Changes made by game code while
             // the element is on screen are not part of the save.
-            var variables = preEntryVariables ?? aw.Project.SaveVariables();
-            var visits = preEntryVisits ?? aw.Project.SaveVisits();
-
-            if (HasSaveHandler)
+            string variables, visits;
+            if (preEntryState.IsCaptured)
             {
-                saveHandler.HandleSaveRequest(id, variables, visits);
+                variables = aw.Project.SaveVariables(preEntryState);
+                visits = aw.Project.SaveVisits(preEntryState);
             }
             else
             {
-                Debug.LogWarning("Save request was made but no handlers are set in the ArcweavePlayer");
+                variables = aw.Project.SaveVariables();
+                visits = aw.Project.SaveVisits();
             }
+
+            saveHandler.HandleSaveRequest(id, variables, visits, writeToDiskNow);
         }
 
         /// <summary>
@@ -474,8 +499,7 @@ namespace Arcweave
                 saveHandler.ResetSave();
             }
 
-            preEntryVariables = null;
-            preEntryVisits = null;
+            ClearPreEntryState();
             restoredElement = null;
             hasStarted = false;
 
@@ -522,16 +546,6 @@ namespace Arcweave
             return false;
         }
 #endregion
-
-        private void OnApplicationQuit()
-        {
-            if (HasSaveHandler &&
-                saveMode == SaveMode.AutoSaveAlways &&
-                currentElement != null)
-            {
-                RequestSave();
-            }
-        }
 
     }// end class
 
