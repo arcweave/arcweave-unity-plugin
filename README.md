@@ -673,6 +673,8 @@ Event-driven narrative player (demo helper class).
 | `bool ResetSave()` | Clears saved data without resetting the in-memory project; returns true if a complete save existed |
 | `bool HasSave()` | Returns true if a save file exists |
 
+For compatibility, the obsolete `ArcweavePlayer.Save()`, `Load()`, and `SAVE_KEY` remain available. Use `RequestSave()`, `RequestLoad()`, and `ArcweaveSaveHandler.SAVE_KEY` in new code. Saving and loading require an assigned save handler.
+
 # ArcweaveSaveHandler Methods
 
 | Method | Description |

@@ -27,6 +27,9 @@ namespace Arcweave
         public delegate void OnWaitingInputNext(System.Action next);
         public delegate void OnProjectUpdated(Project.Project project);
 
+        [System.Obsolete("Use ArcweaveSaveHandler.SAVE_KEY instead.")]
+        public const string SAVE_KEY = ArcweaveSaveHandler.SAVE_KEY;
+
         public Arcweave.ArcweaveProjectAsset aw;
 
         [Tooltip("If true, automatically starts playing the project when the scene loads.")]
@@ -368,6 +371,12 @@ namespace Arcweave
             Save(writeToDiskNow: true);
         }
 
+        [System.Obsolete("Use RequestSave() instead.")]
+        public void Save()
+        {
+            RequestSave();
+        }
+
         private void Save(bool writeToDiskNow)
         {
             if (!CanSave)
@@ -430,6 +439,12 @@ namespace Arcweave
             Debug.Log($"[ArcweavePlayer] State restored, navigating to element: {element.Title}");
             Next(element, /*isLoad = */ true);
             return true;
+        }
+
+        [System.Obsolete("Use RequestLoad() instead.")]
+        public void Load()
+        {
+            RequestLoad();
         }
 
         /// <summary>
