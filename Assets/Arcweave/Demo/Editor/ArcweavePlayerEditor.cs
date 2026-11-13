@@ -24,9 +24,6 @@ namespace Arcweave
 
             ArcweavePlayer player = (ArcweavePlayer)target;
 
-            // Add the Reset Save button
-            GUI.enabled = Application.isPlaying || EditorApplication.isPlaying == false;
-
             if (GUILayout.Button("Reset Save File", GUILayout.Height(30)))
             {
                 if (EditorUtility.DisplayDialog(
@@ -39,8 +36,6 @@ namespace Arcweave
                 }
             }
 
-            GUI.enabled = true;
-
             // Add help box with information
             EditorGUILayout.Space(5);
             EditorGUILayout.HelpBox(
@@ -52,15 +47,30 @@ namespace Arcweave
 
         private void ResetSaveFile(ArcweavePlayer player)
         {
-            // Call the ResetVariables method which handles the save handler
-            player.ResetVariables();
+            if (!player.HasSaveHandler)
+            {
+                EditorUtility.DisplayDialog(
+                    "Missing Save Handler",
+                    "Cannot reset saved data because no ArcweaveSaveHandler is assigned to this player.",
+                    "OK");
+                return;
+            }
 
-            Debug.Log("Save file reset successfully. All saved game data has been cleared.");
-
-            EditorUtility.DisplayDialog(
-                "Save File Reset",
-                "Save file has been reset successfully.\n\nAll saved game data has been cleared from PlayerPrefs.",
-                "OK");
+            if (player.ResetSave())
+            {
+                Debug.Log("Save file reset successfully. All saved game data has been cleared.");
+                EditorUtility.DisplayDialog(
+                    "Save File Reset",
+                    "Save file has been reset successfully.\n\nAll saved game data has been cleared from PlayerPrefs.",
+                    "OK");
+            }
+            else
+            {
+                EditorUtility.DisplayDialog(
+                    "No Saved Data",
+                    "No saved game data was found to reset.",
+                    "OK");
+            }
         }
     }
 }

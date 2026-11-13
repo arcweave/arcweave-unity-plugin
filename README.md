@@ -651,7 +651,7 @@ Event-driven narrative player (demo helper class).
 | `onElementOptions` | `(Options, Action<int>)` | Multiple choices available |
 | `onWaitInputNext` | `(Action)` | Single path, waiting for continue |
 | `onProjectUpdated` | `(Project)` | Fired when project is updated (e.g., after loading) |
-| `onSavesReset` | `()` | Fired after `ResetVariables()` cleared the saved state |
+| `onSavesReset` | `()` | Fired after `ResetVariables()` or `ResetSave()` clears the saved state |
 
 
 #### Methods
@@ -665,8 +665,9 @@ Event-driven narrative player (demo helper class).
 | `bool CanSave` | True while an element is playing; there is nothing to save before the start or after the end |
 | `void RequestSave()` | Requests a save of the current game state |
 | `bool RequestLoad()` | Restores the saved variables and visits and navigates to the saved element, returns true if successful |
-| `bool LoadAndNavigateToSavedState()` | Same as `RequestLoad()`; used by the demo UI's Load button |
+| `bool LoadAndNavigateToSavedState()` | Same as `RequestLoad()`; available as a convenience wrapper |
 | `void ResetVariables()` | Resets all project variables to their default values and clears saved state |
+| `bool ResetSave()` | Clears saved data without resetting the in-memory project; returns true if a complete save existed |
 | `bool HasSave()` | Returns true if a save file exists |
 
 # ArcweaveSaveHandler Methods
@@ -683,6 +684,7 @@ Event-driven narrative player (demo helper class).
 - A save stores the current element, and the variables and visit counts as they were **when that element was entered** (before its visit was counted and its content script ran). Loading restores them and enters the element again, so the visit count and the script replay exactly as the first time and the same dialogue is shown.
 - Variables and visits changed by your own code while an element is on screen are not part of a save made at that point.
 - If `aw.Project` is replaced while the player exists (`ImportProjectAsync()`, Import in the inspector), the player initializes the new project the next time it starts or calls `EnsureInitialized()`.
+- A save that can't be loaded (corrupt data, or an element that no longer exists in the project) is logged as an error and deleted, and the project starts from its starting element.
 - Dialogue that uses non-deterministic Arcscript (e.g. `random()`) can render differently after a load.
 - With `SaveMode.AutoSaveAlways` the player saves every time it enters an element and on quit; with `SaveMode.Manual` it only saves when you call `RequestSave()`. The demo UI shows the Save and Load buttons only in `Manual` mode, since in `AutoSaveAlways` the save would be overwritten at every element.
 

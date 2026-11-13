@@ -104,10 +104,10 @@ namespace Arcweave
                 return;
             }
 
-            // Keep the current buttons until the load succeeds; new ones are created during the load.
             var previousButtons = new List<Button>(tempButtons);
             tempButtons.Clear();
-            if (player.LoadAndNavigateToSavedState())
+            bool hasLoadedState = player.RequestLoad();
+            if (hasLoadedState)
             {
                 foreach (var button in previousButtons)
                 {
@@ -117,8 +117,8 @@ namespace Arcweave
             else
             {
                 tempButtons.AddRange(previousButtons);
-                Debug.LogWarning("No saved state found");
             }
+
         }
 
         /// <summary>
@@ -169,7 +169,8 @@ namespace Arcweave
         }
 
         void OnProjectFinish(Project.Project p) {
-            MakeButton(restartButtonText, player.RestartProject);
+            // PlayProject() restarts from a clean state and keeps the save; RestartProject() would also delete it.
+            MakeButton(restartButtonText, player.PlayProject);
         }
 
         ///----------------------------------------------------------------------------------------------

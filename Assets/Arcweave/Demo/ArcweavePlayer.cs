@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Arcweave.Project;
 using UnityEngine;
 
@@ -57,7 +57,7 @@ namespace Arcweave
         public event OnElementOptions onElementOptions;
         public event OnWaitingInputNext onWaitInputNext;
         public event OnProjectUpdated onProjectUpdated;
-        /// <summary>Raised after ResetVariables cleared the saved state.</summary>
+        /// <summary>Raised after the saved state is cleared.</summary>
         public event System.Action onSavesReset;
 
         [SerializeField, Tooltip("Optional save handler component to handle save/load events. If not assigned, save/load events will be logged with a warning.")]
@@ -104,7 +104,7 @@ namespace Arcweave
             // Initialize the project
             InitializeProject();
 
-            if (saveHandler != null && saveHandler.HasSave())
+            if (HasSaveHandler && saveHandler.HasSave())
             {
                 restoredElement = RestoreSavedState();
                 if (restoredElement == null)
@@ -277,10 +277,15 @@ namespace Arcweave
             if (element == null)
             {
                 Debug.LogError("Cannot navigate to null element");
+                currentElement = null;
+                preEntryVariables = null;
+                preEntryVisits = null;
                 if (onProjectFinish != null) onProjectFinish(aw.Project);
                 return;
             }
 
+            // Directly driven demos may enter elements without calling PlayProject first.
+            hasStarted = true;
             currentElement = element;
 
             // Keep the state from before this entry (variables and visits, taken at the same moment):
@@ -338,6 +343,9 @@ namespace Arcweave
         /// </summary>
         public bool CanSave => currentElement != null;
 
+        /// <summary>True when a save handler is assigned.</summary>
+        public bool HasSaveHandler => saveHandler != null;
+
         /// <summary>
         /// Requests a save of the current game state.
         /// If a saveHandler is assigned, it will handle saving the current element ID and project variables.
@@ -357,7 +365,7 @@ namespace Arcweave
             var variables = preEntryVariables ?? aw.Project.SaveVariables();
             var visits = preEntryVisits ?? aw.Project.SaveVisits();
 
-            if (saveHandler != null)
+            if (HasSaveHandler)
             {
                 saveHandler.HandleSaveRequest(id, variables, visits);
             }
@@ -411,39 +419,49 @@ namespace Arcweave
             }
 
             string elementId, variables, visits;
-            if (saveHandler.HandleLoadRequest(out elementId, out variables, out visits))
-            {
-                var element = aw.Project.ElementWithId(elementId);
-                if (element != null)
-                {
-                    aw.Project.LoadVariables(variables);
-                    aw.Project.LoadVisits(visits);
-                    return element;
-                }
-                Debug.LogError($"Cannot load - element with ID '{elementId}' not found");
-            }
-            else
+            if (!saveHandler.HandleLoadRequest(out elementId, out variables, out visits))
             {
                 Debug.Log("[ArcweavePlayer] Load request handler returned false - no saved data available");
+                return null;
             }
 
-            return null;
+            var element = aw.Project.ElementWithId(elementId);
+            if (element == null)
+            {
+                DiscardUnusableSave($"element with ID '{elementId}' not found");
+                return null;
+            }
+
+            // Keep the current state, so a save that fails halfway (e.g. bad visits after the variables were
+            // already applied) leaves the project exactly as it was.
+            var previousVariables = aw.Project.SaveVariables();
+            var previousVisits = aw.Project.SaveVisits();
+            try
+            {
+                aw.Project.LoadVariables(variables);
+                aw.Project.LoadVisits(visits);
+                return element;
+            }
+            catch (System.Exception e)
+            {
+                aw.Project.LoadVariables(previousVariables);
+                aw.Project.LoadVisits(previousVisits);
+                DiscardUnusableSave(e.Message);
+                return null;
+            }
         }
 
         /// <summary>
-        /// Load the current save and restore the project state, then navigate to the saved element once.
-        /// returns true if the load and navigation were successful; false otherwise.
+        /// Deletes a save that can't be restored (corrupt, hand-edited, or from a changed project), so it doesn't
+        /// fail again on every launch.
         /// </summary>
-        public bool LoadAndNavigateToSavedState()
+        private void DiscardUnusableSave(string reason)
         {
-            if (RequestLoad())
-            {
-                return true;
-            }
-
-            Debug.LogWarning("No saved state to load");
-            return false;
+            Debug.LogError($"[ArcweavePlayer] The save could not be loaded and was deleted: {reason}");
+            saveHandler.ResetSave();
+            if (onSavesReset != null) onSavesReset();
         }
+
         /// <summary>
         /// Resets all project variables to their default values and clears any saved state.
         /// If a saveHandler is assigned, it will clear the saved data.
@@ -451,7 +469,7 @@ namespace Arcweave
         /// </summary>
         public void ResetVariables()
         {
-            if (saveHandler != null)
+            if (HasSaveHandler)
             {
                 saveHandler.ResetSave();
             }
@@ -472,9 +490,31 @@ namespace Arcweave
             }
         }
 
+        /// <summary>
+        /// Clears the saved game without resetting or initializing the in-memory project.
+        /// Returns true if a complete save existed before it was cleared.
+        /// </summary>
+        public bool ResetSave()
+        {
+            if (!HasSaveHandler)
+            {
+                Debug.LogWarning("Cannot reset save - no save handler is assigned to the ArcweavePlayer");
+                return false;
+            }
+
+            var hadSave = saveHandler.HasSave();
+            saveHandler.ResetSave();
+            if (onSavesReset != null)
+            {
+                onSavesReset();
+            }
+
+            return hadSave;
+        }
+
         public bool HasSave()
         {
-            if (saveHandler != null)
+            if (HasSaveHandler)
             {
                 return saveHandler.HasSave();
             }
@@ -485,7 +525,9 @@ namespace Arcweave
 
         private void OnApplicationQuit()
         {
-            if (saveMode == SaveMode.AutoSaveAlways && saveHandler != null && currentElement != null)
+            if (HasSaveHandler &&
+                saveMode == SaveMode.AutoSaveAlways &&
+                currentElement != null)
             {
                 RequestSave();
             }
