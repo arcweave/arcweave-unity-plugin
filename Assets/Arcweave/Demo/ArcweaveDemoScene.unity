@@ -217,7 +217,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: af65da9c3b191244bacdcd1bdad5e7fd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  aw: {fileID: 11400000, guid: d7c634a4e63dfe841b52d81c0d542191, type: 2}
+  aw: {fileID: 11400000, guid: 6b2922dee52894344bce3d90986ea14f, type: 2}
   autoStart: 1
   saveMode: 1
   saveHandler: {fileID: 1007191238}
