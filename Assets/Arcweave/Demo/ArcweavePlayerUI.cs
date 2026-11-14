@@ -45,52 +45,119 @@ namespace Arcweave
         private List<Button> tempButtons = new List<Button>();
 
         void OnEnable() {
+
+            if(player == null)
+            {
+                gameObject.SetActive(false);
+                Debug.LogWarning("No ArcweavePlayer assigned to ArcweavePlayerUI. Disabling UI.");
+                return;
+            }
+
             buttonTemplate.gameObject.SetActive(false);
             InitializeImage(cover);
             InitializeImage(componentCover);
 
             saveButton.onClick.AddListener(Save);
             loadButton.onClick.AddListener(Load);
-            loadButton.gameObject.SetActive(PlayerPrefs.HasKey(ArcweavePlayer.SAVE_KEY));
+
+
+            RefreshSaveButtons();
 
             player.onElementEnter += OnElementEnter;
+            player.onSavesReset += RefreshSaveButtons;
             player.onElementOptions += OnElementOptions;
             player.onWaitInputNext += OnWaitInputNext;
             player.onProjectFinish += OnProjectFinish;
         }
 
         void OnDisable() {
+
+            if(player == null)
+            {
+                return;
+            }
+
+            saveButton.onClick.RemoveListener(Save);
+            loadButton.onClick.RemoveListener(Load);
+
             player.onElementEnter -= OnElementEnter;
+            player.onSavesReset -= RefreshSaveButtons;
             player.onElementOptions -= OnElementOptions;
             player.onWaitInputNext -= OnWaitInputNext;
             player.onProjectFinish -= OnProjectFinish;
         }
 
         void Save() {
-            if ( !player.CanSave ) { return; }
-            player.Save();
+            if (player == null || !player.CanSave)
+            {
+                return;
+            }
+
+            player.RequestSave();
             loadButton.gameObject.SetActive(true);
         }
 
         void Load() {
-            ClearTempButtons();
-            player.Load();
+
+            if (player == null)
+            {
+                return;
+            }
+
+            var previousButtons = new List<Button>(tempButtons);
+            tempButtons.Clear();
+            bool hasLoadedState = player.RequestLoad();
+            if (hasLoadedState)
+            {
+                foreach (var button in previousButtons)
+                {
+                    Destroy(button.gameObject);
+                }
+            }
+            else
+            {
+                tempButtons.AddRange(previousButtons);
+            }
+
+        }
+
+        /// <summary>
+        /// With AutoSaveAlways the save is overwritten at every element, so Save and Load are hidden.
+        /// With Manual, Load is shown only when a save exists.
+        /// </summary>
+        void RefreshSaveButtons() {
+            var manual = player.saveMode == SaveMode.Manual;
+            saveButton.gameObject.SetActive(manual);
+            loadButton.gameObject.SetActive(manual && player.HasSave());
         }
 
         ///----------------------------------------------------------------------------------------------
         /// Event Handlers
         ///----------------------------------------------------------------------------------------------
 
-        void OnElementEnter(Element e) {
-            DisplayContent(e);
+        void OnElementEnter(Element e)
+        {
+            DisplayElementContent(e);
+        }
+
+        void DisplayElementContent(Element e)
+        {
+            DisplayText(e);
             DisplayImage(cover, e.GetCoverOrFirstComponentImage());
 
             var elementHasCover = e.GetCoverImage() != null;
             DisplayImage(componentCover, elementHasCover ? e.GetFirstComponentCoverImage() : null);
         }
 
-        void OnElementOptions(Options options, System.Action<int> callback) {
-            for (var i = 0; i < options.Paths.Count; i++) {
+        void OnElementOptions(Options options, System.Action<int> callback)
+        {
+            DisplayOptionButtons(options, callback);
+        }
+
+        private void DisplayOptionButtons(Options options, System.Action<int> callback)
+        {
+            for (var i = 0; i < options.Paths.Count; i++)
+            {
                 var index = i;
                 var text = !string.IsNullOrEmpty(options.Paths[i].text) ? options.Paths[i].text : emptyOptionText;
                 MakeButton(text, () => callback(index));
@@ -102,6 +169,7 @@ namespace Arcweave
         }
 
         void OnProjectFinish(Project.Project p) {
+            // PlayProject() restarts from a clean state and keeps the save; RestartProject() would also delete it.
             MakeButton(restartButtonText, player.PlayProject);
         }
 
@@ -109,10 +177,7 @@ namespace Arcweave
         /// UI Display Methods
         ///----------------------------------------------------------------------------------------------
 
-        void DisplayContent(Element e) {
-            if (e.HasContent()) {
-                e.RunContentScript();
-            }
+        void DisplayText(Element e) {
             content.text = e.HasContent() ? e.RuntimeContent : noContentText;
 
             if (enableFade) {
@@ -198,7 +263,8 @@ namespace Arcweave
         }
 
         void ClearTempButtons() {
-            foreach (var button in tempButtons) {
+            foreach (var button in tempButtons)
+            {
                 Destroy(button.gameObject);
             }
             tempButtons.Clear();

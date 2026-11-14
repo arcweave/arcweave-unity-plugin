@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Breaking changes
+
+- Saves made with the v3.x demo player are not compatible with the new save system and are not migrated. The new save handler requires a visit-count entry in addition to the saved element and variables, so it does not recognize older saves; a new playthrough is required.
+
+### Changed
+
+- Saves capture variables and visit counts from when the current element was entered, before its content script runs. Changes made by game code while the element is on screen are not included in a save made at that point.
+
 ### Fixed
 
 - Fixed importing projects whose element audio has a `delay` written as a string, such as The Castle template (`"delay": "1200"`), which failed with `Unable to cast <"1200"> (with type = System.String) to type System.Int64`. Audio delays and volumes are now read from numbers and numeric strings; other values are reported and replaced by the default instead of failing the import.
