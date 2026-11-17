@@ -44,17 +44,21 @@ public class ArcweaveSaveHandler : MonoBehaviour
         if (hasUnwrittenSave) WriteToDisk();
     }
 
-    // When the handler is destroyed (e.g. a scene change) nothing would write the pending save anymore.
-    private void OnDestroy()
+    // Once disabled or destroyed (e.g. a scene change) Update no longer runs, so nothing would write the pending save.
+    // OnDisable also runs before OnDestroy.
+    private void OnDisable()
     {
-        if (hasUnwrittenSave) WriteToDisk();
+        if (hasUnwrittenSave)
+        {
+            WriteToDisk();
+        }
     }
 #endregion
 
     /// <summary>
     /// Stores the save in PlayerPrefs. With writeToDiskNow false the disk write (PlayerPrefs.Save, a slow synchronous
     /// write) is postponed and batched with later saves: it happens within maxSecondsBeforeDiskWrite, or earlier
-    /// when the app is paused, loses focus or quits.
+    /// when the app is paused, loses focus or quits, or the handler is disabled. A disabled handler writes right away.
     /// </summary>
     public bool HandleSaveRequest(string elementId, string variables, string visits, bool writeToDiskNow = true)
     {
@@ -69,7 +73,8 @@ public class ArcweaveSaveHandler : MonoBehaviour
         PlayerPrefs.SetString(SAVE_KEY + "_variables", variables);
         PlayerPrefs.SetString(SAVE_KEY + "_visits", visits);
 
-        if (writeToDiskNow)
+        // A disabled handler has no Update to write a postponed save later, so it writes right away.
+        if (writeToDiskNow || !isActiveAndEnabled)
         {
             WriteToDisk();
         }
