@@ -667,7 +667,6 @@ Event-driven narrative player (demo helper class).
 | `bool CanSave` | True while an element is playing; there is nothing to save before the start or after the end |
 | `void RequestSave()` | Requests a save of the current game state |
 | `bool RequestLoad()` | Restores the saved variables and visits and navigates to the saved element, returns true if successful |
-| `bool LoadAndNavigateToSavedState()` | Same as `RequestLoad()`; available as a convenience wrapper |
 | `void ResetVariables()` | Resets all project variables to their default values and clears saved state |
 | `bool ResetSave()` | Clears saved data without resetting the in-memory project; returns true if a complete save existed |
 | `bool HasSave()` | Returns true if a save file exists |
@@ -696,7 +695,7 @@ For compatibility, the obsolete `ArcweavePlayer.Save()`, `Load()`, and `SAVE_KEY
 - A save that can't be loaded (corrupt data, or an element that no longer exists in the project) is logged as an error and deleted, and the project starts from its starting element.
 - Dialogue that uses non-deterministic Arcscript (e.g. `random()`) can render differently after a load.
 - With `SaveMode.AutoSaveAlways` the player saves every time it enters an element; with `SaveMode.Manual` it only saves when you call `RequestSave()`. The demo UI shows the Save and Load buttons only in `Manual` mode, since in `AutoSaveAlways` the save would be overwritten at every element.
-- `PlayerPrefs.Save()` is a slow synchronous disk write, so autosaves are not written right away: `ArcweaveSaveHandler` writes them at most `maxSecondsBeforeDiskWrite` (5 by default) later, and also when the app is paused, loses focus, quits or the handler is destroyed. A crash can lose at most that much progress. `RequestSave()` and `ResetSave()` are written to disk right away.
+- `PlayerPrefs.Save()` is a slow synchronous disk write, so autosaves are not written right away: `ArcweaveSaveHandler` writes them at most `maxSecondsBeforeDiskWrite` (5 by default) later, and also when the app is paused, loses focus, quits or the handler is disabled or destroyed. A disabled handler writes every save right away. A crash can lose at most that much progress. `RequestSave()` and `ResetSave()` are written to disk right away.
 - The state at element entry is kept in memory as a `StateSnapshot` (`Project.CaptureState`) and only turned into JSON when a save is made. Without a save handler nothing is captured.
 
 ## Important Notes
