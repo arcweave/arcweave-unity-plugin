@@ -171,7 +171,8 @@ namespace Arcweave
         }
 
         void OnProjectFinish(Project.Project p) {
-            // PlayProject() restarts from a clean state and keeps the save; RestartProject() would also delete it.
+            // PlayProject() restarts from a clean state without clearing the save (in AutoSaveAlways the first
+            // element's autosave overwrites it); RestartProject() would also delete it.
             MakeButton(restartButtonText, player.PlayProject);
         }
 

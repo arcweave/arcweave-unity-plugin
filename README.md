@@ -661,7 +661,7 @@ Event-driven narrative player (demo helper class).
 
 | Method | Description |
 |--------|-------------|
-| `void PlayProject()` | Start or restart the narrative from the starting element, importing the project first if needed. The first call resumes the save, if any; calling it again on a project that already ran restarts it from a clean state and leaves the save untouched |
+| `void PlayProject()` | Start or restart the narrative from the starting element, importing the project first if needed. The first call resumes the save, if any; calling it again on a project that already ran restarts it from a clean state without clearing the save. In `Manual` mode the save stays available to `RequestLoad()`; in `AutoSaveAlways` the first element's autosave overwrites it |
 | `Task PlayProjectAsync()` | Same as `PlayProject()`, but awaitable. Overlapping calls share the same pending start |
 | `void RestartProject()` | Like a restart with `PlayProject()`, but also clears the save |
 | `bool CanSave` | True while an element is playing; there is nothing to save before the start or after the end |

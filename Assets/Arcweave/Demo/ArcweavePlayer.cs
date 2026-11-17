@@ -215,7 +215,8 @@ namespace Arcweave
             if (hasStarted)
             {
                 // The project already ran: PlayProject() restarts it from a clean state, like before the save system.
-                // The save is left alone (RestartProject() and ResetVariables() are the ones that clear it).
+                // The save is not cleared (RestartProject() and ResetVariables() do that), but with
+                // SaveMode.AutoSaveAlways the first element's autosave overwrites it.
                 InitializeProject();
             }
             else
@@ -541,6 +542,9 @@ namespace Arcweave
 
             ClearPreEntryState();
             hasStarted = false;
+            // Nothing is playing after a reset: the element on screen no longer matches the state, so it can't be
+            // saved (CanSave is false) until the project is started again.
+            currentElement = null;
 
             if (aw != null && aw.Project != null)
             {
