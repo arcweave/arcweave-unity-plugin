@@ -484,13 +484,33 @@ namespace Arcweave
             }
             catch (System.Exception e)
             {
-                aw.Project.LoadVariables(previousVariables);
-                aw.Project.LoadVisits(previousVisits);
-                DiscardUnusableSave(e.Message);
+                HandleUnusableSave(e.Message, previousVariables, previousVisits);
                 return null;
             }
         }
 
+        /// <summary>
+        /// Handles a save that cannot be restored by discarding it and attempting to roll back to the previous state.
+        /// </summary>
+        /// <param name="reason">The reason why the save is considered unusable.</param>
+        /// <param name="previousVariables">The previous state of the project variables before attempting to load the save.</param>
+        /// <param name="previousVisits">The previous state of the project visits before attempting to load the save.</param>
+        void HandleUnusableSave(string reason, string previousVariables, string previousVisits)
+        {
+            DiscardUnusableSave(reason);
+            try
+            {
+                aw.Project.LoadVariables(previousVariables);
+                aw.Project.LoadVisits(previousVisits);
+            }
+            catch (System.Exception rollbackError)
+            {
+                // The previous state can be unparsable too (e.g. game code set 1.5 on an int variable).
+                // Never leave the project half-loaded: fall back to its default state.
+                Debug.LogWarning($"[ArcweavePlayer] Could not restore the state from before the load ({rollbackError.Message}). The project was reset to its default state.");
+                InitializeProject();
+            }
+        }
         /// <summary>
         /// Deletes a save that can't be restored (corrupt, hand-edited, or from a changed project), so it doesn't
         /// fail again on every launch.
