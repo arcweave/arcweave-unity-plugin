@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Breaking changes
+
+- Saves made with the v3.x demo player are not compatible with the new save system and are not migrated. The new save handler requires a visit-count entry in addition to the saved element and variables, so it does not recognize older saves; a new playthrough is required.
+- Saving and loading with the demo `ArcweavePlayer` now need an `ArcweaveSaveHandler` assigned to its **Save Handler** field. Without one, `RequestSave()`/`RequestLoad()` and the obsolete `Save()`/`Load()` wrappers only log a warning and do nothing. In 3.x, `Save()` and `Load()` wrote and read PlayerPrefs directly, so an upgraded scene without a handler still compiles but its save and load operations stop working.
+- `ArcweavePlayer` now runs the element's content script (`RunContentScript()`) itself, before raising `onElementEnter`. A custom UI that still calls `e.RunContentScript()` in its `onElementEnter` handler, as the 3.x demo UI and README did, runs every script twice (for example `gold = gold + 10` adds 20). Remove that call and only read `RuntimeContent`.
+
+### Changed
+
+- Saves capture variables and visit counts from when the current element was entered, before its content script runs. Changes made by game code while the element is on screen are not included in a save made at that point.
+
+### Deprecated
+
+- Deprecated `ArcweavePlayer.Save()`, `ArcweavePlayer.Load()` and `ArcweavePlayer.SAVE_KEY` in favor of `RequestSave()`, `RequestLoad()` and `ArcweaveSaveHandler.SAVE_KEY`. They remain as wrappers and need an `ArcweaveSaveHandler` like the new methods.
+
 ### Fixed
 
 - Fixed importing projects whose element audio has a `delay` written as a string, such as The Castle template (`"delay": "1200"`), which failed with `Unable to cast <"1200"> (with type = System.String) to type System.Int64`. Audio delays and volumes are now read from numbers and numeric strings; other values are reported and replaced by the default instead of failing the import.

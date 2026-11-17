@@ -1,148 +1,602 @@
 ﻿using System.Threading.Tasks;
-using UnityEngine;
 using Arcweave.Project;
+using UnityEngine;
 
 namespace Arcweave
 {
-    /// This is not required to utilize an Arcweave project but can be helpful for some projects as well as a learning example.
+    /// <summary>
+    /// Defines when the ArcweavePlayer should automatically save progress.
+    /// </summary>
+    public enum SaveMode
+    {
+        /// <summary>No automatic saving. Use RequestSave() manually to save progress.</summary>
+        Manual,
+        /// <summary>Automatically saves every time a new element is entered. The save handler writes it to disk
+        /// at most a few seconds later, and when the app is paused, loses focus or quits.</summary>
+        AutoSaveAlways
+    }
+
+    ///This is not required to utilize an Arcweave project but can be helpful for some projects as well as a learning example.
     public class ArcweavePlayer : MonoBehaviour
     {
-        // Delegates for the events
+        //Delegates for the events.
         public delegate void OnProjectStart(Project.Project project);
         public delegate void OnProjectFinish(Project.Project project);
         public delegate void OnElementEnter(Element element);
         public delegate void OnElementOptions(Options options, System.Action<int> next);
         public delegate void OnWaitingInputNext(System.Action next);
+        public delegate void OnProjectUpdated(Project.Project project);
 
-        public const string SAVE_KEY = "arcweave_save";
+        [System.Obsolete("Use ArcweaveSaveHandler.SAVE_KEY instead.")]
+        public const string SAVE_KEY = ArcweaveSaveHandler.SAVE_KEY;
 
         public Arcweave.ArcweaveProjectAsset aw;
 
+        [Tooltip("If true, automatically starts playing the project when the scene loads.")]
         public bool autoStart = true;
 
-        private Element currentElement;
+        [Tooltip("Controls when the player automatically saves progress. Manual requires calling RequestSave() explicitly.")]
+        public SaveMode saveMode = SaveMode.AutoSaveAlways;
 
-        // Events that the UI (or otherwise) can subscribe to get notified and act accordingly
+        private Element currentElement;
+        // The project that was initialized. If aw.Project is replaced (e.g. ImportProjectAsync or Import in the
+        // inspector) the new one is not initialized yet, so it is initialized again.
+        private Project.Project initializedProject;
+        private bool IsInitialized => initializedProject != null && initializedProject == aw?.Project;
+        // True once StartProject has started the project. A later PlayProject() restarts it from a clean state.
+        private bool hasStarted;
+        // Variables and visit counts captured before the current element was entered. Saves use this state so a load
+        // re-enters the element from the same state and renders the same dialogue. It holds values, not JSON:
+        // the JSON is only built when a save is made.
+        private readonly StateSnapshot preEntryState = new StateSnapshot();
+
+        //events that that UI (or otherwise) can subscribe to get notified and act accordingly.
         public event OnProjectStart onProjectStart;
         public event OnProjectFinish onProjectFinish;
         public event OnElementEnter onElementEnter;
         public event OnElementOptions onElementOptions;
         public event OnWaitingInputNext onWaitInputNext;
+        /// <summary>
+        /// Raised when the project's variables and visits were replaced as a whole: after a start, a restart or a load
+        /// has entered its element (so it includes that element's script), and after ResetVariables().
+        /// </summary>
+        public event OnProjectUpdated onProjectUpdated;
+        /// <summary>Raised after the saved state is cleared.</summary>
+        public event System.Action onSavesReset;
+        /// <summary>Raised after a save was handed to the save handler, by RequestSave() or by an autosave.</summary>
+        public event System.Action onSaved;
+
+        [SerializeField, Tooltip("Optional save handler component to handle save/load events. If not assigned, save/load events will be logged with a warning.")]
+        private ArcweaveSaveHandler saveHandler;
 
         // The pending start, shared by overlapping calls so the project only starts once.
         // It is set before any start code runs, so event handlers calling PlayProject join it too.
         private TaskCompletionSource<bool> pendingStart;
 
-        void Start() { if ( autoStart ) PlayProject(); }
+        void Awake()
+        {
+            // Ensure we have a valid project asset
+            if (aw == null)
+            {
+                Debug.LogError("No Arcweave Project Asset assigned to ArcweavePlayer");
+            }
+        }
 
-        /// Starts playing the project, importing it first if needed. Use PlayProjectAsync to await it.
-        public async void PlayProject() {
-            try {
+        void Start()
+        {
+            if (autoStart) PlayProject();
+        }
+
+        /// <summary>
+        /// Initializes the project if it is not initialized yet and restores the save, if any. Returns the saved
+        /// element to resume from, or null to use the starting element. No navigation happens here.
+        /// </summary>
+        private Element InitializeAndRestoreSave()
+        {
+            if (IsInitialized)
+            {
+                return null;
+            }
+
+            InitializeProject();
+
+            if (!HasSaveHandler || !saveHandler.HasSave())
+            {
+                return null;
+            }
+
+            Element restoredElement = RestoreSavedState();
+            if (restoredElement == null)
+            {
+                Debug.LogWarning("[ArcweavePlayer] Load request failed - save data was present but could not be loaded");
+            }
+            return restoredElement;
+        }
+
+        private void RaiseProjectUpdated()
+        {
+            if (aw != null && aw.Project != null)
+            {
+                onProjectUpdated?.Invoke(aw.Project);
+            }
+        }
+
+        /// <summary>
+        /// Initializes aw.Project (variables, visits, starting element) and drops anything kept from a previous run
+        /// or from a previous project.
+        /// </summary>
+        private void InitializeProject()
+        {
+            aw.Project.Initialize();
+
+            // Elements of a replaced project are not part of the new one.
+            if (initializedProject != aw.Project)
+            {
+                currentElement = null;
+            }
+            initializedProject = aw.Project;
+            ClearPreEntryState();
+        }
+
+        /// <summary>Forgets the state captured when the current element was entered.</summary>
+        private void ClearPreEntryState()
+        {
+            preEntryState.Clear();
+        }
+
+        /// <summary>
+        /// Play the Arcweave project from the beginning, importing it first if needed. Use PlayProjectAsync to await it.
+        /// </summary>
+        public async void PlayProject()
+        {
+            try
+            {
                 await PlayProjectAsync();
             }
-            catch ( System.Exception e ) {
+            catch (System.Exception e)
+            {
                 Debug.LogException(e);
             }
         }
 
-        /// Starts playing the project, importing it first if needed.
+        /// <summary>
+        /// Play the Arcweave project from the beginning, importing it first if needed.
         /// Calls made while a start is still pending return that same pending start.
-        public Task PlayProjectAsync() {
+        /// </summary>
+        public Task PlayProjectAsync()
+        {
             var start = pendingStart;
-            if ( start == null ) {
+            if (start == null)
+            {
                 start = pendingStart = new TaskCompletionSource<bool>();
                 RunStart(start);
             }
             return start.Task;
         }
 
-        async void RunStart(TaskCompletionSource<bool> start) {
+        async void RunStart(TaskCompletionSource<bool> start)
+        {
             System.Exception error = null;
-            try {
+            try
+            {
                 await StartProject();
             }
-            catch ( System.Exception e ) {
+            catch (System.Exception e)
+            {
                 error = e;
             }
             // Cleared before completing, so whoever awaits the start can restart the project right away.
             pendingStart = null;
-            if ( error == null ) { start.SetResult(true); } else { start.SetException(error); }
+            if (error == null) { start.SetResult(true); } else { start.SetException(error); }
         }
 
-        async Task StartProject() {
-
-            if ( aw == null ) {
+        async Task StartProject()
+        {
+            if (aw == null)
+            {
                 Debug.LogError("There is no Arcweave Project assigned in the inspector of Arcweave Player");
                 return;
             }
 
-            if ( !aw.IsImported ) {
+            if (!aw.IsImported)
+            {
                 Debug.LogWarning("The Arcweave Project Asset has not been imported yet, importing it now.");
                 await aw.EnsureImportedAsync();
                 // Let anything else waiting on the same import (eg. an ImportProject callback calling PlayProject) join this start first.
                 await Task.Yield();
-                if ( this == null ) { return; } // destroyed while importing
-                if ( !aw.IsImported ) {
+                if (this == null) { return; } // destroyed while importing
+                if (!aw.IsImported)
+                {
                     throw new System.InvalidOperationException("The imported Arcweave project has no starting element.");
                 }
             }
 
-            aw.Project.Initialize();
-            if ( onProjectStart != null ) onProjectStart(aw.Project);
-            Next(aw.Project.StartingElement);
+            Element restoredElement = null;
+            if (hasStarted)
+            {
+                // The project already ran: PlayProject() restarts it from a clean state, like before the save system.
+                // The save is not cleared (RestartProject() and ResetVariables() do that), but with
+                // SaveMode.AutoSaveAlways the first element's autosave overwrites it.
+                InitializeProject();
+            }
+            else
+            {
+                // First start: initialize the project and resume the save, if any.
+                restoredElement = InitializeAndRestoreSave();
+            }
+
+            bool loadedSave = restoredElement != null;
+            Element startingElement = loadedSave ? restoredElement : FindStartingElement();
+            if (startingElement == null)
+            {
+                Debug.LogError("No starting element found with the specified criteria");
+                return;
+            }
+
+            hasStarted = true;
+
+            if (onProjectStart != null) onProjectStart(aw.Project);
+
+            // A restored save is re-entered from its pre-entry state, without autosaving over it.
+            Next(startingElement, loadedSave);
+
+            // Raised after the first element's content script ran, so listeners see the values it produced.
+            RaiseProjectUpdated();
         }
 
+        /// <summary>
+        /// Restarts the project from the beginning, resetting all variables and saves from the configured starting element.
+        /// </summary>
+        public void RestartProject()
+        {
+            ResetVariables();
+            PlayProject();
+        }
+
+        /// <summary>
+        /// Find a suitable starting element for the project.
+        /// Returns the starting element configured in the Arcweave project.
+        /// </summary>
+        private Element FindStartingElement()
+        {
+            return aw?.Project?.StartingElement;
+        }
+
+        /// <summary>
         /// Moves to the next element through a path
-        void Next(Path path) {
+        /// </summary>
+        void Next(Path path)
+        {
+            if (path == null)
+            {
+                Debug.LogError("Cannot navigate to null path");
+                return;
+            }
+
             path.ExecuteAppendedConnectionLabels();
             Next(path.TargetElement);
         }
 
-        /// Moves to the next element directly
-        void Next(Element element) {
+        /// <summary>
+        /// Moves to the next/an element directly
+        /// </summary>
+        public void Next(Element element, bool isLoad = false)
+        {
+            if (element == null)
+            {
+                Debug.LogError("Cannot navigate to null element");
+                currentElement = null;
+                ClearPreEntryState();
+                if (onProjectFinish != null) onProjectFinish(aw.Project);
+                return;
+            }
+
+            // Directly driven demos may enter elements without calling PlayProject first.
+            hasStarted = true;
             currentElement = element;
+
+            // Keep the state from before this entry (variables and visits, taken at the same moment): that is what a
+            // save stores. Only values are copied here; the JSON is built in RequestSave, when a save is actually made.
+            // Without a save handler nothing can be saved, so nothing is captured.
+            if (HasSaveHandler)
+            {
+                aw.Project.CaptureState(preEntryState);
+            }
+            else
+            {
+                ClearPreEntryState();
+            }
+
             currentElement.Visits++;
-            if ( onElementEnter != null ) onElementEnter(element);
+
+            // Prepare rendered content before notifying listeners. A load restores the pre-entry state and enters
+            // the element again, so the visit count and the script run exactly as the first time.
+            // Limitation: expressions that are not deterministic (e.g. random()) can render differently.
+            if (currentElement.HasContent())
+            {
+                currentElement.RunContentScript();
+            }
+            else
+            {
+                Debug.LogWarning($"Element '{currentElement.Title}' has no content");
+            }
+
+            if (!isLoad && saveMode == SaveMode.AutoSaveAlways && HasSaveHandler)
+            {
+                // Autosaves are not written to disk right away; the save handler batches the disk writes.
+                Save(writeToDiskNow: false);
+            }
+
+            if (onElementEnter != null) onElementEnter(element);
+
             var currentState = currentElement.GetOptions();
-            if ( currentState.hasPaths ) {
-                if ( currentState.hasOptions ) {
-                    if ( onElementOptions != null ) {
+            if (currentState.hasPaths)
+            {
+                if (currentState.hasOptions)
+                {
+                    if (onElementOptions != null)
+                    {
                         onElementOptions(currentState, (index) => Next(currentState.Paths[index]));
                     }
                     return;
                 }
 
-                if ( onWaitInputNext != null ) onWaitInputNext(() => Next(currentState.Paths[0]));
+                if (onWaitInputNext != null) onWaitInputNext(() => Next(currentState.Paths[0]));
+
                 return;
             }
+
             currentElement = null;
-            if ( onProjectFinish != null ) onProjectFinish(aw.Project);
+            ClearPreEntryState();
+            if (onProjectFinish != null) onProjectFinish(aw.Project);
         }
 
-        ///----------------------------------------------------------------------------------------------
-
+#region SAVES
+        /// <summary>
         /// True while an element is playing. There is nothing to save before the project starts or after it finishes.
+        /// </summary>
         public bool CanSave => currentElement != null;
 
-        /// Saves the current element and the variables
-        public void Save() {
-            if ( !CanSave ) {
-                Debug.LogWarning("There is no current element to save, the project is not playing.");
-                return;
-            }
-            var id = currentElement.Id;
-            var variables = aw.Project.SaveVariables();
-            PlayerPrefs.SetString(SAVE_KEY+"_currentElement", id);
-            PlayerPrefs.SetString(SAVE_KEY+"_variables", variables);
+        /// <summary>True when a save handler is assigned.</summary>
+        public bool HasSaveHandler => saveHandler != null;
+
+        /// <summary>
+        /// Requests a save of the current game state.
+        /// If a saveHandler is assigned, it will handle saving the current element ID and project variables.
+        /// This can be called manually at any time, or automatically based on the saveMode setting.
+        /// A manual save is written to disk right away.
+        /// </summary>
+        public void RequestSave()
+        {
+            Save(writeToDiskNow: true);
         }
 
-        /// Loads the previously saved element and the variables and moves to that element
-        public void Load() {
-            var id = PlayerPrefs.GetString(SAVE_KEY+"_currentElement");
-            var variables = PlayerPrefs.GetString(SAVE_KEY+"_variables");
-            var element = aw.Project.ElementWithId(id);
-            aw.Project.LoadVariables(variables);
-            Next(element);
+        [System.Obsolete("Use RequestSave() instead.")]
+        public void Save()
+        {
+            RequestSave();
         }
-    }
-}
+
+        private void Save(bool writeToDiskNow)
+        {
+            if (!CanSave)
+            {
+                Debug.LogWarning("Cannot request save - no current element");
+                return;
+            }
+
+            if (!HasSaveHandler)
+            {
+                Debug.LogWarning("Save request was made but no handlers are set in the ArcweavePlayer");
+                return;
+            }
+
+            var id = currentElement.Id;
+            // Variables and visits from when the element was entered (see Next). Changes made by game code while
+            // the element is on screen are not part of the save.
+            string variables, visits;
+            if (preEntryState.IsCaptured)
+            {
+                variables = aw.Project.SaveVariables(preEntryState);
+                visits = aw.Project.SaveVisits(preEntryState);
+            }
+            else
+            {
+                variables = aw.Project.SaveVariables();
+                visits = aw.Project.SaveVisits();
+            }
+
+            if (saveHandler.HandleSaveRequest(id, variables, visits, writeToDiskNow))
+            {
+                if (onSaved != null) onSaved();
+            }
+        }
+
+        /// <summary>
+        /// Requests loading of a previously saved game state.
+        /// If a saveHandler is assigned, it will retrieve the saved element ID and variables,
+        /// restore the project state, and set the starting element to the saved element.
+        /// Call this method to resume a saved game session.
+        /// </summary>
+        /// <returns>True if the load was successful and navigation occurred; false otherwise.</returns>
+        public bool RequestLoad()
+        {
+            Debug.Log("[ArcweavePlayer] RequestLoad() called");
+            if (aw == null || aw.Project == null)
+            {
+                return false;
+            }
+
+            // A replaced project (e.g. re-imported) is not initialized: its elements would have no Project.
+            if (!IsInitialized)
+            {
+                InitializeProject();
+            }
+
+            var element = RestoreSavedState();
+            if (element == null)
+            {
+                return false;
+            }
+
+            Debug.Log($"[ArcweavePlayer] State restored, navigating to element: {element.Title}");
+            Next(element, /*isLoad = */ true);
+
+            // Raised after the saved element's content script ran again, so listeners see the values it produced.
+            RaiseProjectUpdated();
+            return true;
+        }
+
+        [System.Obsolete("Use RequestLoad() instead.")]
+        public void Load()
+        {
+            RequestLoad();
+        }
+
+        /// <summary>
+        /// Restores saved variables and visits and returns the saved element, without navigating. Null on failure.
+        /// </summary>
+        private Element RestoreSavedState()
+        {
+            if (saveHandler == null)
+            {
+                Debug.LogWarning("Load request was made but no handlers are set in the ArcweavePlayer");
+                return null;
+            }
+
+            if (!saveHandler.HasSave())
+            {
+                Debug.Log("[ArcweavePlayer] Load request handler returned false - no saved data available");
+                return null;
+            }
+
+            string elementId, variables, visits;
+            if (!saveHandler.HandleLoadRequest(out elementId, out variables, out visits))
+            {
+                DiscardUnusableSave("saved state is incomplete");
+                return null;
+            }
+
+            var element = aw.Project.ElementWithId(elementId);
+            if (element == null)
+            {
+                DiscardUnusableSave($"element with ID '{elementId}' not found");
+                return null;
+            }
+
+            // Keep the current state, so a save that fails halfway (e.g. bad visits after the variables were
+            // already applied) leaves the project exactly as it was.
+            var previousVariables = aw.Project.SaveVariables();
+            var previousVisits = aw.Project.SaveVisits();
+            try
+            {
+                aw.Project.LoadVariables(variables);
+                aw.Project.LoadVisits(visits);
+                return element;
+            }
+            catch (System.Exception e)
+            {
+                HandleUnusableSave(e.Message, previousVariables, previousVisits);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Handles a save that cannot be restored by discarding it and attempting to roll back to the previous state.
+        /// </summary>
+        /// <param name="reason">The reason why the save is considered unusable.</param>
+        /// <param name="previousVariables">The previous state of the project variables before attempting to load the save.</param>
+        /// <param name="previousVisits">The previous state of the project visits before attempting to load the save.</param>
+        void HandleUnusableSave(string reason, string previousVariables, string previousVisits)
+        {
+            DiscardUnusableSave(reason);
+            try
+            {
+                aw.Project.LoadVariables(previousVariables);
+                aw.Project.LoadVisits(previousVisits);
+            }
+            catch (System.Exception rollbackError)
+            {
+                // The previous state can be unparsable too (e.g. game code set 1.5 on an int variable).
+                // Never leave the project half-loaded: fall back to its default state.
+                Debug.LogWarning($"[ArcweavePlayer] Could not restore the state from before the load ({rollbackError.Message}). The project was reset to its default state.");
+                InitializeProject();
+            }
+        }
+        /// <summary>
+        /// Deletes a save that can't be restored (corrupt, hand-edited, or from a changed project), so it doesn't
+        /// fail again on every launch.
+        /// </summary>
+        private void DiscardUnusableSave(string reason)
+        {
+            Debug.LogError($"[ArcweavePlayer] The save could not be loaded and was deleted: {reason}");
+            saveHandler.ResetSave();
+            if (onSavesReset != null) onSavesReset();
+        }
+
+        /// <summary>
+        /// Resets all project variables to their default values and clears any saved state.
+        /// If a saveHandler is assigned, it will clear the saved data.
+        /// This is useful for starting a fresh playthrough.
+        /// </summary>
+        public void ResetVariables()
+        {
+            if (HasSaveHandler)
+            {
+                saveHandler.ResetSave();
+            }
+
+            ClearPreEntryState();
+            hasStarted = false;
+            // Nothing is playing after a reset: the element on screen no longer matches the state, so it can't be
+            // saved (CanSave is false) until the project is started again.
+            currentElement = null;
+
+            if (aw != null && aw.Project != null)
+            {
+                InitializeProject(); // This will reset all variables to their default values
+                RaiseProjectUpdated();
+            }
+
+            if (onSavesReset != null)
+            {
+                onSavesReset();
+            }
+        }
+
+        /// <summary>
+        /// Clears the saved game without resetting or initializing the in-memory project.
+        /// Returns true if a complete save existed before it was cleared.
+        /// </summary>
+        public bool ResetSave()
+        {
+            if (!HasSaveHandler)
+            {
+                Debug.LogWarning("Cannot reset save - no save handler is assigned to the ArcweavePlayer");
+                return false;
+            }
+
+            var hadSave = saveHandler.HasSave();
+            saveHandler.ResetSave();
+            if (onSavesReset != null)
+            {
+                onSavesReset();
+            }
+
+            return hadSave;
+        }
+
+        public bool HasSave()
+        {
+            if (HasSaveHandler)
+            {
+                return saveHandler.HasSave();
+            }
+
+            return false;
+        }
+#endregion
+
+    }// end class
+
+}// end namespace

@@ -24,26 +24,42 @@ namespace Arcweave.Project
             SetState(variables);
         }
         
+        /// <summary>Builds the state from the values that variables[i] had when values[i] was captured.</summary>
+        internal State(IReadOnlyList<Variable> variables, IReadOnlyList<object> values)
+        {
+            SetState(variables, values);
+        }
+
         public void SetState(IEnumerable<Variable> vars)
         {
             var variableList = new List<Variable>(vars);
-            variables = new VariableState[variableList.Count];
-            int i = 0;
+            var values = new List<object>(variableList.Count);
             foreach (var variable in variableList)
             {
+                values.Add(variable.Value);
+            }
+            SetState(variableList, values);
+        }
+
+        private void SetState(IReadOnlyList<Variable> vars, IReadOnlyList<object> values)
+        {
+            variables = new VariableState[vars.Count];
+            for (int i = 0; i < vars.Count; i++)
+            {
+                var variable = vars[i];
+                var value = values[i];
                 variables[i].id = variable.Id;
                 try
                 {
-                    variables[i].value = variable.Value is IFormattable formattable
+                    variables[i].value = value is IFormattable formattable
                         ? formattable.ToString(null, System.Globalization.CultureInfo.InvariantCulture)
-                        : variable.Value.ToString();
+                        : value.ToString();
                 }
                 catch (Exception e)
                 {
                     Debug.Log("Error serializing variable " + variable.Name + ": " + e.Message);
                 }
                 variables[i].type = variable.Type.FullName;
-                i++;
             }
         }
 
