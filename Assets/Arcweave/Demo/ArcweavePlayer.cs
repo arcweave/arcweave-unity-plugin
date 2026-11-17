@@ -464,10 +464,16 @@ namespace Arcweave
                 return null;
             }
 
+            if (!saveHandler.HasSave())
+            {
+                Debug.Log("[ArcweavePlayer] Load request handler returned false - no saved data available");
+                return null;
+            }
+
             string elementId, variables, visits;
             if (!saveHandler.HandleLoadRequest(out elementId, out variables, out visits))
             {
-                Debug.Log("[ArcweavePlayer] Load request handler returned false - no saved data available");
+                DiscardUnusableSave("saved state is incomplete");
                 return null;
             }
 
