@@ -43,9 +43,6 @@ namespace Arcweave
         // inspector) the new one is not initialized yet, so it is initialized again.
         private Project.Project initializedProject;
         private bool IsInitialized => initializedProject != null && initializedProject == aw?.Project;
-        // Element of the save restored by EnsureInitialized. It is kept until StartProject uses it, even if
-        // EnsureInitialized was called earlier by someone else (e.g. a DialogueTrigger).
-        private Element restoredElement;
         // True once StartProject has started the project. A later PlayProject() restarts it from a clean state.
         private bool hasStarted;
         // Variables and visit counts captured before the current element was entered. Saves use this state so a load
@@ -59,6 +56,10 @@ namespace Arcweave
         public event OnElementEnter onElementEnter;
         public event OnElementOptions onElementOptions;
         public event OnWaitingInputNext onWaitInputNext;
+        /// <summary>
+        /// Raised when the project's variables and visits were replaced as a whole: after a start, a restart or a load
+        /// has entered its element (so it includes that element's script), and after ResetVariables().
+        /// </summary>
         public event OnProjectUpdated onProjectUpdated;
         /// <summary>Raised after the saved state is cleared.</summary>
         public event System.Action onSavesReset;
@@ -85,39 +86,37 @@ namespace Arcweave
         }
 
         /// <summary>
-        /// Initialize the project if not already initialized
+        /// Initializes the project if it is not initialized yet and restores the save, if any. Returns the saved
+        /// element to resume from, or null to use the starting element. No navigation happens here.
         /// </summary>
-        /// <returns>True if a save was found and its variables and visits were restored during this call.
-        /// The saved element is then available to StartProject; no navigation happens here.</returns>
-        public bool EnsureInitialized()
+        private Element InitializeAndRestoreSave()
         {
-            Debug.Log("[ArcweavePlayer] EnsureInitialized() called");
             if (IsInitialized)
             {
-                Debug.Log("[ArcweavePlayer] Already initialized, skipping");
-                return false;
+                return null;
             }
 
-            if (aw == null || aw.Project == null)
-            {
-                Debug.LogError("Cannot initialize Arcweave project - missing project asset");
-                return false;
-            }
-
-            // Initialize the project
             InitializeProject();
 
-            if (HasSaveHandler && saveHandler.HasSave())
+            if (!HasSaveHandler || !saveHandler.HasSave())
             {
-                restoredElement = RestoreSavedState();
-                if (restoredElement == null)
-                {
-                    Debug.LogWarning("[ArcweavePlayer] Load request failed - save data was present but could not be loaded");
-                }
+                return null;
             }
 
-            if (onProjectUpdated != null) onProjectUpdated(aw.Project);
-            return restoredElement != null;
+            Element restoredElement = RestoreSavedState();
+            if (restoredElement == null)
+            {
+                Debug.LogWarning("[ArcweavePlayer] Load request failed - save data was present but could not be loaded");
+            }
+            return restoredElement;
+        }
+
+        private void RaiseProjectUpdated()
+        {
+            if (aw != null && aw.Project != null)
+            {
+                onProjectUpdated?.Invoke(aw.Project);
+            }
         }
 
         /// <summary>
@@ -134,7 +133,6 @@ namespace Arcweave
                 currentElement = null;
             }
             initializedProject = aw.Project;
-            restoredElement = null;
             ClearPreEntryState();
         }
 
@@ -211,23 +209,21 @@ namespace Arcweave
                 }
             }
 
+            Element restoredElement = null;
             if (hasStarted)
             {
                 // The project already ran: PlayProject() restarts it from a clean state, like before the save system.
                 // The save is left alone (RestartProject() and ResetVariables() are the ones that clear it).
                 InitializeProject();
-                if (onProjectUpdated != null) onProjectUpdated(aw.Project);
             }
             else
             {
-                // Ensure project is initialized (also restores the save, if any). If someone already did,
-                // restoredElement still holds the resume point.
-                EnsureInitialized();
+                // First start: initialize the project and resume the save, if any.
+                restoredElement = InitializeAndRestoreSave();
             }
 
             bool loadedSave = restoredElement != null;
             Element startingElement = loadedSave ? restoredElement : FindStartingElement();
-            restoredElement = null;
             if (startingElement == null)
             {
                 Debug.LogError("No starting element found with the specified criteria");
@@ -240,6 +236,9 @@ namespace Arcweave
 
             // A restored save is re-entered from its pre-entry state, without autosaving over it.
             Next(startingElement, loadedSave);
+
+            // Raised after the first element's content script ran, so listeners see the values it produced.
+            RaiseProjectUpdated();
         }
 
         /// <summary>
@@ -254,8 +253,6 @@ namespace Arcweave
         /// <summary>
         /// Find a suitable starting element for the project.
         /// Returns the starting element configured in the Arcweave project.
-        /// Note: in the 3D demo, autoStart should be false — DialogueTrigger
-        /// drives dialogue per-NPC via EnsureInitialized() + Next(element) directly.
         /// </summary>
         private Element FindStartingElement()
         {
@@ -438,6 +435,9 @@ namespace Arcweave
 
             Debug.Log($"[ArcweavePlayer] State restored, navigating to element: {element.Title}");
             Next(element, /*isLoad = */ true);
+
+            // Raised after the saved element's content script ran again, so listeners see the values it produced.
+            RaiseProjectUpdated();
             return true;
         }
 
@@ -535,12 +535,12 @@ namespace Arcweave
             }
 
             ClearPreEntryState();
-            restoredElement = null;
             hasStarted = false;
 
             if (aw != null && aw.Project != null)
             {
                 InitializeProject(); // This will reset all variables to their default values
+                RaiseProjectUpdated();
             }
 
             if (onSavesReset != null)
