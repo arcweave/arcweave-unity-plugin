@@ -27,8 +27,6 @@ namespace Arcweave.Project
         [System.Obsolete("Use GlobalVariables for globals, or GetAllVariables() for every scope.")]
         public List<Variable> Variables => GlobalVariables;
 
-        [UnityEngine.SerializeField] private string _defaultStartingElementId;
-
         [UnityEngine.SerializeField] private string _startingElementId;
         [System.NonSerialized] private Element _startingElement;
 
@@ -40,7 +38,6 @@ namespace Arcweave.Project
         public Project(string name, Element startingElement, List<Board> boards, List<Component> components, List<Variable> variables) {
             this.name = name;
             this.StartingElement = startingElement;
-            this._defaultStartingElementId = startingElement.Id;
             this.Boards = boards;
             this.components = components;
             GlobalVariables = variables;
@@ -52,7 +49,6 @@ namespace Arcweave.Project
         public void Initialize() {
             ResetVariablesToDefaultValues();
             ResetVisits();
-            ResetStartingElement();
 
             foreach ( var board in Boards ) {
                 board.InitializeInProject(this);
@@ -223,33 +219,6 @@ namespace Arcweave.Project
             }
         }
 
-
-        ///---------------------------------------------------------------------------------------------
-
-        public void ResetStartingElement()
-        {
-            if (string.IsNullOrEmpty(_defaultStartingElementId))
-            {
-                if (!string.IsNullOrEmpty(_startingElementId))
-                {
-                    Debug.LogWarning($"Default starting element id was missing. Initializing it with starting element '{_startingElementId}'.");
-                    _defaultStartingElementId = _startingElementId;
-                }
-                else
-                {
-                    // First run
-                    return;
-                }
-            }
-
-            var startingElement = ElementWithId(_defaultStartingElementId);
-            if (startingElement == null)
-            {
-                Debug.LogWarning($"Could not reset starting element. No element found with id '{_defaultStartingElementId}'.");
-                return;
-            }
-            StartingElement = startingElement;
-        }
 
 #region Visits
         ///<summary>Returns the number of visits of an element with id.</summary>

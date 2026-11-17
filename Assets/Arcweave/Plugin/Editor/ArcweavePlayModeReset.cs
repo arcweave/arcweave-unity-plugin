@@ -5,7 +5,7 @@ using UnityEditor;
 namespace Arcweave
 {
     /// <summary>
-    /// Playing in the editor changes the variables, visits and starting element stored in the
+    /// Playing in the editor changes the variables and visits stored in the
     /// ArcweaveProjectAsset in memory, and those changes stay after leaving play mode. This puts every
     /// project asset back to its default state when play mode ends, so it never keeps the state of the last run.
     /// The asset is not marked dirty on purpose: marking it would save the last run's state to disk.
@@ -37,7 +37,6 @@ namespace Arcweave
 
                 project.ResetVariablesToDefaultValues();
                 project.ResetVisits();
-                project.ResetStartingElement();
             }
         }
     }

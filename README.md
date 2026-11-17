@@ -318,7 +318,6 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 | `bool SetVariable(string name, object value)`               | Set a global/project-scoped variable by name |
 | `bool SetVariable(string name, string scope, object value)` | Set a scoped variable by name and owner `CustomId` |
 | `void ResetVariablesToDefaultValues()`                      | Reset all variables to defaults |
-| `void ResetStartingElement()`                               | Reset starting element to default |
 | `string SaveVariables()`                                    | Serialize current global and scoped variable state to JSON |
 | `void LoadVariables(string json)`                           | Restore current global and scoped variable state from JSON |
 | `string SaveVisits()`                                       | Serialize visit counts to JSON |
