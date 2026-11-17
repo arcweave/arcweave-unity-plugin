@@ -65,6 +65,7 @@ namespace Arcweave
 
             player.onElementEnter += OnElementEnter;
             player.onSavesReset += RefreshSaveButtons;
+            player.onSaved += RefreshSaveButtons;
             player.onElementOptions += OnElementOptions;
             player.onWaitInputNext += OnWaitInputNext;
             player.onProjectFinish += OnProjectFinish;
@@ -82,6 +83,7 @@ namespace Arcweave
 
             player.onElementEnter -= OnElementEnter;
             player.onSavesReset -= RefreshSaveButtons;
+            player.onSaved -= RefreshSaveButtons;
             player.onElementOptions -= OnElementOptions;
             player.onWaitInputNext -= OnWaitInputNext;
             player.onProjectFinish -= OnProjectFinish;
@@ -93,8 +95,8 @@ namespace Arcweave
                 return;
             }
 
+            // Load is refreshed from onSaved, so it only shows once the save handler actually stored a save.
             player.RequestSave();
-            loadButton.gameObject.SetActive(true);
         }
 
         void Load() {

@@ -63,6 +63,8 @@ namespace Arcweave
         public event OnProjectUpdated onProjectUpdated;
         /// <summary>Raised after the saved state is cleared.</summary>
         public event System.Action onSavesReset;
+        /// <summary>Raised after a save was handed to the save handler, by RequestSave() or by an autosave.</summary>
+        public event System.Action onSaved;
 
         [SerializeField, Tooltip("Optional save handler component to handle save/load events. If not assigned, save/load events will be logged with a warning.")]
         private ArcweaveSaveHandler saveHandler;
@@ -403,7 +405,10 @@ namespace Arcweave
                 visits = aw.Project.SaveVisits();
             }
 
-            saveHandler.HandleSaveRequest(id, variables, visits, writeToDiskNow);
+            if (saveHandler.HandleSaveRequest(id, variables, visits, writeToDiskNow))
+            {
+                if (onSaved != null) onSaved();
+            }
         }
 
         /// <summary>

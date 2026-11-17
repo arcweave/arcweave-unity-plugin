@@ -654,6 +654,7 @@ Event-driven narrative player (demo helper class).
 | `onWaitInputNext` | `(Action)` | Single path, waiting for continue |
 | `onProjectUpdated` | `(Project)` | Fired when the variables and visits were replaced as a whole: after `PlayProject()`, a restart or `RequestLoad()` has entered its element (so it includes that element's script), and after `ResetVariables()`. Not after `ResetSave()`, which doesn't change them |
 | `onSavesReset` | `()` | Fired after `ResetVariables()` or `ResetSave()` clears the saved state |
+| `onSaved` | `()` | Fired after a save was handed to the save handler, by `RequestSave()` or an autosave |
 
 
 #### Methods
