@@ -63,6 +63,7 @@ namespace Arcweave
 
             RefreshSaveButtons();
 
+            player.onProjectStart += OnProjectStart;
             player.onElementEnter += OnElementEnter;
             player.onSavesReset += RefreshSaveButtons;
             player.onSaved += RefreshSaveButtons;
@@ -81,6 +82,7 @@ namespace Arcweave
             saveButton.onClick.RemoveListener(Save);
             loadButton.onClick.RemoveListener(Load);
 
+            player.onProjectStart -= OnProjectStart;
             player.onElementEnter -= OnElementEnter;
             player.onSavesReset -= RefreshSaveButtons;
             player.onSaved -= RefreshSaveButtons;
@@ -136,6 +138,13 @@ namespace Arcweave
         ///----------------------------------------------------------------------------------------------
         /// Event Handlers
         ///----------------------------------------------------------------------------------------------
+
+        // A start can come from outside this UI (e.g. RestartProject() from the inspector) while options are on
+        // screen. Those options belong to the previous run, so they are removed.
+        void OnProjectStart(Project.Project p)
+        {
+            ClearTempButtons();
+        }
 
         void OnElementEnter(Element e)
         {
