@@ -59,12 +59,13 @@ In Arcweave:
 4. Click **Export for Unity**
 5. Check **Include Assets** if your project uses images or audio
 
-You will get a `.zip` file containing:
+Without **Include Assets**, you will get a single `project.json` file with all data of your Arcweave project.
+
+With **Include Assets**, you will get a `.zip` file containing:
 
 - `project.json`: all data of your Arcweave project
-- (Optional) `assets/Images/`: project image assets (if "Include Assets" was checked)
-- (Optional) `assets/Audio/`: project audio assets (if "Include Assets" was checked)
-- (Optional) `cover/cover.jpg`: the project cover image
+- `assets/`: the project's asset files, in the same folder structure as the project's asset library
+- `cover/`: the project cover image, if the project has one
 
 **File placement:**
 - Place `project.json` anywhere in your Unity project's `Assets` folder.
