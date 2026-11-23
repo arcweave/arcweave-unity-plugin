@@ -446,7 +446,7 @@ foreach (Connection input in element.Inputs) {
 }
 ```
 
-`Inputs` holds the connections that end at the element, ordered by board and then by their source's outputs. They are the same `Connection` objects as in their source's `Outputs`. An input's `Source` is the element it starts from, or the branch `Condition` when it comes out of a branch. A connection that ends at a jumper is an input of the jumper, not of the element the jumper leads to: to include those, also look at the `Inputs` of the jumpers whose `Target` is the element. Branches and jumpers have `Inputs` too. Inputs are linked when the project is imported and when it is initialized, so they don't add anything to the project asset.
+`Inputs` holds the connections that end at the element, ordered by board and then by their source's outputs. They are the same `Connection` objects as in their source's `Outputs`. An input's `Source` is the element it starts from, or the branch `Condition` when it comes out of a branch. A connection that ends at a jumper is an input of the jumper, not of the element the jumper leads to: to include those, also look at the `Inputs` of the jumpers whose `Target` is the element. Branches and jumpers have `Inputs` too. Inputs are linked when the project is imported and when it is initialized, so they don't add anything to the project asset. If your code changes an element's `Outputs` or a connection's target, call `project.LinkInputs()` so `Inputs` match.
 
 ---
 

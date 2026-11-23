@@ -45,16 +45,18 @@ namespace Arcweave.Project
         }
 
         ///<summary>Sets the Inputs of every element, branch and jumper from the outputs of the elements and branch conditions on the boards.
-        /// Inputs are not serialized, so they are linked again when the project is made and when it is initialized.</summary>
-        internal void LinkInputs() {
+        /// Inputs are not serialized, so they are linked when the project is made and when it is initialized.
+        /// Call it again after changing an element's Outputs or a connection's target from code, so Inputs match them.</summary>
+        public void LinkInputs() {
             var inputs = new Dictionary<INode, List<Connection>>();
+            var added = new HashSet<Connection>();
             void Add(Connection connection) {
                 // Unity deserializes a missing connection as an instance without an id
-                if ( connection == null || !connection.isValid || connection.Target == null ) { return; }
+                if ( connection == null || !connection.isValid || connection.Target == null || !added.Add(connection) ) { return; }
                 if ( !inputs.TryGetValue(connection.Target, out var list) ) {
                     inputs[connection.Target] = list = new List<Connection>();
                 }
-                if ( !list.Contains(connection) ) { list.Add(connection); }
+                list.Add(connection);
             }
 
             if ( Boards == null ) { return; }

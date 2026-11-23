@@ -22,7 +22,7 @@ namespace Arcweave.Tests
             var far = board.NodeWithID<Element>("far");
             var branch = board.NodeWithID<Branch>("branch");
             var jumper = board.NodeWithID<Jumper>("jumper");
-            var condition = branch.Conditions.Single();
+            var condition = branch.Conditions.First();
 
             Assert.That(start.Inputs, Is.Empty);
             Assert.That(far.Inputs, Is.Empty);
@@ -43,6 +43,23 @@ namespace Arcweave.Tests
             Assert.That(jumper.Inputs.Single().Id, Is.EqualTo("far-jumper"));
             Assert.That(jumper.Inputs.Single().Source, Is.SameAs(far));
             Assert.That(jumper.Target, Is.SameAs(comment));
+        }
+
+        [Test]
+        public void LinkingInputsAgainFollowsChangedOutputs()
+        {
+            var project = new ProjectMaker(ProjectJson, null).MakeProject();
+            var board = project.Boards.Single();
+            var post = board.NodeWithID<Element>("post");
+            var comment = board.NodeWithID<Element>("comment");
+            var far = board.NodeWithID<Element>("far");
+            var toComment = post.Outputs.Single(output => output.Id == "post-comment");
+
+            toComment.Set(toComment.RawLabel, post, far);
+            project.LinkInputs();
+
+            Assert.That(comment.Inputs.Select(input => input.Id), Is.EqualTo(new[] { "condition-comment" }));
+            Assert.That(far.Inputs.Single(), Is.SameAs(toComment));
         }
 
         [UnityTest]
@@ -68,9 +85,16 @@ namespace Arcweave.Tests
                 var board = copy.Project.Boards.Single();
                 var post = board.NodeWithID<Element>("post");
                 var comment = board.NodeWithID<Element>("comment");
+                var far = board.NodeWithID<Element>("far");
+                var branch = board.NodeWithID<Branch>("branch");
+                var jumper = board.NodeWithID<Jumper>("jumper");
                 Assert.That(comment.Inputs.Select(input => input.Id), Is.EqualTo(new[] { "post-comment", "condition-comment" }));
                 Assert.That(comment.Inputs[0], Is.SameAs(post.Outputs.Single(output => output.Id == "post-comment")));
                 Assert.That(comment.Inputs[0].Source, Is.SameAs(post));
+                Assert.That(branch.Inputs.Single().Source, Is.SameAs(post));
+                Assert.That(jumper.Inputs.Single().Source, Is.SameAs(far));
+                // The else condition has no output, which Unity deserializes as a connection without an id that must not break linking
+                Assert.That(far.Inputs, Is.Empty);
             }
             finally {
                 if ( copy != null ) { Object.DestroyImmediate(copy); }
@@ -79,7 +103,7 @@ namespace Arcweave.Tests
             }
         }
 
-        ///<summary>start → post; post → comment and post → branch; the branch condition → comment; far → jumper, which jumps to comment.</summary>
+        ///<summary>start → post; post → comment and post → branch; the branch's if condition → comment, its else condition has no output; far → jumper, which jumps to comment.</summary>
         private const string ProjectJson = @"{
             ""name"": ""Inputs Test"",
             ""startingElement"": ""start"",
@@ -90,9 +114,9 @@ namespace Arcweave.Tests
                 ""comment"": { ""x"": 200, ""y"": 0, ""title"": ""Comment"", ""content"": """", ""theme"": ""default"" },
                 ""far"": { ""x"": 300, ""y"": 0, ""title"": ""Far"", ""content"": """", ""theme"": ""default"", ""outputs"": [""far-jumper""] }
             },
-            ""branches"": { ""branch"": { ""x"": 150, ""y"": 100, ""theme"": ""default"", ""conditions"": { ""ifCondition"": ""if"" } } },
+            ""branches"": { ""branch"": { ""x"": 150, ""y"": 100, ""theme"": ""default"", ""conditions"": { ""ifCondition"": ""if"", ""elseCondition"": ""else"" } } },
             ""jumpers"": { ""jumper"": { ""x"": 400, ""y"": 0, ""elementId"": ""comment"" } },
-            ""conditions"": { ""if"": { ""output"": ""condition-comment"", ""script"": ""true"" } },
+            ""conditions"": { ""if"": { ""output"": ""condition-comment"", ""script"": ""true"" }, ""else"": { ""script"": """" } },
             ""connections"": {
                 ""start-post"": { ""sourceid"": ""start"", ""sourceType"": ""elements"", ""targetid"": ""post"", ""targetType"": ""elements"" },
                 ""post-comment"": { ""sourceid"": ""post"", ""sourceType"": ""elements"", ""targetid"": ""comment"", ""targetType"": ""elements"" },

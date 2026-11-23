@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Added `Inputs` to `Element`, `Branch` and `Jumper`: the connections that end at them, ordered by board and then by their source's outputs. They are the same `Connection` objects as in their source's `Outputs`, so `input.Source` is the element or branch condition the connection starts from. Inputs are not serialized: they are linked when the project is made and when it is initialized, so existing project assets have them without reimporting.
+- Added `Inputs` to `Element`, `Branch` and `Jumper`: the connections that end at them, ordered by board and then by their source's outputs. They are the same `Connection` objects as in their source's `Outputs`, so `input.Source` is the element or branch condition the connection starts from. Inputs are not serialized: they are linked when the project is made and when it is initialized, so existing project assets have them without reimporting. After changing outputs or connection targets from code, call `Project.LinkInputs()` to update them.
 
 ### Changed
 
