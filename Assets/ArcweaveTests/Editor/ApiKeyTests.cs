@@ -15,6 +15,8 @@ namespace Arcweave.Tests
     public class ApiKeyTests
     {
         private const double TimeoutSeconds = 30;
+        // Fixtures/ProjectBeforeGlobalVariables.asset.txt, serialized by an older version of the plugin
+        private const string LegacyFixtureGuid = "4aa480916f3d46ad8c34694108227c26";
         private const string ProjectJson = @"{
             ""name"": ""Api Key Test"",
             ""startingElement"": ""start"",
@@ -64,6 +66,25 @@ namespace Arcweave.Tests
         }
 
         [Test]
+        public void KeyInAnEditedUserSettingsFileIsTrimmed()
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(userSettings.FilePath));
+            File.WriteAllText(userSettings.FilePath, "{ \"apiKey\": \"settings-key\\n\" }");
+
+            Assert.That(ArcweaveUserSettings.ApiKey, Is.EqualTo("settings-key"));
+        }
+
+        [Test]
+        public void KeyThatCannotBeSavedIsNotReportedAsSaved()
+        {
+            // A folder where the file should be makes writing it fail
+            Directory.CreateDirectory(userSettings.FilePath);
+
+            Assert.That(() => ArcweaveUserSettings.ApiKey = "settings-key", Throws.Exception);
+            Assert.That(ArcweaveUserSettings.ApiKey, Is.Empty);
+        }
+
+        [Test]
         public void DefaultUserSettingsFileIsInTheUserSettingsFolder()
         {
             userSettings.Dispose();
@@ -84,6 +105,9 @@ namespace Arcweave.Tests
 
             Assert.That(asset.IsImported, Is.True);
             Assert.That(asset.fetchedWithApiKey, Is.EqualTo("settings-key"));
+            Assert.That(LegacyKey(), Is.Null.Or.Empty);
+            EditorUtility.SetDirty(asset);
+            AssetDatabase.SaveAssetIfDirty(asset);
             Assert.That(File.ReadAllText(assetPath), Does.Not.Contain("settings-key"));
         }
 
@@ -171,15 +195,101 @@ namespace Arcweave.Tests
         }
 
         [Test]
+        public void MovingTheKeyOutOfTheAssetKeepsTheKeyInTheEnvironmentVariable()
+        {
+            userSettings.SetEnvironmentApiKey("environment-key");
+            SaveLegacyKey("legacy-key");
+
+            var moved = ArcweaveUserSettings.MoveApiKeyOutOfAsset(asset);
+
+            Assert.That(moved, Is.False);
+            Assert.That(ArcweaveUserSettings.ApiKey, Is.Empty, "The asset's key must not take priority over the environment variable.");
+            Assert.That(ArcweaveUserSettings.ResolveApiKey(), Is.EqualTo("environment-key"));
+            Assert.That(LegacyKey(), Is.Empty);
+        }
+
+        [Test]
+        public void MovingTheKeyKeepsItInTheAssetWhenTheUserSettingsCannotBeSaved()
+        {
+            SaveLegacyKey("legacy-key");
+            Directory.CreateDirectory(userSettings.FilePath);
+
+            Assert.That(() => ArcweaveUserSettings.MoveApiKeyOutOfAsset(asset), Throws.Exception);
+
+            Assert.That(LegacyKey(), Is.EqualTo("legacy-key"));
+            Assert.That(File.ReadAllText(assetPath), Does.Contain("legacy-key"));
+            Assert.That(ArcweaveUserSettings.ApiKey, Is.Empty);
+            Assert.That(ArcweaveUserSettings.HasApiKeySavedInAsset(asset), Is.True, "The inspector must still offer to move the key.");
+        }
+
+        [Test]
+        public void BlankKeySavedInTheAssetIsRemovedWithoutBeingMoved()
+        {
+            SaveLegacyKey("   ");
+
+            var moved = ArcweaveUserSettings.MoveApiKeyOutOfAsset(asset);
+
+            Assert.That(moved, Is.False);
+            Assert.That(ArcweaveUserSettings.ApiKey, Is.Empty);
+            Assert.That(LegacyKey(), Is.Empty);
+        }
+
+        [Test]
+        public void KeySavedByAnOlderVersionIsReadAndMovedOutOfTheFile()
+        {
+            // An asset serialized by the plugin before the key moved to the user settings, with a key added
+            var fixturePath = AssetDatabase.GUIDToAssetPath(LegacyFixtureGuid);
+            Assume.That(fixturePath, Is.Not.Empty, "The legacy fixture is missing.");
+            var fixture = File.ReadAllText(fixturePath);
+            var withKey = Regex.Replace(fixture, @"^(\s*userAPIKey:)[^\r\n]*", "$1 legacy-fixture-key", RegexOptions.Multiline);
+            Assume.That(withKey, Does.Contain("userAPIKey: legacy-fixture-key"));
+            var legacyPath = temporaryFolder + "/Legacy.asset";
+            File.WriteAllText(legacyPath, withKey);
+            AssetDatabase.ImportAsset(legacyPath, ImportAssetOptions.ForceSynchronousImport);
+            var legacy = AssetDatabase.LoadAssetAtPath<ArcweaveProjectAsset>(legacyPath);
+            Assert.That(legacy, Is.Not.Null);
+
+            Assert.That(ArcweaveUserSettings.HasApiKeySavedInAsset(legacy), Is.True);
+            Assert.That(legacy.StoredApiKey(), Is.EqualTo("legacy-fixture-key"));
+            Assert.That(ArcweaveApiKeyBuildCheck.AssetsWithSavedApiKey(), Has.Member(legacy));
+
+            Assert.That(ArcweaveUserSettings.MoveApiKeyOutOfAsset(legacy), Is.True);
+            Assert.That(ArcweaveUserSettings.ApiKey, Is.EqualTo("legacy-fixture-key"));
+            Assert.That(File.ReadAllText(legacyPath), Does.Not.Contain("legacy-fixture-key"));
+
+            AssetDatabase.ImportAsset(legacyPath, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            legacy = AssetDatabase.LoadAssetAtPath<ArcweaveProjectAsset>(legacyPath);
+            Assert.That(ArcweaveUserSettings.HasApiKeySavedInAsset(legacy), Is.False);
+        }
+
+        [Test]
         public void BuildCheckFindsAssetsThatStillContainAKey()
         {
-            Assert.That(ArcweaveApiKeyBuildCheck.AssetsWithSavedApiKey(), Does.Not.Contain(assetPath));
+            Assert.That(ArcweaveApiKeyBuildCheck.AssetsWithSavedApiKey(), Has.No.Member(asset));
 
             SaveLegacyKey("legacy-key");
-            Assert.That(ArcweaveApiKeyBuildCheck.AssetsWithSavedApiKey(), Does.Contain(assetPath));
+            Assert.That(ArcweaveApiKeyBuildCheck.AssetsWithSavedApiKey(), Has.Member(asset));
 
             ArcweaveUserSettings.MoveApiKeyOutOfAsset(asset);
-            Assert.That(ArcweaveApiKeyBuildCheck.AssetsWithSavedApiKey(), Does.Not.Contain(assetPath));
+            Assert.That(ArcweaveApiKeyBuildCheck.AssetsWithSavedApiKey(), Has.No.Member(asset));
+        }
+
+        [Test]
+        public void BuildCheckFindsAKeyInAnyProjectAssetOfAFile()
+        {
+            var second = ScriptableObject.CreateInstance<ArcweaveProjectAsset>();
+            second.name = "Second";
+            AssetDatabase.AddObjectToAsset(second, assetPath);
+#pragma warning disable 618
+            second.userAPIKey = "second-key";
+#pragma warning restore 618
+            EditorUtility.SetDirty(second);
+            AssetDatabase.SaveAssets();
+
+            var found = ArcweaveApiKeyBuildCheck.AssetsWithSavedApiKey().ToList();
+
+            Assert.That(found, Has.Member(second));
+            Assert.That(found, Has.No.Member(asset));
         }
 
         ///----------------------------------------------------------------------------------------------

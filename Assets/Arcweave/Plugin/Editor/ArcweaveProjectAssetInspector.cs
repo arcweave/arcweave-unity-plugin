@@ -73,8 +73,8 @@ namespace Arcweave
             return ( showGlobals || showBoards || showComponents );
         }
 
-        private const string API_KEY_TOOLTIP = "Your Arcweave API key. It is saved for you only, in this Unity project's UserSettings folder, " +
-            "which is not included in builds and is excluded from version control by Unity's .gitignore template. It is shared by every project asset of this Unity project.";
+        private const string API_KEY_TOOLTIP = "Your Arcweave API key. It is saved in this Unity project's UserSettings folder, not in the asset, " +
+            "so it is not included in builds, and Unity's .gitignore template excludes it from version control. It is shared by every project asset of this Unity project.";
 
         // The API key is saved in the user settings, never in the asset, so editing it doesn't mark the asset dirty.
         void DrawApiKey() {
@@ -93,19 +93,27 @@ namespace Arcweave
             if ( string.IsNullOrEmpty(ArcweaveUserSettings.ApiKey) && !string.IsNullOrEmpty(ArcweaveUserSettings.EnvironmentApiKey) ) {
                 EditorGUILayout.HelpBox("Using the API key from the " + ArcweaveUserSettings.API_KEY_ENVIRONMENT_VARIABLE + " environment variable.", MessageType.Info);
             }
+        }
 
-#pragma warning disable 618 // The legacy key is only checked to offer moving it out of the asset
-            if ( string.IsNullOrEmpty(aw.userAPIKey) ) {
+        // Shown whatever the import source, since an asset switched to From Json still contains the key it was saved with.
+        void DrawApiKeySavedInAsset() {
+            if ( !ArcweaveUserSettings.HasApiKeySavedInAsset(aw) ) {
                 return;
             }
-#pragma warning restore 618
-            var hasOwnKey = !string.IsNullOrEmpty(ArcweaveUserSettings.ApiKey);
+            var ownKey = !string.IsNullOrEmpty(ArcweaveUserSettings.ApiKey) ? "your own key in the user settings"
+                : !string.IsNullOrEmpty(ArcweaveUserSettings.EnvironmentApiKey) ? "the key in the " + ArcweaveUserSettings.API_KEY_ENVIRONMENT_VARIABLE + " environment variable"
+                : null;
             EditorGUILayout.HelpBox("This asset contains an API key saved by an older version of the plugin. " +
                 "Anyone with access to your version control or your builds can read it. " +
-                ( hasOwnKey ? "Remove it from the asset; your own key in the user settings is used instead." : "Move it to your user settings to remove it from the asset." ) +
+                ( ownKey != null ? "Remove it from the asset; " + ownKey + " is used instead." : "Move it to your user settings to remove it from the asset." ) +
                 " If the asset was committed or built, also revoke the key in Arcweave and create a new one.", MessageType.Warning);
-            if ( GUILayout.Button(hasOwnKey ? "Remove Key from Asset" : "Move Key to User Settings") ) {
-                ArcweaveUserSettings.MoveApiKeyOutOfAsset(aw);
+            if ( GUILayout.Button(ownKey != null ? "Remove Key from Asset" : "Move Key to User Settings") ) {
+                try {
+                    ArcweaveUserSettings.MoveApiKeyOutOfAsset(aw);
+                }
+                catch ( System.Exception e ) {
+                    Debug.LogError("Could not save the Arcweave API key in the user settings, so it was kept in the asset: " + e.Message);
+                }
             }
         }
 
@@ -123,6 +131,8 @@ namespace Arcweave
                 aw.importSource = importSource;
                 EditorUtility.SetDirty(aw);
             }
+
+            DrawApiKeySavedInAsset();
 
             var fromJson = aw.importSource == ArcweaveProjectAsset.ImportSource.FromJson && aw.projectJsonFile != null;
             var fromWeb = aw.importSource == ArcweaveProjectAsset.ImportSource.FromWeb && !string.IsNullOrEmpty(aw.StoredApiKey()) && !string.IsNullOrEmpty(aw.projectHash);

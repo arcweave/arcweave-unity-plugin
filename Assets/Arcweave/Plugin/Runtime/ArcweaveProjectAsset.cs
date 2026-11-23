@@ -93,7 +93,7 @@ namespace Arcweave
         ///<summary>Import project from json text file or web, joining the import already running if there is one.
         /// A web import uses the given API key to download the project and its media, so the key can come from anywhere,
         /// eg. a secrets manager on a build server. The key is never saved.
-        /// A null or empty key uses the stored one: in the editor, the key in the user settings, then the ARCWEAVE_API_KEY environment variable,
+        /// The key is trimmed, and a null, empty or blank key uses the stored one: in the editor, the key in the user settings, then the ARCWEAVE_API_KEY environment variable,
         /// then a key saved in the asset by an older version of the plugin. An import that is already running keeps the key it started with.
         /// Faults if the import source is not configured, the download fails or the json cannot be parsed.
         /// On failure the previously imported project is kept.</summary>
@@ -128,6 +128,8 @@ namespace Arcweave
                 if ( string.IsNullOrEmpty(projectHash) ) {
                     throw new InvalidOperationException("Importing from web requires a Project Hash.");
                 }
+                // Secrets read from files or environment variables often end with a newline, which is not valid in a header
+                apiKey = apiKey?.Trim();
                 if ( string.IsNullOrEmpty(apiKey) ) {
                     apiKey = StoredApiKey(true);
                 }
@@ -159,11 +161,12 @@ namespace Arcweave
             }
 #endif
 #pragma warning disable 618 // The legacy key still works so existing projects keep importing
-            if ( !string.IsNullOrEmpty(userAPIKey) ) {
+            var legacyKey = userAPIKey?.Trim();
+            if ( !string.IsNullOrEmpty(legacyKey) ) {
                 if ( warnIfSavedInAsset ) {
-                    Debug.LogWarning(string.Format("The Arcweave project asset '{0}' imports with an API key saved in the asset, which commits it to version control and includes it in builds. Select the asset and click 'Move Key to User Settings' in its inspector.", name), this);
+                    Debug.LogWarning(string.Format("The Arcweave project asset '{0}' imports with an API key saved in the asset, which commits it to version control and includes it in builds. Select the asset and use the button in its inspector to remove the key from the asset.", name), this);
                 }
-                return userAPIKey;
+                return legacyKey;
             }
 #pragma warning restore 618
             return "";
@@ -238,9 +241,16 @@ namespace Arcweave
             }
             var requestUrl = builder.ToString();
             var request = UnityWebRequest.Get(requestUrl);
-            request.SetRequestHeader("Authorization", string.Format("Bearer {0}", apiKey));
-            request.SetRequestHeader("Accept", "application/json");
-            var requestOperation = request.SendWebRequest();
+            UnityWebRequestAsyncOperation requestOperation;
+            try {
+                request.SetRequestHeader("Authorization", string.Format("Bearer {0}", apiKey));
+                request.SetRequestHeader("Accept", "application/json");
+                requestOperation = request.SendWebRequest();
+            }
+            catch {
+                request.Dispose();
+                throw;
+            }
             requestOperation.completed += (op) =>
             {
                 var responseCode = request.responseCode;

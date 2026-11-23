@@ -102,7 +102,7 @@ Choose your import source:
 
 ### Where the API Key Is Saved
 
-The API key is not saved in the project asset, so it isn't committed to version control or included in your builds. The **API Key** field saves it for you only, in `UserSettings/ArcweaveSettings.json` in your Unity project folder. Each developer enters their own key, and every project asset in the Unity project uses it. Unity's `.gitignore` template already excludes the `UserSettings` folder. If your project doesn't use it, add `/UserSettings/` to your `.gitignore` (or your version control's ignore list).
+The API key is not saved in the project asset, so it isn't committed to version control or included in your builds. The **API Key** field saves it in `UserSettings/ArcweaveSettings.json` in your Unity project folder, as plain text. It belongs to that copy of the project: each developer enters their own key in their own copy, and every project asset in the Unity project uses it. Anyone who can read your project folder can read the key, so keep the folder private on shared machines. Unity's `.gitignore` template already excludes the `UserSettings` folder. If your project doesn't use it, add `/UserSettings/` to your `.gitignore` (or your version control's ignore list).
 
 When no key is passed to the import, a web import looks for one in this order:
 
@@ -110,11 +110,11 @@ When no key is passed to the import, a web import looks for one in this order:
 2. The `ARCWEAVE_API_KEY` environment variable, for example on a build server. The inspector tells you when it is used.
 3. A key saved in the project asset by an older version of the plugin. The import logs a warning.
 
-These are only available in the Unity Editor. To import from web in a build, pass the key to the import (see below).
+The first two are only available in the Unity Editor. In a build, an import uses the key passed to it (see below), or a key still saved in the asset.
 
 #### Upgrading from an older version
 
-Older versions saved the API key in the project asset. When an asset still contains one, its inspector shows a warning with a **Move Key to User Settings** button. The button moves the key to your user settings, or keeps the key you already have there, and removes the key from the asset. Builds also log a warning for every project asset that still contains a key. If the asset was ever committed or built with the key, revoke it in Arcweave and create a new one: removing it from the asset doesn't remove it from your version control history or from builds you already shipped.
+Older versions saved the API key in the project asset. When an asset still contains one, its inspector shows a warning, whatever its import source, with a **Move Key to User Settings** button. The button moves the key to your user settings and removes it from the asset. If you already have a key in your user settings or in `ARCWEAVE_API_KEY`, the button is **Remove Key from Asset** and keeps your key instead. Undo can't bring the removed key back. Builds also log a warning for every project asset that still contains a key. If the asset was ever committed or built with the key, revoke it in Arcweave and create a new one: removing it from the asset doesn't remove it from your version control history or from builds you already shipped.
 
 Click the **Import Project** button to begin the import.
 
@@ -137,7 +137,16 @@ After successful import, the Inspector displays:
 
 If you press Play before importing, `ArcweavePlayer` imports the project automatically. You can also import from code with `await aw.ImportProjectAsync()`, or `await aw.EnsureImportedAsync()` to import only when the asset has no playable project yet.
 
-To import from web with an API key that isn't saved in the asset, pass it to the import: `await aw.ImportProjectAsync(apiKey)` or `await aw.EnsureImportedAsync(apiKey)`. The key is used to download the project and its media and is never saved, so it can come from wherever you keep secrets, such as an environment variable or a secrets manager on a build server. A `null` or empty key uses the stored one, as described in [Where the API Key Is Saved](#where-the-api-key-is-saved). If an import is already running, the call joins it and that import keeps the key it started with.
+To import from web with an API key that isn't saved in the asset, pass it to the import: `await aw.ImportProjectAsync(apiKey)` or `await aw.EnsureImportedAsync(apiKey)`. The key is used to download the project and its media and is never saved, so it can come from wherever you keep secrets, such as an environment variable or a secrets manager on a build server. The key is trimmed, and a `null`, empty or blank key uses the stored one, as described in [Where the API Key Is Saved](#where-the-api-key-is-saved). If an import is already running, the call joins it and that import keeps the key it started with.
+
+Importing from code changes the project asset in memory only. In an editor script, for example one a build server runs before building, save the asset after the import so the build and the next editor session use the new project:
+
+```csharp
+// Editor script, eg. run with -executeMethod before building
+await aw.ImportProjectAsync(System.Environment.GetEnvironmentVariable("ARCWEAVE_API_KEY"));
+UnityEditor.EditorUtility.SetDirty(aw);
+UnityEditor.AssetDatabase.SaveAssetIfDirty(aw);
+```
 
 > **Tip:** Treat **From Web** as a development workflow and import the project in the editor before building, so your game doesn't need an API key or a network connection to start. Don't embed your API key in your game to import from web at runtime: anyone with the build can read it.
 

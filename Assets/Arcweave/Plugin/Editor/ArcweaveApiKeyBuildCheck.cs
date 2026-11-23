@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -15,20 +16,19 @@ namespace Arcweave
         public int callbackOrder => 0;
 
         public void OnPreprocessBuild(BuildReport report) {
-            foreach ( var path in AssetsWithSavedApiKey() ) {
-                Debug.LogWarning(string.Format("The Arcweave project asset '{0}' contains an API key, which is included in the build if the game uses the asset. " +
-                    "Select the asset and click 'Move Key to User Settings' in its inspector.", path), AssetDatabase.LoadMainAssetAtPath(path));
+            foreach ( var asset in AssetsWithSavedApiKey() ) {
+                Debug.LogWarning(string.Format("The Arcweave project asset '{0}' in '{1}' contains an API key, which is included in the build if the game uses the asset. " +
+                    "Select the asset and use the button in its inspector to remove the key from the asset.", asset.name, AssetDatabase.GetAssetPath(asset)), asset);
             }
         }
 
-        internal static IEnumerable<string> AssetsWithSavedApiKey() {
-            foreach ( var guid in AssetDatabase.FindAssets("t:ArcweaveProjectAsset") ) {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-                var asset = AssetDatabase.LoadAssetAtPath<ArcweaveProjectAsset>(path);
-#pragma warning disable 618 // Only checks whether the legacy key is still saved
-                if ( asset != null && !string.IsNullOrEmpty(asset.userAPIKey) ) {
-#pragma warning restore 618
-                    yield return path;
+        ///<summary>Every project asset that still contains a key, including several project assets saved in one file.</summary>
+        internal static IEnumerable<ArcweaveProjectAsset> AssetsWithSavedApiKey() {
+            foreach ( var path in AssetDatabase.FindAssets("t:ArcweaveProjectAsset").Select(AssetDatabase.GUIDToAssetPath).Distinct() ) {
+                foreach ( var asset in AssetDatabase.LoadAllAssetsAtPath(path).OfType<ArcweaveProjectAsset>() ) {
+                    if ( ArcweaveUserSettings.HasApiKeySavedInAsset(asset) ) {
+                        yield return asset;
+                    }
                 }
             }
         }
