@@ -7,9 +7,14 @@ namespace Arcweave.Tests
     {
         public string apiUrl;
         public string projectJson;
+        ///<summary>The API key the project json was last downloaded with.</summary>
+        public string fetchedWithApiKey;
 
         protected override string ApiUrl => apiUrl;
 
-        protected override Task<string> FetchProjectJson() => Task.FromResult(projectJson);
+        protected override Task<string> FetchProjectJson(string apiKey) {
+            fetchedWithApiKey = apiKey;
+            return Task.FromResult(projectJson);
+        }
     }
 }

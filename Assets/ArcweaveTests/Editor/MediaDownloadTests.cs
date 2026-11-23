@@ -96,6 +96,74 @@ namespace Arcweave.Tests
         }
 
         [UnityTest]
+        public IEnumerator ApiKeyPassedToTheImportIsUsedForTheProjectAndItsMedia()
+        {
+            asset.downloadMedia = true;
+            asset.userAPIKey = "";
+
+            yield return Await(asset.ImportProjectAsync("passed-key"));
+
+            Assert.That(asset.IsImported, Is.True);
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("passed-key"));
+            Assert.That(server.RequestCount, Is.GreaterThan(0));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer passed-key"));
+            Assert.That(asset.userAPIKey, Is.Empty, "The passed key must not be saved in the asset.");
+        }
+
+        [UnityTest]
+        public IEnumerator ApiKeyPassedToTheImportTakesPriorityOverTheSavedOne()
+        {
+            asset.downloadMedia = true;
+
+            yield return Await(asset.EnsureImportedAsync("passed-key"));
+
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("passed-key"));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer passed-key"));
+            Assert.That(asset.userAPIKey, Is.EqualTo("test-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator EmptyApiKeyPassedToTheImportUsesTheSavedOne()
+        {
+            asset.downloadMedia = true;
+
+            yield return Await(asset.ImportProjectAsync(""));
+
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("test-key"));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer test-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator ImportJoinedWithAnotherApiKeyKeepsTheKeyItStartedWith()
+        {
+            asset.downloadMedia = true;
+            server.Hold();
+            var first = asset.ImportProjectAsync("first-key");
+            yield return WaitUntil(() => server.RequestCount > 0);
+
+            var joined = asset.ImportProjectAsync("second-key");
+            Assert.That(joined, Is.SameAs(first));
+
+            server.Release();
+            yield return Await(joined);
+
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("first-key"));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer first-key"));
+        }
+
+        [Test]
+        public void ImportWithoutAnyApiKeyFails()
+        {
+            asset.userAPIKey = "";
+
+            var import = asset.ImportProjectAsync();
+
+            Assert.That(import.IsFaulted, Is.True);
+            Assert.That(import.Exception.InnerException, Is.TypeOf<InvalidOperationException>());
+            Assert.That(asset.fetchedWithApiKey, Is.Null);
+        }
+
+        [UnityTest]
         public IEnumerator ReimportUpdatesFilesInPlaceAndDeletesUnusedOnes()
         {
             asset.downloadMedia = true;

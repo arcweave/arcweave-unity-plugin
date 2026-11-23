@@ -121,6 +121,8 @@ After successful import, the Inspector displays:
 
 If you press Play before importing, `ArcweavePlayer` imports the project automatically. You can also import from code with `await aw.ImportProjectAsync()`, or `await aw.EnsureImportedAsync()` to import only when the asset has no playable project yet.
 
+To import from web with an API key that isn't saved in the asset, pass it to the import: `await aw.ImportProjectAsync(apiKey)` or `await aw.EnsureImportedAsync(apiKey)`. The key is used to download the project and its media and is never saved, so it can come from wherever you keep secrets, such as an environment variable or a secrets manager on a build server. A `null` or empty key uses the one saved in the asset. If an import is already running, the call joins it and that import keeps the key it started with.
+
 > **Warning:** The API key is saved in the asset and ships with your build. Treat **From Web** as a development workflow and import the project in the editor before building, so your game doesn't need the API key or a network connection to start.
 
 
