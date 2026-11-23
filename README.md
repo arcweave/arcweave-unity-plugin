@@ -121,7 +121,16 @@ After successful import, the Inspector displays:
 
 If you press Play before importing, `ArcweavePlayer` imports the project automatically. You can also import from code with `await aw.ImportProjectAsync()`, or `await aw.EnsureImportedAsync()` to import only when the asset has no playable project yet.
 
-To import from web with an API key that isn't saved in the asset, pass it to the import: `await aw.ImportProjectAsync(apiKey)` or `await aw.EnsureImportedAsync(apiKey)`. The key is used to download the project and its media and is never saved, so it can come from wherever you keep secrets, such as an environment variable or a secrets manager on a build server. A `null` or empty key uses the one saved in the asset. If an import is already running, the call joins it and that import keeps the key it started with.
+To import from web with an API key that isn't saved in the asset, pass it to the import: `await aw.ImportProjectAsync(apiKey)` or `await aw.EnsureImportedAsync(apiKey)`. The key is used to download the project and its media and is never saved, so it can come from wherever you keep secrets, such as an environment variable or a secrets manager on a build server. The key is trimmed, and a `null`, empty or blank key uses the one saved in the asset. If an import is already running, the call joins it and that import keeps the key it started with.
+
+Importing from code changes the project asset in memory only. In an editor script, for example one a build server runs before building, save the asset after the import so the build and the next editor session use the new project:
+
+```csharp
+// Editor script, eg. run with -executeMethod before building
+await aw.ImportProjectAsync(System.Environment.GetEnvironmentVariable("ARCWEAVE_API_KEY"));
+UnityEditor.EditorUtility.SetDirty(aw);
+UnityEditor.AssetDatabase.SaveAssetIfDirty(aw);
+```
 
 > **Warning:** The API key is saved in the asset and ships with your build. Treat **From Web** as a development workflow and import the project in the editor before building, so your game doesn't need the API key or a network connection to start.
 

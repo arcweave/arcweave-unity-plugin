@@ -90,7 +90,7 @@ namespace Arcweave
         ///<summary>Import project from json text file or web, joining the import already running if there is one.
         /// A web import uses the given API key to download the project and its media instead of the one saved in the asset,
         /// so the key can come from anywhere, eg. a secrets manager on a build server. The key is not saved in the asset.
-        /// A null or empty key uses the one saved in the asset. An import that is already running keeps the key it started with.
+        /// The key is trimmed, and a null, empty or blank key uses the one saved in the asset. An import that is already running keeps the key it started with.
         /// Faults if the import source is not configured, the download fails or the json cannot be parsed.
         /// On failure the previously imported project is kept.</summary>
         public Task ImportProjectAsync(string apiKey) {
@@ -121,8 +121,10 @@ namespace Arcweave
                 }
                 json = projectJsonFile.text;
             } else {
+                // Secrets read from files or environment variables often end with a newline, which is not valid in a header
+                apiKey = apiKey?.Trim();
                 if ( string.IsNullOrEmpty(apiKey) ) {
-                    apiKey = userAPIKey;
+                    apiKey = userAPIKey?.Trim();
                 }
                 if ( string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(projectHash) ) {
                     throw new InvalidOperationException("Importing from web requires both an API Key and a Project Hash.");
@@ -206,9 +208,16 @@ namespace Arcweave
             }
             var requestUrl = builder.ToString();
             var request = UnityWebRequest.Get(requestUrl);
-            request.SetRequestHeader("Authorization", string.Format("Bearer {0}", apiKey));
-            request.SetRequestHeader("Accept", "application/json");
-            var requestOperation = request.SendWebRequest();
+            UnityWebRequestAsyncOperation requestOperation;
+            try {
+                request.SetRequestHeader("Authorization", string.Format("Bearer {0}", apiKey));
+                request.SetRequestHeader("Accept", "application/json");
+                requestOperation = request.SendWebRequest();
+            }
+            catch {
+                request.Dispose();
+                throw;
+            }
             requestOperation.completed += (op) =>
             {
                 var responseCode = request.responseCode;
