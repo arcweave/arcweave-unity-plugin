@@ -16,7 +16,10 @@ namespace Arcweave
         public ImportSource importSource;
         [HideInInspector]
         public TextAsset projectJsonFile;
+        ///<summary>The API key older versions of the plugin saved in the asset, which commits it to version control and includes it in builds.
+        /// Still used by web imports when no other key is found. Kept serialized so the inspector can move it to the user settings and clear it.</summary>
         [HideInInspector]
+        [Obsolete("The API key is no longer saved in the project asset. In the editor, enter it in the inspector to save it in UserSettings, or set the ARCWEAVE_API_KEY environment variable. From code, pass it to ImportProjectAsync(apiKey).")]
         public string userAPIKey;
         [HideInInspector]
         public string projectHash;
@@ -88,9 +91,10 @@ namespace Arcweave
         public Task ImportProjectAsync() => ImportProjectAsync(null);
 
         ///<summary>Import project from json text file or web, joining the import already running if there is one.
-        /// A web import uses the given API key to download the project and its media instead of the one saved in the asset,
-        /// so the key can come from anywhere, eg. a secrets manager on a build server. The key is not saved in the asset.
-        /// A null or empty key uses the one saved in the asset. An import that is already running keeps the key it started with.
+        /// A web import uses the given API key to download the project and its media, so the key can come from anywhere,
+        /// eg. a secrets manager on a build server. The key is never saved.
+        /// A null or empty key uses the stored one: in the editor, the key in the user settings, then the ARCWEAVE_API_KEY environment variable,
+        /// then a key saved in the asset by an older version of the plugin. An import that is already running keeps the key it started with.
         /// Faults if the import source is not configured, the download fails or the json cannot be parsed.
         /// On failure the previously imported project is kept.</summary>
         public Task ImportProjectAsync(string apiKey) {
@@ -121,11 +125,16 @@ namespace Arcweave
                 }
                 json = projectJsonFile.text;
             } else {
-                if ( string.IsNullOrEmpty(apiKey) ) {
-                    apiKey = userAPIKey;
+                if ( string.IsNullOrEmpty(projectHash) ) {
+                    throw new InvalidOperationException("Importing from web requires a Project Hash.");
                 }
-                if ( string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(projectHash) ) {
-                    throw new InvalidOperationException("Importing from web requires both an API Key and a Project Hash.");
+                if ( string.IsNullOrEmpty(apiKey) ) {
+                    apiKey = StoredApiKey(true);
+                }
+                if ( string.IsNullOrEmpty(apiKey) ) {
+                    throw new InvalidOperationException(Application.isEditor
+                        ? "Importing from web requires an API Key. Enter it in the project asset's inspector, set the " + API_KEY_ENVIRONMENT_VARIABLE + " environment variable, or pass it to ImportProjectAsync(apiKey)."
+                        : "Importing from web in a build requires an API Key passed to ImportProjectAsync(apiKey). Import the project in the editor before building so the game doesn't need one.");
                 }
                 json = await FetchProjectJson(apiKey);
             }
@@ -135,6 +144,29 @@ namespace Arcweave
             await LinkMedia(project, apiKey);
             Project = project;
             Debug.Log("Done");
+        }
+
+        internal const string API_KEY_ENVIRONMENT_VARIABLE = "ARCWEAVE_API_KEY";
+
+        ///<summary>The API key a web import uses when none is passed to it. In the editor, the key in the user settings,
+        /// then the ARCWEAVE_API_KEY environment variable. Then, also in builds, a key saved in the asset by an older version of the plugin.
+        /// Empty if there is none.</summary>
+        internal string StoredApiKey(bool warnIfSavedInAsset = false) {
+#if UNITY_EDITOR
+            var key = ArcweaveUserSettings.ResolveApiKey();
+            if ( !string.IsNullOrEmpty(key) ) {
+                return key;
+            }
+#endif
+#pragma warning disable 618 // The legacy key still works so existing projects keep importing
+            if ( !string.IsNullOrEmpty(userAPIKey) ) {
+                if ( warnIfSavedInAsset ) {
+                    Debug.LogWarning(string.Format("The Arcweave project asset '{0}' imports with an API key saved in the asset, which commits it to version control and includes it in builds. Select the asset and click 'Move Key to User Settings' in its inspector.", name), this);
+                }
+                return userAPIKey;
+            }
+#pragma warning restore 618
+            return "";
         }
 
         //...

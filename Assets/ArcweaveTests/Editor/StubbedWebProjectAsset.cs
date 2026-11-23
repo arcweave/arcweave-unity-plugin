@@ -10,7 +10,8 @@ namespace Arcweave.Tests
         ///<summary>The API key the project json was last downloaded with.</summary>
         public string fetchedWithApiKey;
 
-        protected override string ApiUrl => apiUrl;
+        // protected internal, since the plugin makes its internals visible to the tests
+        protected internal override string ApiUrl => apiUrl;
 
         protected override Task<string> FetchProjectJson(string apiKey) {
             fetchedWithApiKey = apiKey;

@@ -100,6 +100,22 @@ Choose your import source:
 - **From Json**: Drag your `project.json` file into the "Project Json File" field.
 - **From Web**: Enter your **API Key** and **Project Hash**. Optionally enable **Download Media** to download the project's images and audio.
 
+### Where the API Key Is Saved
+
+The API key is not saved in the project asset, so it isn't committed to version control or included in your builds. The **API Key** field saves it for you only, in `UserSettings/ArcweaveSettings.json` in your Unity project folder. Each developer enters their own key, and every project asset in the Unity project uses it. Unity's `.gitignore` template already excludes the `UserSettings` folder. If your project doesn't use it, add `/UserSettings/` to your `.gitignore` (or your version control's ignore list).
+
+When no key is passed to the import, a web import looks for one in this order:
+
+1. The key in `UserSettings/ArcweaveSettings.json` (the **API Key** field).
+2. The `ARCWEAVE_API_KEY` environment variable, for example on a build server. The inspector tells you when it is used.
+3. A key saved in the project asset by an older version of the plugin. The import logs a warning.
+
+These are only available in the Unity Editor. To import from web in a build, pass the key to the import (see below).
+
+#### Upgrading from an older version
+
+Older versions saved the API key in the project asset. When an asset still contains one, its inspector shows a warning with a **Move Key to User Settings** button. The button moves the key to your user settings, or keeps the key you already have there, and removes the key from the asset. Builds also log a warning for every project asset that still contains a key. If the asset was ever committed or built with the key, revoke it in Arcweave and create a new one: removing it from the asset doesn't remove it from your version control history or from builds you already shipped.
+
 Click the **Import Project** button to begin the import.
 
 ### Media Downloaded from Web
@@ -121,9 +137,9 @@ After successful import, the Inspector displays:
 
 If you press Play before importing, `ArcweavePlayer` imports the project automatically. You can also import from code with `await aw.ImportProjectAsync()`, or `await aw.EnsureImportedAsync()` to import only when the asset has no playable project yet.
 
-To import from web with an API key that isn't saved in the asset, pass it to the import: `await aw.ImportProjectAsync(apiKey)` or `await aw.EnsureImportedAsync(apiKey)`. The key is used to download the project and its media and is never saved, so it can come from wherever you keep secrets, such as an environment variable or a secrets manager on a build server. A `null` or empty key uses the one saved in the asset. If an import is already running, the call joins it and that import keeps the key it started with.
+To import from web with an API key that isn't saved in the asset, pass it to the import: `await aw.ImportProjectAsync(apiKey)` or `await aw.EnsureImportedAsync(apiKey)`. The key is used to download the project and its media and is never saved, so it can come from wherever you keep secrets, such as an environment variable or a secrets manager on a build server. A `null` or empty key uses the stored one, as described in [Where the API Key Is Saved](#where-the-api-key-is-saved). If an import is already running, the call joins it and that import keeps the key it started with.
 
-> **Warning:** The API key is saved in the asset and ships with your build. Treat **From Web** as a development workflow and import the project in the editor before building, so your game doesn't need the API key or a network connection to start.
+> **Tip:** Treat **From Web** as a development workflow and import the project in the editor before building, so your game doesn't need an API key or a network connection to start. Don't embed your API key in your game to import from web at runtime: anyone with the build can read it.
 
 
 ---
@@ -800,7 +816,7 @@ project.Initialize();
 
 **Solution:**
 - **From Json mode:** Drag a TextAsset (.json file) into the "Project Json File" field
-- **From Web mode:** Fill in both API Key AND Project Hash fields
+- **From Web mode:** Fill in the Project Hash field, and the API Key field unless the key is in the `ARCWEAVE_API_KEY` environment variable. The API key is saved in `UserSettings`, so each developer enters their own.
 - Ensure the JSON file is valid (open it in a text editor to verify it's not corrupted)
 
 ---

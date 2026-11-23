@@ -18,6 +18,12 @@ Unity -batchmode -nographics -projectPath <project-path> -runTests -testPlatform
 
 They cover the API key the project and its media are downloaded with (a key passed to the import, its priority over the key saved in the asset, an empty key, an import joined with another key and an import without any key), media being disabled by default, the project being published only after its media is linked, in-place updates and cleanup on reimport, failed and rate-limited downloads, read-only files, files moved during a download, keeping media when an import cannot download it, disabling media downloads, asset ids that are not valid file names, unsaved project asset instances, and files that could not be deleted.
 
+## API key tests
+
+`Arcweave.Tests.ApiKeyTests` checks where a web import finds its API key: the key in the user settings, the `ARCWEAVE_API_KEY` environment variable, and a key saved in the asset by an older version of the plugin, in that order, and the error when there is none. They also cover moving a key out of the asset (to the user settings, or keeping the key already there), checking that it is removed from the saved asset file, and the build check that finds assets still containing one.
+
+Every test that imports from web uses `TemporaryUserSettings`, which points the user settings at a temporary file and clears `ARCWEAVE_API_KEY` for the test, so the tests never read or change your own API key.
+
 ## Omitted lists tests
 
 `Arcweave.Tests.OmittedListsTests` imports a project whose empty lists are omitted, as Arcweave exports them (for example, an ending element has no `outputs`), or `null`. They cover element outputs, components and attributes; board jumpers, notes and attributes; component attributes; component-list attribute data; and branch else-if and else conditions, through `ProjectMaker` and through `ImportProject` from json.

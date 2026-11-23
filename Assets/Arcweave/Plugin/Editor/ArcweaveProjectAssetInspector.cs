@@ -73,6 +73,42 @@ namespace Arcweave
             return ( showGlobals || showBoards || showComponents );
         }
 
+        private const string API_KEY_TOOLTIP = "Your Arcweave API key. It is saved for you only, in this Unity project's UserSettings folder, " +
+            "which is not included in builds and is excluded from version control by Unity's .gitignore template. It is shared by every project asset of this Unity project.";
+
+        // The API key is saved in the user settings, never in the asset, so editing it doesn't mark the asset dirty.
+        void DrawApiKey() {
+            var key = ArcweaveUserSettings.ApiKey;
+            EditorGUI.BeginChangeCheck();
+            key = EditorGUILayout.PasswordField(new GUIContent("API Key", API_KEY_TOOLTIP), key);
+            if ( EditorGUI.EndChangeCheck() ) {
+                try {
+                    ArcweaveUserSettings.ApiKey = key;
+                }
+                catch ( System.Exception e ) {
+                    Debug.LogError("Could not save the Arcweave API key in the user settings: " + e.Message);
+                }
+            }
+
+            if ( string.IsNullOrEmpty(ArcweaveUserSettings.ApiKey) && !string.IsNullOrEmpty(ArcweaveUserSettings.EnvironmentApiKey) ) {
+                EditorGUILayout.HelpBox("Using the API key from the " + ArcweaveUserSettings.API_KEY_ENVIRONMENT_VARIABLE + " environment variable.", MessageType.Info);
+            }
+
+#pragma warning disable 618 // The legacy key is only checked to offer moving it out of the asset
+            if ( string.IsNullOrEmpty(aw.userAPIKey) ) {
+                return;
+            }
+#pragma warning restore 618
+            var hasOwnKey = !string.IsNullOrEmpty(ArcweaveUserSettings.ApiKey);
+            EditorGUILayout.HelpBox("This asset contains an API key saved by an older version of the plugin. " +
+                "Anyone with access to your version control or your builds can read it. " +
+                ( hasOwnKey ? "Remove it from the asset; your own key in the user settings is used instead." : "Move it to your user settings to remove it from the asset." ) +
+                " If the asset was committed or built, also revoke the key in Arcweave and create a new one.", MessageType.Warning);
+            if ( GUILayout.Button(hasOwnKey ? "Remove Key from Asset" : "Move Key to User Settings") ) {
+                ArcweaveUserSettings.MoveApiKeyOutOfAsset(aw);
+            }
+        }
+
         public override void OnInspectorGUI() {
             // base.OnInspectorGUI() and serializedObject.Update() are deliberately not used: they serialize the whole asset,
             // which calls Variable.OnBeforeSerialize() on every variable of the imported project each time the inspector is drawn.
@@ -89,15 +125,16 @@ namespace Arcweave
             }
 
             var fromJson = aw.importSource == ArcweaveProjectAsset.ImportSource.FromJson && aw.projectJsonFile != null;
-            var fromWeb = aw.importSource == ArcweaveProjectAsset.ImportSource.FromWeb && !string.IsNullOrEmpty(aw.userAPIKey) && !string.IsNullOrEmpty(aw.projectHash);
+            var fromWeb = aw.importSource == ArcweaveProjectAsset.ImportSource.FromWeb && !string.IsNullOrEmpty(aw.StoredApiKey()) && !string.IsNullOrEmpty(aw.projectHash);
             var text = "Import Project " + aw.importSource;
 
             using (var group = new EditorGUILayout.FadeGroupScope(aw.importSource == ArcweaveProjectAsset.ImportSource.FromWeb ? 1f : 0f))
             {
                 if (group.visible)
                 {
+                    DrawApiKey();
+
                     EditorGUI.BeginChangeCheck();
-                    aw.userAPIKey = EditorGUILayout.TextField(new GUIContent("User API Key", "Your Arcweave User API Key"), aw.userAPIKey);
                     aw.projectHash = EditorGUILayout.TextField(new GUIContent("Project Hash", "The Arcweave Project Hash"), aw.projectHash);
                     aw.locale = EditorGUILayout.TextField(new GUIContent("Language ISO", "The ISO of the language"), aw.locale);
                     
