@@ -10,6 +10,10 @@ All notable changes to this project will be documented in this file.
 - Saving and loading with the demo `ArcweavePlayer` now need an `ArcweaveSaveHandler` assigned to its **Save Handler** field. Without one, `RequestSave()`/`RequestLoad()` and the obsolete `Save()`/`Load()` wrappers only log a warning and do nothing. In 3.x, `Save()` and `Load()` wrote and read PlayerPrefs directly, so an upgraded scene without a handler still compiles but its save and load operations stop working.
 - `ArcweavePlayer` now runs the element's content script (`RunContentScript()`) itself, before raising `onElementEnter`. A custom UI that still calls `e.RunContentScript()` in its `onElementEnter` handler, as the 3.x demo UI and README did, runs every script twice (for example `gold = gold + 10` adds 20). Remove that call and only read `RuntimeContent`.
 
+### Added
+
+- Added `Inputs` to `Element`, `Branch` and `Jumper`: the connections that end at them, ordered by board and then by their source's outputs. They are the same `Connection` objects as in their source's `Outputs`, so `input.Source` is the element or branch condition the connection starts from. Inputs are not serialized: they are linked when the project is made and when it is initialized, so existing project assets have them without reimporting.
+
 ### Changed
 
 - Saves capture variables and visit counts from when the current element was entered, before its content script runs. Changes made by game code while the element is on screen are not included in a save made at that point.

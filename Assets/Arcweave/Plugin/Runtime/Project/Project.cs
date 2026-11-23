@@ -41,6 +41,50 @@ namespace Arcweave.Project
             this.Boards = boards;
             this.components = components;
             GlobalVariables = variables;
+            LinkInputs();
+        }
+
+        ///<summary>Sets the Inputs of every element, branch and jumper from the outputs of the elements and branch conditions on the boards.
+        /// Inputs are not serialized, so they are linked again when the project is made and when it is initialized.</summary>
+        internal void LinkInputs() {
+            var inputs = new Dictionary<INode, List<Connection>>();
+            void Add(Connection connection) {
+                // Unity deserializes a missing connection as an instance without an id
+                if ( connection == null || !connection.isValid || connection.Target == null ) { return; }
+                if ( !inputs.TryGetValue(connection.Target, out var list) ) {
+                    inputs[connection.Target] = list = new List<Connection>();
+                }
+                if ( !list.Contains(connection) ) { list.Add(connection); }
+            }
+
+            if ( Boards == null ) { return; }
+            foreach ( var board in Boards ) {
+                if ( board?.Nodes == null ) { continue; }
+                foreach ( var node in board.Nodes ) {
+                    if ( node is Element element && element.Outputs != null ) {
+                        foreach ( var output in element.Outputs ) { Add(output); }
+                    } else if ( node is Condition condition ) {
+                        Add(condition.Output);
+                    }
+                }
+            }
+
+            // Nodes without inputs get an empty list, so they are not linked again each time their Inputs are read
+            foreach ( var board in Boards ) {
+                if ( board?.Nodes == null ) { continue; }
+                foreach ( var node in board.Nodes ) {
+                    if ( node != null && !inputs.ContainsKey(node) ) { SetInputs(node, new List<Connection>()); }
+                }
+            }
+            foreach ( var pair in inputs ) {
+                SetInputs(pair.Key, pair.Value);
+            }
+        }
+
+        static void SetInputs(INode node, List<Connection> inputs) {
+            if ( node is Element element ) { element.SetInputs(inputs); }
+            else if ( node is Branch branch ) { branch.SetInputs(inputs); }
+            else if ( node is Jumper jumper ) { jumper.SetInputs(inputs); }
         }
 
         ///----------------------------------------------------------------------------------------------
@@ -49,6 +93,7 @@ namespace Arcweave.Project
         public void Initialize() {
             ResetVariablesToDefaultValues();
             ResetVisits();
+            LinkInputs();
 
             foreach ( var board in Boards ) {
                 board.InitializeInProject(this);

@@ -33,6 +33,20 @@ namespace Arcweave.Project
         [field: SerializeField]
         public List<Connection> Outputs { get; private set; }
 
+        [System.NonSerialized] private List<Connection> inputs;
+
+        ///<summary>The connections that end at this element, in the order of the boards and of their source's outputs.
+        /// Like Outputs, they are the connections themselves: the Source of an input is the element or branch condition it starts from,
+        /// and the same connection is in its source's Outputs. Connections that end at a jumper are inputs of the jumper, not of the element it jumps to.</summary>
+        public IReadOnlyList<Connection> Inputs {
+            get {
+                if ( inputs == null && Project != null ) { Project.LinkInputs(); }
+                return inputs ?? (IReadOnlyList<Connection>)System.Array.Empty<Connection>();
+            }
+        }
+
+        internal void SetInputs(List<Connection> inputs) => this.inputs = inputs;
+
         public Project Project { get; private set; }
         // private System.Func<Project, string> runtimeContentFunc { get; set; }
 

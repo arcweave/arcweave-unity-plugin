@@ -18,6 +18,10 @@ Unity -batchmode -nographics -projectPath <project-path> -runTests -testPlatform
 
 They cover media being disabled by default, the project being published only after its media is linked, in-place updates and cleanup on reimport, failed and rate-limited downloads, read-only files, files moved during a download, keeping media when an import cannot download it, disabling media downloads, asset ids that are not valid file names, unsaved project asset instances, and files that could not be deleted.
 
+## Inputs tests
+
+`Arcweave.Tests.ElementInputsTests` imports a project where an element has inputs from another element and from a branch condition, a branch has an input, and a jumper to that element has its own input. They cover the order of the inputs, that they are the same connections as their source's outputs, that a connection to a jumper is an input of the jumper and not of its target, and that inputs are linked again when a project asset is deserialized.
+
 ## Omitted lists tests
 
 `Arcweave.Tests.OmittedListsTests` imports a project whose empty lists are omitted, as Arcweave exports them (for example, an ending element has no `outputs`), or `null`. They cover element outputs, components and attributes; board jumpers, notes and attributes; component attributes; component-list attribute data; and branch else-if and else conditions, through `ProjectMaker` and through `ImportProject` from json.
