@@ -750,7 +750,7 @@ namespace Arcweave.Tests
         [UnityTest]
         public IEnumerator FileSavedAtAPlannedPathDuringAMoveIsNeverOverwritten()
         {
-            // The hero is still named after its asset id by 3.1.0, so it is moved, while the cover needs a new file, in either order
+            // The hero is still named after its asset id by 3.1.0, so it is moved, while the cover needs a new file. The cover is planned first
             asset.downloadMedia = true;
             yield return Import();
             var heroPath = Path(Hero().downloadedImage);
