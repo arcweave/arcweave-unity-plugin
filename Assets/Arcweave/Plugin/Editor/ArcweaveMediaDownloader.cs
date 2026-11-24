@@ -206,8 +206,10 @@ namespace Arcweave
                 return folder == "" ? null : UniquePath(folder + "/" + fileNames[id], claimedPaths);
             }
 
+            // Files are written and imported in one batch. A new file only replaces the previous copy once the batch is done and
+            // it is checked, and unused files are only deleted after that, so a broken or replaced download never loses a working file.
             var saved = 0;
-            var undeleted = new List<ArcweaveProjectAsset.DownloadedMedia>();
+            var newFiles = new Dictionary<string, string>();
             AssetDatabase.StartAssetEditing();
             try {
                 foreach ( var target in targets ) {
@@ -226,10 +228,10 @@ namespace Arcweave
                         }
                         if ( target.IsOwned ) {
                             keptGuids[id] = target.ownedGuid;
+                            saved++;
                         } else {
-                            paths[id] = path;
+                            newFiles[id] = path;
                         }
-                        saved++;
                     }
                     catch ( Exception e ) {
                         // Eg. a read-only file checked in to version control
@@ -241,8 +243,36 @@ namespace Arcweave
                 foreach ( var id in downloads.Keys.Where(id => !targetIds.Contains(id)) ) {
                     if ( previousGuids.TryGetValue(id, out var previousGuid) ) { keptGuids[id] = previousGuid; }
                 }
+            }
+            finally {
+                AssetDatabase.StopAssetEditing();
+            }
 
-                var linkedGuids = new HashSet<string>(keptGuids.Values);
+            // A new file is only used and owned if it still holds what was written and Unity can load it: a callback of another
+            // editor extension may have moved it and saved another file at its path while it was imported, and a broken download
+            // can't be loaded. Otherwise the asset keeps its previous copy, and a file that isn't the download is left alone.
+            foreach ( var file in newFiles ) {
+                var id = file.Key;
+                var path = file.Value;
+                var isDownload = File.Exists(path) && File.ReadAllBytes(path).SequenceEqual(downloads[id]);
+                if ( isDownload && LoadMedia(id, path, covers) != null ) {
+                    paths[id] = path;
+                    saved++;
+                    continue;
+                }
+                if ( isDownload ) {
+                    Debug.LogWarning($"Could not load '{names[id]}' from {path}, so it keeps its previous copy.");
+                    if ( !AssetDatabase.DeleteAsset(path) ) { Debug.LogWarning($"Could not delete {path}."); }
+                } else {
+                    Debug.LogWarning($"The file at {path} changed while '{names[id]}' was imported, so it is left alone and '{names[id]}' keeps its previous copy.");
+                }
+                if ( previousGuids.TryGetValue(id, out var previousGuid) ) { keptGuids[id] = previousGuid; }
+            }
+
+            var undeleted = new List<ArcweaveProjectAsset.DownloadedMedia>();
+            var linkedGuids = new HashSet<string>(keptGuids.Values);
+            AssetDatabase.StartAssetEditing();
+            try {
                 foreach ( var media in owned.GroupBy(media => media.guid).Select(group => group.First()) ) {
                     var path = OwnedPath(media.guid);
                     if ( path == null || linkedGuids.Contains(media.guid) ) { continue; }
@@ -296,6 +326,11 @@ namespace Arcweave
         static string OwnedPath(string guid) {
             var path = AssetDatabase.GUIDToAssetPath(guid);
             return !string.IsNullOrEmpty(path) && File.Exists(path) ? path : null;
+        }
+
+        ///<summary>Loads the downloaded file of an Arcweave asset as an image for covers or as audio, or returns null if Unity can't.</summary>
+        static UnityEngine.Object LoadMedia(string id, string path, Dictionary<string, List<Cover>> covers) {
+            return covers.ContainsKey(id) ? (UnityEngine.Object)AssetDatabase.LoadAssetAtPath<Texture2D>(path) : AssetDatabase.LoadAssetAtPath<AudioClip>(path);
         }
 
         ///<summary>True if the file is still where and how 3.1.0 saved it: in the media folder, named after its asset id with a
@@ -404,18 +439,30 @@ namespace Arcweave
             return Math.Min(Math.Max(1, seconds), MAX_RETRY_SECONDS);
         }
 
-        ///<summary>Writes the file through a temporary file, so a failed write never leaves it truncated. Replacing keeps its .meta and GUID.
-        /// A new file is only created: it fails instead of replacing a file that appeared at the path since it was checked.</summary>
+        ///<summary>Writes the file. A new file is created only if nothing is at its path, in one step, so it can never replace a file that
+        /// appeared there since the path was checked; a failed write deletes it. An owned file is replaced through a temporary file,
+        /// so a failed write never leaves it truncated, and replacing keeps its .meta and GUID.</summary>
         static void WriteFile(string path, byte[] bytes, bool replace) {
+            if ( !replace ) {
+                var created = false;
+                try {
+                    using ( var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None) ) {
+                        created = true;
+                        stream.Write(bytes, 0, bytes.Length);
+                    }
+                }
+                catch {
+                    if ( created ) { TryDeleteFile(path); }
+                    throw;
+                }
+                return;
+            }
+
             Directory.CreateDirectory("Temp");
             var temporaryPath = System.IO.Path.Combine("Temp", "ArcweaveMedia-" + Guid.NewGuid().ToString("N") + System.IO.Path.GetExtension(path));
             try {
                 File.WriteAllBytes(temporaryPath, bytes);
-                if ( replace ) {
-                    File.Replace(temporaryPath, path, null);
-                } else {
-                    File.Move(temporaryPath, path);
-                }
+                File.Replace(temporaryPath, path, null);
             }
             finally {
                 if ( File.Exists(temporaryPath) ) { TryDeleteFile(temporaryPath); }

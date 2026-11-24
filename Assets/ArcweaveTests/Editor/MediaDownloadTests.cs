@@ -603,6 +603,59 @@ namespace Arcweave.Tests
         }
 
         [UnityTest]
+        public IEnumerator ExtensionChangeWithADownloadUnityCannotLoadKeepsThePreviousFile()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var pngPath = Path(Cover().downloadedImage);
+            var pngBytes = File.ReadAllBytes(pngPath);
+
+            asset.projectJson = ProjectJson(coverName: "Portrait.jpg");
+            server.SetFile(CoverId, Encoding.UTF8.GetBytes("not an image"));
+            LogAssert.ignoreFailingMessages = true;
+            yield return Import();
+            LogAssert.ignoreFailingMessages = false;
+
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(pngPath));
+            Assert.That(File.ReadAllBytes(pngPath), Is.EqualTo(pngBytes));
+            Assert.That(File.Exists(MediaFolder + "/Portrait.jpg"), Is.False);
+        }
+
+        [UnityTest]
+        public IEnumerator FileSavedAtANewPathWhileItIsImportedIsNeverOwnedOrDeleted()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var pngPath = Path(Cover().downloadedImage);
+            var jpgPath = MediaFolder + "/Portrait.jpg";
+            var userFile = Jpg(Color.yellow);
+            ImportCallback.onPostprocessAllAssets = imported => {
+                // Eg. another editor extension or a sync tool saving its own file at the path while the download is imported
+                if ( imported.Contains(jpgPath) && File.Exists(jpgPath) && !File.ReadAllBytes(jpgPath).SequenceEqual(userFile) ) {
+                    File.WriteAllBytes(jpgPath, userFile);
+                }
+            };
+
+            try {
+                asset.projectJson = ProjectJson(coverName: "Portrait.jpg");
+                server.SetFile(CoverId, Jpg(Color.blue));
+                LogAssert.Expect(LogType.Warning, new Regex(@"^The file at .*Portrait\.jpg changed while 'Portrait\.jpg' was imported"));
+                yield return Import();
+            }
+            finally {
+                ImportCallback.onPostprocessAllAssets = null;
+            }
+
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(pngPath));
+            Assert.That(File.ReadAllBytes(jpgPath), Is.EqualTo(userFile));
+
+            // The file was never owned, so an import that doesn't use it leaves it alone
+            asset.projectJson = ProjectJson(withMusic: false);
+            yield return Import();
+            Assert.That(File.ReadAllBytes(jpgPath), Is.EqualTo(userFile));
+        }
+
+        [UnityTest]
         public IEnumerator MediaDownloadedByVersion310IsRenamedOnceKeepingItsGuid()
         {
             // The media folder of 3.1.0: files named after their asset ids, tracked by GUID
