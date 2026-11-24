@@ -136,7 +136,7 @@ namespace Arcweave
                 }
             }
 
-            // The owned file each asset stays linked to, by GUID, and the paths of new files. Owned files are found by GUID
+            // The file each asset is linked to, by GUID: its previous file or its verified new file. Files are found by GUID
             // whenever they are used, since callbacks of other editor extensions can move files during the import.
             // A previous file is kept when its replacement cannot be downloaded or saved, so a failed import does not remove media.
             var keptGuids = new Dictionary<string, string>();
@@ -251,20 +251,27 @@ namespace Arcweave
             // A new file is only used and owned if it still holds what was written and Unity can load it: a callback of another
             // editor extension may have moved it and saved another file at its path while it was imported, and a broken download
             // can't be loaded. Otherwise the asset keeps its previous copy, and a file that isn't the download is left alone.
+            // From here on, a verified new file is found by its GUID like the previous files, since callbacks may still move it.
             foreach ( var file in newFiles ) {
                 var id = file.Key;
                 var path = file.Value;
-                var isDownload = File.Exists(path) && File.ReadAllBytes(path).SequenceEqual(downloads[id]);
-                if ( isDownload && LoadMedia(id, path, covers) != null ) {
-                    paths[id] = path;
-                    saved++;
-                    continue;
+                try {
+                    var isDownload = File.Exists(path) && File.ReadAllBytes(path).SequenceEqual(downloads[id]);
+                    if ( isDownload && LoadMedia(id, path, covers) != null ) {
+                        keptGuids[id] = AssetDatabase.AssetPathToGUID(path);
+                        saved++;
+                        continue;
+                    }
+                    if ( isDownload ) {
+                        Debug.LogWarning($"Could not load '{names[id]}' from {path}, so it keeps its previous copy.");
+                        if ( !AssetDatabase.DeleteAsset(path) ) { Debug.LogWarning($"Could not delete {path}."); }
+                    } else {
+                        Debug.LogWarning($"The file at {path} changed while '{names[id]}' was imported, so it is left alone and '{names[id]}' keeps its previous copy.");
+                    }
                 }
-                if ( isDownload ) {
-                    Debug.LogWarning($"Could not load '{names[id]}' from {path}, so it keeps its previous copy.");
-                    if ( !AssetDatabase.DeleteAsset(path) ) { Debug.LogWarning($"Could not delete {path}."); }
-                } else {
-                    Debug.LogWarning($"The file at {path} changed while '{names[id]}' was imported, so it is left alone and '{names[id]}' keeps its previous copy.");
+                catch ( Exception e ) {
+                    // Eg. another program holding the file open. The file is not owned, so it is left alone.
+                    Debug.LogWarning($"Could not check '{names[id]}' at {path}, so it keeps its previous copy: {e.Message}");
                 }
                 if ( previousGuids.TryGetValue(id, out var previousGuid) ) { keptGuids[id] = previousGuid; }
             }

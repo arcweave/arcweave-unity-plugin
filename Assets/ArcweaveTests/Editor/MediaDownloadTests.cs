@@ -629,7 +629,7 @@ namespace Arcweave.Tests
             var pngPath = Path(Cover().downloadedImage);
             var jpgPath = MediaFolder + "/Portrait.jpg";
             var userFile = Jpg(Color.yellow);
-            ImportCallback.onPostprocessAllAssets = imported => {
+            ImportCallback.onPostprocessAllAssets = (imported, deleted) => {
                 // Eg. another editor extension or a sync tool saving its own file at the path while the download is imported
                 if ( imported.Contains(jpgPath) && File.Exists(jpgPath) && !File.ReadAllBytes(jpgPath).SequenceEqual(userFile) ) {
                     File.WriteAllBytes(jpgPath, userFile);
@@ -653,6 +653,80 @@ namespace Arcweave.Tests
             asset.projectJson = ProjectJson(withMusic: false);
             yield return Import();
             Assert.That(File.ReadAllBytes(jpgPath), Is.EqualTo(userFile));
+        }
+
+        [UnityTest]
+        public IEnumerator NewFileMovedAfterItIsCheckedStaysLinkedByItsGuid()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var pngPath = Path(Cover().downloadedImage);
+            var jpgPath = MediaFolder + "/Portrait.jpg";
+            var movedPath = MediaFolder + "/Moved.jpg";
+            var userFile = Jpg(Color.yellow);
+            ImportCallback.onPostprocessAllAssets = (imported, deleted) => {
+                // Eg. another editor extension reacting to the deletion of the previous file by moving the new one and saving its own file
+                if ( deleted.Contains(pngPath) && File.Exists(jpgPath) && !File.Exists(movedPath) ) {
+                    Assert.That(AssetDatabase.MoveAsset(jpgPath, movedPath), Is.Empty);
+                    File.WriteAllBytes(jpgPath, userFile);
+                    AssetDatabase.ImportAsset(jpgPath);
+                }
+            };
+
+            try {
+                asset.projectJson = ProjectJson(coverName: "Portrait.jpg");
+                server.SetFile(CoverId, Jpg(Color.blue));
+                yield return Import();
+            }
+            finally {
+                ImportCallback.onPostprocessAllAssets = null;
+            }
+
+            Assert.That(File.Exists(pngPath), Is.False);
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(movedPath));
+            Assert.That(File.ReadAllBytes(jpgPath), Is.EqualTo(userFile));
+
+            // The file at the new file's old path was never owned, so an import that no longer uses the cover's file leaves it alone
+            asset.projectJson = ProjectJson();
+            yield return Import();
+            Assert.That(File.Exists(movedPath), Is.False);
+            Assert.That(File.ReadAllBytes(jpgPath), Is.EqualTo(userFile));
+        }
+
+        // A file held open without sharing can't be read on Windows; Mono on Linux and macOS doesn't enforce it between programs.
+        [UnityTest, UnityPlatform(RuntimePlatform.WindowsEditor)]
+        public IEnumerator NewFileThatCannotBeCheckedKeepsThePreviousFileAndTheRestIsStillLinked()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            var pngPath = Path(Cover().downloadedImage);
+            var jpgPath = MediaFolder + "/Portrait.jpg";
+            FileStream lockedFile = null;
+            ImportCallback.onPostprocessAllAssets = (imported, deleted) => {
+                // Eg. another program opening the new file without sharing it right after it is imported
+                if ( lockedFile == null && imported.Contains(jpgPath) ) {
+                    lockedFile = new FileStream(jpgPath, FileMode.Open, FileAccess.Read, FileShare.None);
+                }
+            };
+
+            try {
+                asset.projectJson = ProjectJson(coverName: "Portrait.jpg");
+                server.SetFile(CoverId, Jpg(Color.blue));
+                server.SetFile(MusicId, Wav(300));
+                LogAssert.ignoreFailingMessages = true;
+                LogAssert.Expect(LogType.Warning, new Regex(@"^Could not check 'Portrait\.jpg' at .*Portrait\.jpg, so it keeps its previous copy"));
+                yield return Import();
+                LogAssert.ignoreFailingMessages = false;
+            }
+            finally {
+                ImportCallback.onPostprocessAllAssets = null;
+                lockedFile?.Dispose();
+            }
+
+            Assert.That(lockedFile, Is.Not.Null, "The new file should have been locked for this test to be meaningful.");
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(pngPath));
+            Assert.That(Music().downloadedClip, Is.Not.Null);
+            Assert.That(File.ReadAllBytes(Path(Music().downloadedClip)), Is.EqualTo(Wav(300)));
         }
 
         [UnityTest]
