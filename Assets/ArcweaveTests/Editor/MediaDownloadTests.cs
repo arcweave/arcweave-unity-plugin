@@ -23,10 +23,13 @@ namespace Arcweave.Tests
         private StubApiServer server;
         private string temporaryFolder;
         private StubbedWebProjectAsset asset;
+        private TemporaryUserSettings userSettings;
 
         [SetUp]
         public void CreateProjectAsset()
         {
+            userSettings = new TemporaryUserSettings();
+            ArcweaveUserSettings.ApiKey = "test-key";
             server = new StubApiServer();
             server.SetFile(CoverId, Png(Color.red));
             server.SetFile(HeroId, Png(Color.green));
@@ -38,9 +41,9 @@ namespace Arcweave.Tests
 
             asset = ScriptableObject.CreateInstance<StubbedWebProjectAsset>();
             asset.importSource = ArcweaveProjectAsset.ImportSource.FromWeb;
-            asset.userAPIKey = "test-key";
             asset.projectHash = "test-hash";
             asset.apiUrl = server.ApiUrl;
+            asset.server = server;
             asset.projectJson = ProjectJson();
             AssetDatabase.CreateAsset(asset, temporaryFolder + "/Project.asset");
         }
@@ -48,6 +51,7 @@ namespace Arcweave.Tests
         [TearDown]
         public void DeleteProjectAsset()
         {
+            userSettings.Dispose();
             server.Dispose();
             if ( Directory.Exists(temporaryFolder) ) {
                 foreach ( var file in Directory.GetFiles(temporaryFolder, "*", SearchOption.AllDirectories) ) {
@@ -93,6 +97,107 @@ namespace Arcweave.Tests
             Assert.That(Cover().ResolveImage(), Is.SameAs(Cover().downloadedImage));
             Assert.That(Music().TryGetAudioClip(), Is.SameAs(Music().downloadedClip));
             Assert.That(server.Authorizations, Is.All.EqualTo("Bearer test-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator ApiKeyPassedToTheImportIsUsedForTheProjectAndItsMedia()
+        {
+            asset.downloadMedia = true;
+            ArcweaveUserSettings.ApiKey = "";
+
+            yield return Await(asset.ImportProjectAsync("passed-key"));
+
+            Assert.That(asset.IsImported, Is.True);
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("passed-key"));
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer passed-key" }));
+            Assert.That(server.RequestCount, Is.GreaterThan(0));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer passed-key"));
+            Assert.That(ArcweaveUserSettings.ApiKey, Is.Empty, "The passed key must not be saved.");
+#pragma warning disable 618
+            Assert.That(asset.userAPIKey, Is.Null.Or.Empty, "The passed key must not be saved in the asset.");
+#pragma warning restore 618
+            EditorUtility.SetDirty(asset);
+            AssetDatabase.SaveAssetIfDirty(asset);
+            Assert.That(File.ReadAllText(AssetDatabase.GetAssetPath(asset)), Does.Not.Contain("passed-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator ApiKeyPassedToTheImportTakesPriorityOverTheSavedOne()
+        {
+            asset.downloadMedia = true;
+
+            yield return Await(asset.EnsureImportedAsync("passed-key"));
+
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("passed-key"));
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer passed-key" }));
+            Assert.That(server.RequestCount, Is.GreaterThan(0));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer passed-key"));
+            Assert.That(ArcweaveUserSettings.ApiKey, Is.EqualTo("test-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator EmptyApiKeyPassedToTheImportUsesTheSavedOne()
+        {
+            asset.downloadMedia = true;
+
+            yield return Await(asset.ImportProjectAsync(""));
+
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("test-key"));
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer test-key" }));
+            Assert.That(server.RequestCount, Is.GreaterThan(0));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer test-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator ApiKeyPassedToTheImportIsTrimmed()
+        {
+            asset.downloadMedia = true;
+
+            yield return Await(asset.ImportProjectAsync("  passed-key\r\n"));
+
+            Assert.That(asset.IsImported, Is.True);
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer passed-key" }));
+            Assert.That(server.RequestCount, Is.GreaterThan(0));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer passed-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator BlankApiKeyPassedToTheImportUsesTheSavedOne()
+        {
+            yield return Await(asset.ImportProjectAsync("   "));
+
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer test-key" }));
+        }
+
+        [UnityTest]
+        public IEnumerator ImportJoinedWithAnotherApiKeyKeepsTheKeyItStartedWith()
+        {
+            asset.downloadMedia = true;
+            server.Hold();
+            var first = asset.ImportProjectAsync("first-key");
+            yield return WaitUntil(() => server.RequestCount > 0);
+
+            var joined = asset.ImportProjectAsync("second-key");
+            Assert.That(joined, Is.SameAs(first));
+
+            server.Release();
+            yield return Await(joined);
+
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("first-key"));
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer first-key" }));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer first-key"));
+        }
+
+        [Test]
+        public void ImportWithoutAnyApiKeyFails()
+        {
+            ArcweaveUserSettings.ApiKey = "";
+
+            var import = asset.ImportProjectAsync();
+
+            Assert.That(import.IsFaulted, Is.True);
+            Assert.That(import.Exception.InnerException, Is.TypeOf<InvalidOperationException>());
+            Assert.That(asset.fetchedWithApiKey, Is.Null);
         }
 
         [UnityTest]

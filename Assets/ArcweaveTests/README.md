@@ -14,9 +14,9 @@ Unity -batchmode -nographics -projectPath <project-path> -runTests -testPlatform
 
 ## Media download tests
 
-`Arcweave.Tests.MediaDownloadTests` imports from web through `StubApiServer`, a local HTTP stub of the asset file endpoint of Arcweave's web API, so they need no API key or network access. `StubbedWebProjectAsset` points the project asset at the stub and returns the project json from the test. Each test creates its project asset and downloaded media in a temporary folder under `Assets` and deletes it afterward.
+`Arcweave.Tests.MediaDownloadTests` imports from web through `StubApiServer`, a local HTTP stub of the project json and asset file endpoints of Arcweave's web API, so they need no API key or network access. `StubbedWebProjectAsset` points the project asset at the stub, which serves the project json set by the test, so the plugin's own requests and their `Authorization` headers are checked. Each test creates its project asset and downloaded media in a temporary folder under `Assets` and deletes it afterward.
 
-They cover media being disabled by default, the project being published only after its media is linked, in-place updates and cleanup on reimport, failed and rate-limited downloads, read-only files, files moved during a download, keeping media when an import cannot download it, disabling media downloads, asset ids not being used in paths, unsaved project asset instances, and files that could not be deleted. They also cover how files are named:
+They cover the API key the project and its media are downloaded with (a key passed to the import, its priority over the key saved in the asset, trimming, an empty or blank key, an import joined with another key and an import without any key), media being disabled by default, the project being published only after its media is linked, in-place updates and cleanup on reimport, failed and rate-limited downloads, read-only files, files moved during a download, keeping media when an import cannot download it, disabling media downloads, asset ids not being used in paths, unsaved project asset instances, and files that could not be deleted. They also cover how files are named:
 - after their assets, directly in the media folder, without Arcweave's asset folders
 - sanitized and shortened names
 - assets with the same name
@@ -28,6 +28,16 @@ They cover media being disabled by default, the project being published only aft
 - never overwriting a file another editor extension saves at a planned path during a rename (simulated with `MoveCallback`, an `AssetModificationProcessor` that only acts while a test sets its callback)
 
 `Arcweave.Tests.MediaNameTests` checks how asset names are sanitized: invalid characters, control characters, trailing dots and spaces, `.` and `..`, Windows reserved names, names Unity would hide, and shortening long names to 100 characters before the extension.
+
+## API key tests
+
+`Arcweave.Tests.ApiKeyTests` checks where a web import finds its API key: the key in the user settings, the `ARCWEAVE_API_KEY` environment variable, and a key saved in the asset by an older version of the plugin, in that order, and the error when there is none. They also cover reading a key from a copy of the legacy fixture (serialized by an older version of the plugin) with a key added, moving a key out of the asset (to the user settings, keeping the key already in the user settings or the environment variable, a blank key, and a user settings file that can't be written, which keeps the key in the asset), checking that it is removed from the saved asset file, trimming a key edited into the settings file, and the build check that finds every project asset still containing one, including one added to another asset's file.
+
+Every test that imports from web uses `TemporaryUserSettings`, which points the user settings at a temporary file and clears `ARCWEAVE_API_KEY` for the test, so the tests never read or change your own API key.
+
+## Inputs tests
+
+`Arcweave.Tests.ElementInputsTests` imports a project where an element has inputs from another element and from a branch condition, a branch has an input, and a jumper to that element has its own input. They cover the order of the inputs, that they are the same connections as their source's outputs, that a connection to a jumper is an input of the jumper and not of its target, and that inputs are linked again when a project asset is deserialized.
 
 ## Omitted lists tests
 

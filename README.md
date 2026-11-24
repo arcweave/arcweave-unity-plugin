@@ -1,4 +1,7 @@
 # Arcweave Plugin for Unity
+![Language](https://img.shields.io/badge/language-C%23-4EAF1A?style=flat-square&logo=csharp&logoColor=FFFFFF&labelColor=4EAF1A)
+![Open Issues](https://img.shields.io/github/issues-raw/arcweave/arcweave-unity-plugin?color=FF0000&style=flat-square&label=open%20issues)
+![License](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)
 
 This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It supports data exported from **Arcweave Project > Export > Engine > Export for Unity** (available to all users) or fetched via Arcweave's web API (available to Team workspaces only).
 
@@ -97,6 +100,22 @@ Choose your import source:
 - **From Json**: Drag your `project.json` file into the "Project Json File" field.
 - **From Web**: Enter your **API Key** and **Project Hash**. Optionally enable **Download Media** to download the project's images and audio.
 
+### Where the API Key Is Saved
+
+The API key is not saved in the project asset, so it isn't committed to version control or included in your builds. The **API Key** field saves it in `UserSettings/ArcweaveSettings.json` in your Unity project folder, as plain text. It belongs to that copy of the project: each developer enters their own key in their own copy, and every project asset in the Unity project uses it. Anyone who can read your project folder can read the key, so keep the folder private on shared machines. Unity's `.gitignore` template already excludes the `UserSettings` folder. If your project doesn't use it, add `/UserSettings/` to your `.gitignore` (or your version control's ignore list).
+
+When no key is passed to the import, a web import looks for one in this order:
+
+1. The key in `UserSettings/ArcweaveSettings.json` (the **API Key** field).
+2. The `ARCWEAVE_API_KEY` environment variable, for example on a build server. The inspector tells you when it is used.
+3. A key saved in the project asset by an older version of the plugin. The import logs a warning.
+
+The first two are only available in the Unity Editor. In a build, an import uses the key passed to it (see below), or a key still saved in the asset.
+
+#### Upgrading from an older version
+
+Older versions saved the API key in the project asset. When an asset still contains one, its inspector shows a warning, whatever its import source, with a **Move Key to User Settings** button. The button moves the key to your user settings and removes it from the asset. If you already have a key in your user settings or in `ARCWEAVE_API_KEY`, the button is **Remove Key from Asset** and keeps your key instead. Undo can't bring the removed key back. Builds also log a warning for every project asset that still contains a key. If the asset was ever committed or built with the key, revoke it in Arcweave and create a new one: removing it from the asset doesn't remove it from your version control history or from builds you already shipped.
+
 Click the **Import Project** button to begin the import.
 
 ### Media Downloaded from Web
@@ -123,7 +142,18 @@ After successful import, the Inspector displays:
 
 If you press Play before importing, `ArcweavePlayer` imports the project automatically. You can also import from code with `await aw.ImportProjectAsync()`, or `await aw.EnsureImportedAsync()` to import only when the asset has no playable project yet.
 
-> **Warning:** The API key is saved in the asset and ships with your build. Treat **From Web** as a development workflow and import the project in the editor before building, so your game doesn't need the API key or a network connection to start.
+To import from web with an API key that isn't saved in the asset, pass it to the import: `await aw.ImportProjectAsync(apiKey)` or `await aw.EnsureImportedAsync(apiKey)`. The key is used to download the project and its media and is never saved, so it can come from wherever you keep secrets, such as an environment variable or a secrets manager on a build server. The key is trimmed, and a `null`, empty or blank key uses the stored one, as described in [Where the API Key Is Saved](#where-the-api-key-is-saved). If an import is already running, the call joins it and that import keeps the key it started with.
+
+Importing from code changes the project asset in memory only. In an editor script, for example one a build server runs before building, save the asset after the import so the build and the next editor session use the new project:
+
+```csharp
+// Editor script, eg. run with -executeMethod before building
+await aw.ImportProjectAsync(System.Environment.GetEnvironmentVariable("ARCWEAVE_API_KEY"));
+UnityEditor.EditorUtility.SetDirty(aw);
+UnityEditor.AssetDatabase.SaveAssetIfDirty(aw);
+```
+
+> **Tip:** Treat **From Web** as a development workflow and import the project in the editor before building, so your game doesn't need an API key or a network connection to start. Don't embed your API key in your game to import from web at runtime: anyone with the build can read it.
 
 
 ---
@@ -214,7 +244,7 @@ The demo consists of two main components that work together:
               │
               ▼
     ┌─────────────────┐
-    │   Initialize    │ ← Resets all variables and visits
+    │   Initialize    │ ← Resets variables and visits, restores the save (if any)
     │     Project     │
     └────────┬────────┘
               │
@@ -225,7 +255,7 @@ The demo consists of two main components that work together:
               │
               ▼
     ┌─────────────────┐
-    │  Enter Element  │ ← element.Visits++ (incremented)
+    │  Enter Element  │ ← Visits++, then RunContentScript()
     │                 │
     └────────┬────────┘
               │
@@ -278,7 +308,7 @@ The demo consists of two main components that work together:
 | `element.Visits++` | Element | Track how many times element was visited |
 | `element.GetOptions()` | Element | Get available paths from current element |
 | `element.RuntimeContent` | Element | Get evaluated dialogue text |
-| `element.RunContentScript()` | Element | Execute Arcscript and update RuntimeContent |
+| `element.RunContentScript()` | Element | Execute Arcscript and update RuntimeContent (`ArcweavePlayer` already calls it before `onElementEnter`) |
 | `element.GetCoverOrFirstComponentImage()` | Element | Get element's cover or first component image |
 | `element.GetAudioAssets()` | Element | Get audio assets attached to the element |
 | `path.ExecuteAppendedConnectionLabels()` | Path | Run Arcscript in connection labels |
@@ -322,6 +352,11 @@ The root container for an imported Arcweave project. Access via `ArcweaveProject
 | `void ResetVariablesToDefaultValues()`                      | Reset all variables to defaults |
 | `string SaveVariables()`                                    | Serialize current global and scoped variable state to JSON |
 | `void LoadVariables(string json)`                           | Restore current global and scoped variable state from JSON |
+| `string SaveVisits()`                                       | Serialize visit counts to JSON |
+| `void LoadVisits(string visitsSave)`                        | Restore visit counts from JSON |
+| `void CaptureState(StateSnapshot snapshot)`                 | Copy current variable values and visit counts into a reusable in-memory snapshot, without serializing |
+| `string SaveVariables(StateSnapshot snapshot)`              | Serialize the variable values held by a snapshot to JSON |
+| `string SaveVisits(StateSnapshot snapshot)`                 | Serialize the visit counts held by a snapshot to JSON |
 | `int Visits(string elementId)`                              | Get visit count for an element |
 | `void ResetVisits()`                                        | Reset all visit counts to 0 |
 
@@ -399,6 +434,7 @@ A narrative node containing dialogue content.
 | `Components` | List\<Component\> | Attached characters/entities |
 | `Attributes` | List\<Attribute\> | Custom metadata |
 | `Outputs` | List\<Connection\> | Outgoing connections |
+| `Inputs` | IReadOnlyList\<Connection\> | Incoming connections, from elements and branch conditions (see below) |
 | `cover` | Cover | Cover image reference |
 | `AudioAssets` | AudioAsset[] | Audio assets attached to this element |
 
@@ -406,7 +442,7 @@ A narrative node containing dialogue content.
 
 | Method | Description |
 |--------|-------------|
-| `void RunContentScript()` | Evaluate Arcscript in content → updates RuntimeContent |
+| `void RunContentScript()` | Evaluate Arcscript in content → updates RuntimeContent and applies the variable changes. `ArcweavePlayer` calls it for you before `onElementEnter` |
 | `Options GetOptions()` | Get available paths (evaluates branch conditions) |
 | `bool HasContent()` | Check if element has content |
 | `bool HasComponent(string name)` | Check if element has component by name |
@@ -433,7 +469,16 @@ if (options.hasPaths) {
         Debug.Log("Choice: " + path.text);
     }
 }
+
+// Find the elements that lead to this one
+foreach (Connection input in element.Inputs) {
+    if (input.Source is Element previous) {
+        Debug.Log("Comes from: " + previous.Title);
+    }
+}
 ```
+
+`Inputs` holds the connections that end at the element, ordered by board and then by their source's outputs. They are the same `Connection` objects as in their source's `Outputs`. An input's `Source` is the element it starts from, or the branch `Condition` when it comes out of a branch. A connection that ends at a jumper is an input of the jumper, not of the element the jumper leads to: to include those, also look at the `Inputs` of the jumpers whose `Target` is the element. Branches and jumpers have `Inputs` too. Inputs are linked when the project is imported and when it is initialized, so they don't add anything to the project asset. If your code changes an element's `Outputs` or a connection's target, call `project.LinkInputs()` so `Inputs` match.
 
 ---
 
@@ -470,6 +515,7 @@ Conditional branching node with if/elseif/else logic.
 |----------|------|-------------|
 | `Id` | string | Unique identifier |
 | `Conditions` | List\<Condition\> | Ordered conditions (first true wins) |
+| `Inputs` | IReadOnlyList\<Connection\> | Incoming connections |
 | `colorTheme` | string | Visual theme color |
 
 ---
@@ -504,6 +550,7 @@ Navigation shortcut to another element.
 |----------|------|-------------|
 | `Id` | string | Unique identifier |
 | `Target` | Element | Target element to jump to |
+| `Inputs` | IReadOnlyList\<Connection\> | Incoming connections |
 
 ---
 
@@ -637,6 +684,8 @@ Event-driven narrative player (demo helper class).
 |-------|------|-------------|
 | `aw` | ArcweaveProjectAsset | The project to play |
 | `autoStart` | bool | Auto-start on scene load |
+| `saveMode` | SaveMode | Controls when the player automatically saves progress |
+| `saveHandler` | ArcweaveSaveHandler | Optional save handler component to handle save/load events |
 
 #### Events
 
@@ -647,22 +696,57 @@ Event-driven narrative player (demo helper class).
 | `onElementEnter` | `(Element)` | Entered new element |
 | `onElementOptions` | `(Options, Action<int>)` | Multiple choices available |
 | `onWaitInputNext` | `(Action)` | Single path, waiting for continue |
+| `onProjectUpdated` | `(Project)` | Fired when the variables and visits were replaced as a whole: after `PlayProject()`, a restart or `RequestLoad()` has entered its element (so it includes that element's script), and after `ResetVariables()`. Not after `ResetSave()`, which doesn't change them |
+| `onSavesReset` | `()` | Fired after `ResetVariables()` or `ResetSave()` clears the saved state |
+| `onSaved` | `()` | Fired after a save was handed to the save handler, by `RequestSave()` or an autosave |
+
 
 #### Methods
 
 | Method | Description |
 |--------|-------------|
-| `void PlayProject()` | Start or restart the narrative |
-| `void Save()` | Save current state to PlayerPrefs |
-| `void Load()` | Load and restore saved state |
+| `void PlayProject()` | Start or restart the narrative from the starting element, importing the project first if needed. The first call resumes the save, if any; calling it again on a project that already ran restarts it from a clean state without clearing the save. In `Manual` mode the save stays available to `RequestLoad()`; in `AutoSaveAlways` the first element's autosave overwrites it |
+| `Task PlayProjectAsync()` | Same as `PlayProject()`, but awaitable. Overlapping calls share the same pending start |
+| `void RestartProject()` | Like a restart with `PlayProject()`, but also clears the save |
+| `bool CanSave` | True while an element is playing; there is nothing to save before the start or after the end |
+| `void RequestSave()` | Requests a save of the current game state |
+| `bool RequestLoad()` | Restores the saved variables and visits and navigates to the saved element, returns true if successful |
+| `void ResetVariables()` | Resets all project variables to their default values and clears saved state |
+| `bool ResetSave()` | Clears saved data without resetting the in-memory project; returns true if a complete save existed |
+| `bool HasSave()` | Returns true if a save file exists |
 
----
+For compatibility, the obsolete `ArcweavePlayer.Save()`, `Load()`, and `SAVE_KEY` remain available. Use `RequestSave()`, `RequestLoad()`, and `ArcweaveSaveHandler.SAVE_KEY` in new code. Saving and loading require an assigned save handler.
+
+# ArcweaveSaveHandler Methods
+
+| Method | Description |
+|--------|-------------|
+| `bool HandleSaveRequest(string elementId, string variables, string visits, bool writeToDiskNow = true)` | Stores the game state. With `writeToDiskNow` false the disk write is postponed (see below) |
+| `void WriteToDisk()` | Writes PlayerPrefs to disk now, including a postponed save |
+| `bool HandleLoadRequest(out string elementId, out string variables, out string visits)` | Handles loading game state |
+| `void ResetSave()` | Clears all saved data |
+| `bool HasSave()` | Returns true if save data exists |
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `maxSecondsBeforeDiskWrite` | float | A postponed save (an autosave) is written to disk at most this many seconds later. Default 5 |
+
+### Saving and loading
+
+- A save stores the current element, and the variables and visit counts as they were **when that element was entered** (before its visit was counted and its content script ran). Loading restores them and enters the element again, so the visit count and the script replay exactly as the first time and the same dialogue is shown.
+- Variables and visits changed by your own code while an element is on screen are not part of a save made at that point.
+- If `aw.Project` is replaced while the player exists (`ImportProjectAsync()`, Import in the inspector), the player initializes the new project the next time it starts.
+- A save that can't be loaded (corrupt data, or an element that no longer exists in the project) is logged as an error and deleted, and the project starts from its starting element.
+- Dialogue that uses non-deterministic Arcscript (e.g. `random()`) can render differently after a load.
+- With `SaveMode.AutoSaveAlways` the player saves every time it enters an element; with `SaveMode.Manual` it only saves when you call `RequestSave()`. The demo UI shows the Save and Load buttons only in `Manual` mode, since in `AutoSaveAlways` the save would be overwritten at every element.
+- `PlayerPrefs.Save()` is a slow synchronous disk write, so autosaves are not written right away: `ArcweaveSaveHandler` writes them at most `maxSecondsBeforeDiskWrite` (5 by default) later, and also when the app is paused, loses focus, quits or the handler is disabled or destroyed. A disabled handler writes every save right away. A crash can lose at most that much progress. `RequestSave()` and `ResetSave()` are written to disk right away.
+- The state at element entry is kept in memory as a `StateSnapshot` (`Project.CaptureState`) and only turned into JSON when a save is made. Without a save handler nothing is captured.
 
 ## Important Notes
 
 1. **Unity 6+ requires Input System update**: If using Unity 6 or newer, the EventSystem must use the new Input System module. Select EventSystem in Hierarchy, find Standalone Input Module in Inspector, and click "Replace with InputSystemUIInputModule". Without this, UI buttons won't respond to clicks. See [Unity 6+ Input System Fix](#unity-6-input-system-fix).
 
-2. **RuntimeContent requires RunContentScript()**: The `RuntimeContent` property is not automatically evaluated. You must call `RunContentScript()` before reading it.
+2. **RuntimeContent requires RunContentScript()**: The `RuntimeContent` property is not automatically evaluated. You must call `RunContentScript()` before reading it. `ArcweavePlayer` already calls it before raising `onElementEnter`, so a handler on that event must only read `RuntimeContent`: calling `RunContentScript()` again would apply the element's variable changes twice.
 
 3. **GetOptions() has side effects**: This method internally saves and restores variable state while evaluating branch conditions.
 
@@ -722,6 +806,8 @@ Unity 6 requires the new Input System for UI interactions.
 element.RunContentScript();
 ```
 
+When you use `ArcweavePlayer`, it already does this before `onElementEnter`: just read `RuntimeContent` in your handler.
+
 ### "NullReferenceException" when accessing variables?
 
 **Problem:** Variables are null or throw errors.
@@ -743,12 +829,12 @@ project.Initialize();
 
 ### Save/Load not working?
 
-**Problem:** `Load()` doesn't restore the correct state.
+**Problem:** `RequestLoad()` doesn't restore the correct state.
 
 **Solution:**
-- Ensure you called `Save()` before `Load()`
+- Ensure `saveHandler` is assigned on the `ArcweavePlayer` and that you called `RequestSave()` (or use `AutoSaveAlways`) before loading
 - PlayerPrefs persists between sessions - use `PlayerPrefs.DeleteAll()` to clear if testing
-- Check the save keys exist: `PlayerPrefs.HasKey("arcweave_save_currentElement")`
+- Check the save keys exist: `arcweave_save_currentElement`, `arcweave_save_variables` and `arcweave_save_visits` (`HasSave()` needs all three)
 
 ### Import button is disabled?
 
@@ -756,7 +842,7 @@ project.Initialize();
 
 **Solution:**
 - **From Json mode:** Drag a TextAsset (.json file) into the "Project Json File" field
-- **From Web mode:** Fill in both API Key AND Project Hash fields
+- **From Web mode:** Fill in the Project Hash field, and the API Key field unless the key is in the `ARCWEAVE_API_KEY` environment variable. The API key is saved in `UserSettings`, so each developer enters their own.
 - Ensure the JSON file is valid (open it in a text editor to verify it's not corrupted)
 
 ---
