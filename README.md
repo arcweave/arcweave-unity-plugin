@@ -429,6 +429,7 @@ A narrative node containing dialogue content.
 | `Components` | List\<Component\> | Attached characters/entities |
 | `Attributes` | List\<Attribute\> | Custom metadata |
 | `Outputs` | List\<Connection\> | Outgoing connections |
+| `Inputs` | IReadOnlyList\<Connection\> | Incoming connections, from elements and branch conditions (see below) |
 | `cover` | Cover | Cover image reference |
 | `AudioAssets` | AudioAsset[] | Audio assets attached to this element |
 
@@ -463,7 +464,16 @@ if (options.hasPaths) {
         Debug.Log("Choice: " + path.text);
     }
 }
+
+// Find the elements that lead to this one
+foreach (Connection input in element.Inputs) {
+    if (input.Source is Element previous) {
+        Debug.Log("Comes from: " + previous.Title);
+    }
+}
 ```
+
+`Inputs` holds the connections that end at the element, ordered by board and then by their source's outputs. They are the same `Connection` objects as in their source's `Outputs`. An input's `Source` is the element it starts from, or the branch `Condition` when it comes out of a branch. A connection that ends at a jumper is an input of the jumper, not of the element the jumper leads to: to include those, also look at the `Inputs` of the jumpers whose `Target` is the element. Branches and jumpers have `Inputs` too. Inputs are linked when the project is imported and when it is initialized, so they don't add anything to the project asset. If your code changes an element's `Outputs` or a connection's target, call `project.LinkInputs()` so `Inputs` match.
 
 ---
 
@@ -500,6 +510,7 @@ Conditional branching node with if/elseif/else logic.
 |----------|------|-------------|
 | `Id` | string | Unique identifier |
 | `Conditions` | List\<Condition\> | Ordered conditions (first true wins) |
+| `Inputs` | IReadOnlyList\<Connection\> | Incoming connections |
 | `colorTheme` | string | Visual theme color |
 
 ---
@@ -534,6 +545,7 @@ Navigation shortcut to another element.
 |----------|------|-------------|
 | `Id` | string | Unique identifier |
 | `Target` | Element | Target element to jump to |
+| `Inputs` | IReadOnlyList\<Connection\> | Incoming connections |
 
 ---
 

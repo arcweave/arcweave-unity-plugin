@@ -24,6 +24,10 @@ They cover the API key the project and its media are downloaded with (a key pass
 
 Every test that imports from web uses `TemporaryUserSettings`, which points the user settings at a temporary file and clears `ARCWEAVE_API_KEY` for the test, so the tests never read or change your own API key.
 
+## Inputs tests
+
+`Arcweave.Tests.ElementInputsTests` imports a project where an element has inputs from another element and from a branch condition, a branch has an input, and a jumper to that element has its own input. They cover the order of the inputs, that they are the same connections as their source's outputs, that a connection to a jumper is an input of the jumper and not of its target, and that inputs are linked again when a project asset is deserialized.
+
 ## Omitted lists tests
 
 `Arcweave.Tests.OmittedListsTests` imports a project whose empty lists are omitted, as Arcweave exports them (for example, an ending element has no `outputs`), or `null`. They cover element outputs, components and attributes; board jumpers, notes and attributes; component attributes; component-list attribute data; and branch else-if and else conditions, through `ProjectMaker` and through `ImportProject` from json.

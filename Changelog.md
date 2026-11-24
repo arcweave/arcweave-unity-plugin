@@ -18,6 +18,10 @@ All notable changes to this project will be documented in this file.
 - Added a **Move Key to User Settings** button to the inspector of project assets that still contain an API key, whatever their import source, and a warning when building while any project asset contains one. When a key is already in the user settings or `ARCWEAVE_API_KEY`, the button is **Remove Key from Asset** and keeps that key.
 - Added `ArcweaveProjectAsset.ImportProjectAsync(string apiKey)` and `EnsureImportedAsync(string apiKey)`. A web import uses the passed API key to download the project and its media instead of the one saved in the asset, and never saves it, so the key can come from an environment variable or a secrets manager, for example on a build server.
 
+### Added
+
+- Added `Inputs` to `Element`, `Branch` and `Jumper`: the connections that end at them, ordered by board and then by their source's outputs. They are the same `Connection` objects as in their source's `Outputs`, so `input.Source` is the element or branch condition the connection starts from. Inputs are not serialized: they are linked when the project is made and when it is initialized, so existing project assets have them without reimporting. After changing outputs or connection targets from code, call `Project.LinkInputs()` to update them.
+
 ### Changed
 
 - Saves capture variables and visit counts from when the current element was entered, before its content script runs. Changes made by game code while the element is on screen are not included in a save made at that point.
