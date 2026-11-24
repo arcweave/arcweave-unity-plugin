@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Arcweave.Project;
 using NUnit.Framework;
@@ -497,6 +498,24 @@ namespace Arcweave.Tests
         }
 
         [UnityTest]
+        public IEnumerator NameWithALeftoverMetaFileGetsANumberSoTheNewFileNeverTakesItsGuid()
+        {
+            asset.downloadMedia = true;
+            yield return Import();
+            // Eg. a .meta file whose asset is missing from a version control checkout
+            var metaPath = MediaFolder + "/Cover.jpg.meta";
+            var meta = "fileFormatVersion: 2\nguid: " + Guid.NewGuid().ToString("N") + "\n";
+            File.WriteAllText(metaPath, meta);
+
+            asset.projectJson = ProjectJson(coverName: "Cover.jpg");
+            server.SetFile(CoverId, Jpg(Color.blue));
+            yield return Import();
+
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Cover 1.jpg"));
+            Assert.That(File.Exists(MediaFolder + "/Cover.jpg"), Is.False);
+        }
+
+        [UnityTest]
         public IEnumerator NameThatDiffersOnlyInCaseFromAFileTheDownloaderDoesNotOwnGetsANumber()
         {
             asset.downloadMedia = true;
@@ -520,16 +539,16 @@ namespace Arcweave.Tests
             // APFS treats "é" written as one character or as "e" and a combining accent as the same name
             asset.downloadMedia = true;
             yield return Import();
-            var userPath = MediaFolder + "/Café.jpg";
+            var userPath = MediaFolder + "/Cafe\u0301.jpg";
             var userFile = Png(Color.yellow);
             File.WriteAllBytes(userPath, userFile);
             AssetDatabase.ImportAsset(userPath, ImportAssetOptions.ForceSynchronousImport);
 
-            asset.projectJson = ProjectJson(coverName: "Café.jpg");
+            asset.projectJson = ProjectJson(coverName: "Caf\u00E9.jpg");
             server.SetFile(CoverId, Jpg(Color.blue));
             yield return Import();
 
-            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Café 1.jpg"));
+            Assert.That(Path(Cover().downloadedImage), Is.EqualTo(MediaFolder + "/Caf\u00E9 1.jpg"));
             Assert.That(File.ReadAllBytes(userPath), Is.EqualTo(userFile));
         }
 
@@ -537,12 +556,12 @@ namespace Arcweave.Tests
         public IEnumerator AssetsWithNamesThatAreTheSameAfterUnicodeNormalizationAreBothDownloaded()
         {
             asset.downloadMedia = true;
-            asset.projectJson = ProjectJson(coverName: "Café.png", heroName: "Café.png");
+            asset.projectJson = ProjectJson(coverName: "Cafe\u0301.png", heroName: "Caf\u00E9.png");
 
             yield return Import();
 
             Assert.That(new[] { Path(Cover().downloadedImage), Path(Hero().downloadedImage) },
-                Is.EquivalentTo(new[] { MediaFolder + "/Café.png", MediaFolder + "/Café 1.png" }));
+                Is.EquivalentTo(new[] { MediaFolder + "/Caf\u00E9.png", MediaFolder + "/Caf\u00E9 1.png" }));
         }
 
         [UnityTest]
@@ -692,6 +711,8 @@ namespace Arcweave.Tests
             try {
                 asset.projectJson = ProjectJson(coverName: "Cover.jpg");
                 server.SetFile(CoverId, Jpg(Color.blue));
+                // The cover's path is chosen before the hero is moved, so the guard before writing must catch the file saved there
+                LogAssert.Expect(LogType.Warning, new Regex(@"^Could not save 'Cover\.jpg' to .*Cover\.jpg: The file at the path changed during the import\.$"));
                 yield return Import();
             }
             finally {

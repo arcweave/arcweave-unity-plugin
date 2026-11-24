@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Arcweave.Project;
 using UnityEditor;
@@ -18,18 +17,6 @@ namespace Arcweave
     {
         private static readonly string[] IMAGE_EXTENSIONS = { ".png", ".jpg", ".jpeg", ".gif" };
         private static readonly string[] AUDIO_EXTENSIONS = { ".mp3", ".ogg", ".wav" };
-        private static readonly HashSet<string> RESERVED_NAMES = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
-            "CON", "PRN", "AUX", "NUL",
-            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-            // Windows also reserves these with superscript digits
-            "COM¹", "COM²", "COM³", "LPT¹", "LPT²", "LPT³",
-        };
-        private const string INVALID_NAME_CHARS = "<>:\"/\\|?*";
-        // Leaves room for the number of a unique path and for Unity's own paths, eg. in the Library folder.
-        // File systems such as ext4 and APFS limit a name to 255 bytes, which must also fit the extension, the number and ".meta".
-        private const int MAX_NAME_LENGTH = 100;
-        private const int MAX_NAME_BYTES = 200;
         private const int MAX_ATTEMPTS = 5;
         private const int MAX_RETRY_SECONDS = 60;
         private const int POLL_MILLISECONDS = 100;
@@ -45,6 +32,32 @@ namespace Arcweave
                 if ( EditorUtility.DisplayCancelableProgressBar(PROGRESS_TITLE, info, value) ) { Canceled = true; }
                 return Canceled;
             }
+        }
+
+        ///<summary>Where a downloaded file is saved: the asset's own file from a previous import, replaced in place and
+        /// found by its GUID, or a new file, which is only ever created and never replaces a file at its path.</summary>
+        sealed class Target
+        {
+            public readonly string id;
+            public readonly string path;
+            public readonly string ownedGuid;
+            public bool IsOwned => ownedGuid != null;
+
+            public Target(string id, string path, string ownedGuid) {
+                this.id = id;
+                this.path = path;
+                this.ownedGuid = ownedGuid;
+            }
+        }
+
+        ///<summary>The paths chosen for the files of an import, which may not be written yet. Paths that differ only in case
+        /// or Unicode normalization are the same path, since some file systems treat them as the same name.</summary>
+        sealed class ClaimedPaths
+        {
+            readonly HashSet<string> paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            public void Add(string path) => paths.Add(ArcweaveMediaNames.Normalize(path));
+            public bool Contains(string path) => paths.Contains(ArcweaveMediaNames.Normalize(path));
         }
 
         ///<summary>Downloads the media of a newly made project of the project asset and links it to the project.
@@ -72,7 +85,7 @@ namespace Arcweave
             var names = new Dictionary<string, string>();
             CollectMedia(project, covers, audioAssets, names);
             // Sanitized before any path operation, since some of them throw on characters that aren't allowed in paths
-            var fileNames = names.ToDictionary(entry => entry.Key, entry => SanitizeName(entry.Value));
+            var fileNames = names.ToDictionary(entry => entry.Key, entry => ArcweaveMediaNames.SanitizeName(entry.Value));
 
             var downloads = new Dictionary<string, byte[]>();
             var ids = names.Keys.ToList();
@@ -139,11 +152,10 @@ namespace Arcweave
                 folder = null;
             }
 
-            // The path of each downloaded file, and whether it is the asset's own previous file.
-            // The media folder is created and files are moved before the asset-editing batch, so they are in the asset database when the files are written.
-            var targetPaths = new Dictionary<string, string>();
-            var ownedTargets = new HashSet<string>();
-            var claimedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Where each downloaded file is saved. The media folder is created and files are moved before the asset-editing batch,
+            // so they are in the asset database when the files are written.
+            var targets = new List<Target>();
+            var claimedPaths = new ClaimedPaths();
             foreach ( var id in downloads.Keys ) {
                 var extension = System.IO.Path.GetExtension(fileNames[id]).ToLowerInvariant();
                 var previousPath = previousGuids.TryGetValue(id, out var previousGuid) ? OwnedPath(previousGuid) : null;
@@ -152,7 +164,7 @@ namespace Arcweave
                 // A file keeps its name and place once it is saved, so renaming or moving the asset in Arcweave or the file
                 // in Unity never breaks references to it. Only files still named after their asset id by 3.1.0 are renamed, once.
                 string path;
-                if ( keepsPrevious && ( !IsNamedByVersion310(previousPath, id, folder) || System.IO.Path.GetFileName(previousPath) == fileNames[id] ) ) {
+                if ( keepsPrevious && ( !IsNamedByVersion310(previousPath, id, folder) || ArcweaveMediaNames.AreSameName(System.IO.Path.GetFileName(previousPath), fileNames[id]) ) ) {
                     path = previousPath;
                 } else {
                     try {
@@ -175,44 +187,45 @@ namespace Arcweave
                 if ( path == null ) {
                     continue;
                 }
-                if ( keepsPrevious ) { ownedTargets.Add(id); }
-                targetPaths[id] = path;
+                targets.Add(new Target(id, path, keepsPrevious ? previousGuid : null));
                 claimedPaths.Add(path);
             }
 
             ///<summary>Returns a free path in the media folder named after the asset, creating the folder, or null if it can't be created.</summary>
             string NewPath(string id) {
-                // The media folder is only created when a file needs a path in it
+                // The media folder is only created when a file needs a path in it, and only tried once per import
                 if ( folder == null ) {
                     var parentFolder = System.IO.Path.GetDirectoryName(assetPath).Replace('\\', '/');
                     var folderName = System.IO.Path.GetFileName(AssetDatabase.GenerateUniqueAssetPath(parentFolder + "/" + projectAsset.name + " Media"));
                     projectAsset.mediaFolderGuid = AssetDatabase.CreateFolder(parentFolder, folderName);
-                    folder = AssetDatabase.GUIDToAssetPath(projectAsset.mediaFolderGuid);
+                    folder = AssetDatabase.GUIDToAssetPath(projectAsset.mediaFolderGuid) ?? "";
+                    if ( folder == "" ) {
+                        Debug.LogWarning($"Could not create the media folder {parentFolder}/{folderName}, so new media is not saved.");
+                    }
                 }
-                return string.IsNullOrEmpty(folder) ? null : UniquePath(folder + "/" + fileNames[id], claimedPaths);
+                return folder == "" ? null : UniquePath(folder + "/" + fileNames[id], claimedPaths);
             }
 
             var saved = 0;
             var undeleted = new List<ArcweaveProjectAsset.DownloadedMedia>();
             AssetDatabase.StartAssetEditing();
             try {
-                foreach ( var target in targetPaths ) {
-                    var id = target.Key;
-                    var path = target.Value;
+                foreach ( var target in targets ) {
+                    var id = target.id;
+                    var path = target.path;
                     var bytes = downloads[id];
-                    var isOwned = ownedTargets.Contains(id);
                     try {
                         // Checked again right before writing, since a callback, eg. of another editor extension, may have moved the
                         // asset's file or saved another file at the path since it was chosen
-                        if ( isOwned ? OwnedPath(previousGuids[id]) != path : ExistsIgnoringCase(path) ) {
+                        if ( target.IsOwned ? OwnedPath(target.ownedGuid) != path : IsOccupied(path) ) {
                             throw new IOException("The file at the path changed during the import.");
                         }
-                        if ( !File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(bytes) ) {
-                            WriteFile(path, bytes);
+                        if ( !target.IsOwned || !File.ReadAllBytes(path).SequenceEqual(bytes) ) {
+                            WriteFile(path, bytes, target.IsOwned);
                             AssetDatabase.ImportAsset(path);
                         }
-                        if ( isOwned ) {
-                            keptGuids[id] = previousGuids[id];
+                        if ( target.IsOwned ) {
+                            keptGuids[id] = target.ownedGuid;
                         } else {
                             paths[id] = path;
                         }
@@ -224,7 +237,8 @@ namespace Arcweave
                         if ( previousGuids.TryGetValue(id, out var previousGuid) ) { keptGuids[id] = previousGuid; }
                     }
                 }
-                foreach ( var id in downloads.Keys.Where(id => !targetPaths.ContainsKey(id)) ) {
+                var targetIds = new HashSet<string>(targets.Select(target => target.id));
+                foreach ( var id in downloads.Keys.Where(id => !targetIds.Contains(id)) ) {
                     if ( previousGuids.TryGetValue(id, out var previousGuid) ) { keptGuids[id] = previousGuid; }
                 }
 
@@ -288,7 +302,7 @@ namespace Arcweave
         /// lowercase extension. A file the user renamed or moved, even only changing the case of its extension, is not.</summary>
         static bool IsNamedByVersion310(string path, string id, string mediaFolder) {
             return !string.IsNullOrEmpty(mediaFolder)
-                && string.Equals(System.IO.Path.GetDirectoryName(path).Replace('\\', '/'), mediaFolder, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(System.IO.Path.GetDirectoryName(path).Replace('\\', '/'), mediaFolder, StringComparison.Ordinal)
                 && System.IO.Path.GetFileName(path) == id + System.IO.Path.GetExtension(path).ToLowerInvariant();
         }
 
@@ -310,54 +324,10 @@ namespace Arcweave
             }
         }
 
-        ///<summary>Makes a file name safe on every OS and visible to Unity, so it can never leave the media folder,
-        /// and shortens it to MAX_NAME_LENGTH characters and MAX_NAME_BYTES UTF-8 bytes before its extension.</summary>
-        internal static string SanitizeName(string name) {
-            // Composed, so names that only differ in how their characters are written are the same name, eg. in claimed paths
-            var builder = new StringBuilder(Normalize(name ?? ""));
-            for ( var i = 0; i < builder.Length; i++ ) {
-                if ( char.IsControl(builder[i]) || INVALID_NAME_CHARS.IndexOf(builder[i]) >= 0 ) { builder[i] = '_'; }
-            }
-            // Windows drops trailing dots and spaces, which also turns "." and ".." into ""
-            var result = builder.ToString().TrimEnd('.', ' ');
-
-            var extension = System.IO.Path.GetExtension(result);
-            var stem = result.Substring(0, result.Length - extension.Length);
-            // Making the name safe adds at most one character, so it is shortened by one more if that goes over the limits
-            var safeStem = MakeSafe(Shorten(stem, MAX_NAME_LENGTH, MAX_NAME_BYTES));
-            if ( safeStem.Length > MAX_NAME_LENGTH || Encoding.UTF8.GetByteCount(safeStem) > MAX_NAME_BYTES ) {
-                safeStem = MakeSafe(Shorten(stem, MAX_NAME_LENGTH - 1, MAX_NAME_BYTES - 1));
-            }
-            return safeStem + extension;
-        }
-
-        ///<summary>Returns the name if it fits the limits, or else its start that does, without splitting a character made of
-        /// two UTF-16 chars or ending with a dot or space.</summary>
-        static string Shorten(string name, int maxLength, int maxBytes) {
-            var length = Math.Min(name.Length, maxLength);
-            while ( length > 0 && ( ( length < name.Length && char.IsHighSurrogate(name[length - 1]) ) || Encoding.UTF8.GetByteCount(name.Substring(0, length)) > maxBytes ) ) {
-                length--;
-            }
-            return length == name.Length ? name : name.Substring(0, length).TrimEnd('.', ' ');
-        }
-
-        static string MakeSafe(string stem) {
-            // Unity ignores hidden files, whose names start with a dot, eg. ".png"
-            if ( stem.Length == 0 || stem[0] == '.' ) { stem = "_" + stem; }
-
-            // Windows reserves device names, even with an extension
-            var dot = stem.IndexOf('.');
-            var device = dot < 0 ? stem : stem.Substring(0, dot);
-            if ( RESERVED_NAMES.Contains(device.TrimEnd(' ')) ) {
-                stem = device + "_" + stem.Substring(device.Length);
-            }
-            return stem;
-        }
-
         ///<summary>Returns the path, or a unique one from AssetDatabase.GenerateUniqueAssetPath ("name 1.ext", "name 2.ext"...) if it is taken.
         /// Paths claimed by other files of this import are taken, since they may not be written yet, and so are names that differ
         /// only in case or Unicode normalization, since some file systems and Unity treat them as the same path.</summary>
-        static string UniquePath(string path, HashSet<string> claimedPaths) {
+        static string UniquePath(string path, ClaimedPaths claimedPaths) {
             var folder = path.Substring(0, path.LastIndexOf('/'));
             var stem = System.IO.Path.GetFileNameWithoutExtension(path);
             var extension = System.IO.Path.GetExtension(path);
@@ -373,27 +343,18 @@ namespace Arcweave
             return candidate;
         }
 
-        static bool IsTaken(string path, HashSet<string> claimedPaths) => claimedPaths.Contains(path) || ExistsIgnoringCase(path);
+        static bool IsTaken(string path, ClaimedPaths claimedPaths) => claimedPaths.Contains(path) || IsOccupied(path);
 
-        ///<summary>True if the file system has the path, or the folder has a file or folder whose name matches ignoring case and
-        /// Unicode normalization, since some file systems treat those as the same name, eg. "é" written as one or two characters on APFS.</summary>
-        static bool ExistsIgnoringCase(string path) {
-            if ( File.Exists(path) || Directory.Exists(path) ) { return true; }
+        ///<summary>True if the file system has the path or its .meta file, which would give a new file another asset's GUID, or the folder
+        /// has a file or folder whose name matches either ignoring case and Unicode normalization, since some file systems treat those
+        /// as the same name, eg. "é" written as one or two characters on APFS.</summary>
+        static bool IsOccupied(string path) {
+            if ( File.Exists(path) || Directory.Exists(path) || File.Exists(path + ".meta") ) { return true; }
             var separator = path.LastIndexOf('/');
             var folder = path.Substring(0, separator);
-            var name = Normalize(path.Substring(separator + 1));
-            return Directory.Exists(folder) && Directory.EnumerateFileSystemEntries(folder)
-                .Any(entry => string.Equals(Normalize(System.IO.Path.GetFileName(entry)), name, StringComparison.OrdinalIgnoreCase));
-        }
-
-        ///<summary>Returns the composed form of the name, or the name itself if it can't be normalized, eg. with a lone surrogate.</summary>
-        static string Normalize(string name) {
-            try {
-                return name.Normalize(NormalizationForm.FormC);
-            }
-            catch ( ArgumentException ) {
-                return name;
-            }
+            var name = path.Substring(separator + 1);
+            return Directory.Exists(folder) && Directory.EnumerateFileSystemEntries(folder).Select(System.IO.Path.GetFileName)
+                .Any(entry => ArcweaveMediaNames.AreSameName(entry, name) || ArcweaveMediaNames.AreSameName(entry, name + ".meta"));
         }
 
         ///<summary>Downloads an asset file, waiting and retrying while rate limited. Returns null if the download fails or is canceled.</summary>
@@ -443,13 +404,14 @@ namespace Arcweave
             return Math.Min(Math.Max(1, seconds), MAX_RETRY_SECONDS);
         }
 
-        ///<summary>Writes the file through a temporary file, so a failed write never leaves it truncated. Replacing keeps its .meta and GUID.</summary>
-        static void WriteFile(string path, byte[] bytes) {
+        ///<summary>Writes the file through a temporary file, so a failed write never leaves it truncated. Replacing keeps its .meta and GUID.
+        /// A new file is only created: it fails instead of replacing a file that appeared at the path since it was checked.</summary>
+        static void WriteFile(string path, byte[] bytes, bool replace) {
             Directory.CreateDirectory("Temp");
             var temporaryPath = System.IO.Path.Combine("Temp", "ArcweaveMedia-" + Guid.NewGuid().ToString("N") + System.IO.Path.GetExtension(path));
             try {
                 File.WriteAllBytes(temporaryPath, bytes);
-                if ( File.Exists(path) ) {
+                if ( replace ) {
                     File.Replace(temporaryPath, path, null);
                 } else {
                     File.Move(temporaryPath, path);

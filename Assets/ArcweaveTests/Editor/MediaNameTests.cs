@@ -1,5 +1,4 @@
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using NUnit.Framework;
 
@@ -56,7 +55,7 @@ namespace Arcweave.Tests
         public void NameIsComposed()
         {
             // "é" written as "e" and a combining accent
-            Assert.That(Sanitize("Café.png"), Is.EqualTo("Café.png"));
+            Assert.That(Sanitize("Cafe\u0301.png"), Is.EqualTo("Caf\u00E9.png"));
         }
 
         [Test]
@@ -94,11 +93,6 @@ namespace Arcweave.Tests
             }
         }
 
-        static string Sanitize(string name)
-        {
-            var sanitize = typeof(ArcweaveProjectAsset).Assembly.GetType("Arcweave.ArcweaveMediaDownloader")
-                .GetMethod("SanitizeName", BindingFlags.Static | BindingFlags.NonPublic);
-            return (string)sanitize.Invoke(null, new object[] { name });
-        }
+        static string Sanitize(string name) => ArcweaveMediaNames.SanitizeName(name);
     }
 }
