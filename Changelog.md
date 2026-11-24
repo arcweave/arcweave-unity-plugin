@@ -2,9 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 4.0.0
 
 ### Breaking changes
+
+See [Upgrading from 3.x](README.md#upgrading-from-3x) for what to check after upgrading.
 
 - Saves made with the v3.x demo player are not compatible with the new save system and are not migrated. The new save handler requires a visit-count entry in addition to the saved element and variables, so it does not recognize older saves; a new playthrough is required.
 - Saving and loading with the demo `ArcweavePlayer` now need an `ArcweaveSaveHandler` assigned to its **Save Handler** field. Without one, `RequestSave()`/`RequestLoad()` and the obsolete `Save()`/`Load()` wrappers only log a warning and do nothing. In 3.x, `Save()` and `Load()` wrote and read PlayerPrefs directly, so an upgraded scene without a handler still compiles but its save and load operations stop working.

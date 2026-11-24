@@ -10,6 +10,7 @@ This plugin imports [Arcweave](https://arcweave.com/) projects into Unity. It su
 ## Table of Contents
 
 - [Installation](#installation)
+  - [Upgrading from 3.x](#upgrading-from-3x)
 - [Getting Data from Arcweave](#getting-data-from-arcweave)
 - [Creating an ArcweaveProjectAsset](#creating-an-arcweaveprojectasset)
 - [Using the Demo Scene](#using-the-demo-scene)
@@ -44,6 +45,21 @@ Alternatively, download [`ArcweaveForUnity.zip`](https://github.com/arcweave/arc
 4. Find **Arcweave for Unity** and click **Download**, then **Import**
 
 **Note:** This repository is not structured as a UPM (Unity Package Manager) package and cannot be installed via Git URL.
+
+### Upgrading from 3.x
+
+Version 4.0 has breaking changes. Check these after upgrading (the [changelog](Changelog.md) has the full list):
+
+1. **Your UI runs each element's script twice.** `ArcweavePlayer` now calls `RunContentScript()` itself, before raising `onElementEnter`. If your `onElementEnter` handler still calls `e.RunContentScript()`, as the 3.x demo UI and README did, remove that call and only read `e.RuntimeContent`. Otherwise every script runs twice, for example `gold = gold + 10` adds 20. Nothing fails to compile, so search your code for `RunContentScript`.
+2. **Saving needs a save handler.** Add an `ArcweaveSaveHandler` component to your scene and assign it to the **Save Handler** field of your `ArcweavePlayer`, as the demo scene does. Without one, saving and loading only log a warning. Replace the obsolete `Save()`, `Load()` and `ArcweavePlayer.SAVE_KEY` with `RequestSave()`, `RequestLoad()` and `ArcweaveSaveHandler.SAVE_KEY`.
+3. **Saves from 3.x can't be loaded.** The new saves also store visit counts, so older saves are not recognized and players start a new playthrough.
+4. **The API key is no longer saved in the project asset.** If you import from the web:
+   - Each developer enters their own key in the project asset's inspector, which saves it in their copy of the project, or sets the `ARCWEAVE_API_KEY` environment variable. See [Where the API Key Is Saved](#where-the-api-key-is-saved).
+   - Assets that still contain a key keep importing, with a warning. Select each one and click **Move Key to User Settings** to remove the key from it. If the asset was ever committed or built, revoke the key in Arcweave and create a new one.
+   - On a build server, pass the key from your secrets manager to `ImportProjectAsync(apiKey)`.
+   - A game that imports from the web while it runs must pass the key to `ImportProjectAsync(apiKey)`, since builds no longer find it in the asset once it is moved out.
+5. **Subclasses that override `FetchProjectJson()`** must add its new `string apiKey` parameter.
+6. **Downloaded media is renamed after its Arcweave assets.** If you enabled **Download Media** in 3.1, the next import renames the files from their asset ids to their asset names, for example `monsignor.jpeg`. They keep their GUIDs, so scenes, prefabs and materials that use them keep working. Code or tools that find these files by path must use the new names. See [Media Downloaded from Web](#media-downloaded-from-web).
 
 ---
 
