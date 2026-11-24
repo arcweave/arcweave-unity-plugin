@@ -23,10 +23,13 @@ namespace Arcweave.Tests
         private StubApiServer server;
         private string temporaryFolder;
         private StubbedWebProjectAsset asset;
+        private TemporaryUserSettings userSettings;
 
         [SetUp]
         public void CreateProjectAsset()
         {
+            userSettings = new TemporaryUserSettings();
+            ArcweaveUserSettings.ApiKey = "test-key";
             server = new StubApiServer();
             server.SetFile(CoverId, Png(Color.red));
             server.SetFile(HeroId, Png(Color.green));
@@ -38,7 +41,6 @@ namespace Arcweave.Tests
 
             asset = ScriptableObject.CreateInstance<StubbedWebProjectAsset>();
             asset.importSource = ArcweaveProjectAsset.ImportSource.FromWeb;
-            asset.userAPIKey = "test-key";
             asset.projectHash = "test-hash";
             asset.apiUrl = server.ApiUrl;
             asset.server = server;
@@ -49,6 +51,7 @@ namespace Arcweave.Tests
         [TearDown]
         public void DeleteProjectAsset()
         {
+            userSettings.Dispose();
             server.Dispose();
             if ( Directory.Exists(temporaryFolder) ) {
                 foreach ( var file in Directory.GetFiles(temporaryFolder, "*", SearchOption.AllDirectories) ) {
@@ -100,7 +103,7 @@ namespace Arcweave.Tests
         public IEnumerator ApiKeyPassedToTheImportIsUsedForTheProjectAndItsMedia()
         {
             asset.downloadMedia = true;
-            asset.userAPIKey = "";
+            ArcweaveUserSettings.ApiKey = "";
 
             yield return Await(asset.ImportProjectAsync("passed-key"));
 
@@ -109,7 +112,10 @@ namespace Arcweave.Tests
             Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer passed-key" }));
             Assert.That(server.RequestCount, Is.GreaterThan(0));
             Assert.That(server.Authorizations, Is.All.EqualTo("Bearer passed-key"));
-            Assert.That(asset.userAPIKey, Is.Empty, "The passed key must not be saved in the asset.");
+            Assert.That(ArcweaveUserSettings.ApiKey, Is.Empty, "The passed key must not be saved.");
+#pragma warning disable 618
+            Assert.That(asset.userAPIKey, Is.Null.Or.Empty, "The passed key must not be saved in the asset.");
+#pragma warning restore 618
             EditorUtility.SetDirty(asset);
             AssetDatabase.SaveAssetIfDirty(asset);
             Assert.That(File.ReadAllText(AssetDatabase.GetAssetPath(asset)), Does.Not.Contain("passed-key"));
@@ -126,7 +132,7 @@ namespace Arcweave.Tests
             Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer passed-key" }));
             Assert.That(server.RequestCount, Is.GreaterThan(0));
             Assert.That(server.Authorizations, Is.All.EqualTo("Bearer passed-key"));
-            Assert.That(asset.userAPIKey, Is.EqualTo("test-key"));
+            Assert.That(ArcweaveUserSettings.ApiKey, Is.EqualTo("test-key"));
         }
 
         [UnityTest]
@@ -185,7 +191,7 @@ namespace Arcweave.Tests
         [Test]
         public void ImportWithoutAnyApiKeyFails()
         {
-            asset.userAPIKey = "";
+            ArcweaveUserSettings.ApiKey = "";
 
             var import = asset.ImportProjectAsync();
 

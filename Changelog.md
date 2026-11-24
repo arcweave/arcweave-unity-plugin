@@ -9,10 +9,13 @@ All notable changes to this project will be documented in this file.
 - Saves made with the v3.x demo player are not compatible with the new save system and are not migrated. The new save handler requires a visit-count entry in addition to the saved element and variables, so it does not recognize older saves; a new playthrough is required.
 - Saving and loading with the demo `ArcweavePlayer` now need an `ArcweaveSaveHandler` assigned to its **Save Handler** field. Without one, `RequestSave()`/`RequestLoad()` and the obsolete `Save()`/`Load()` wrappers only log a warning and do nothing. In 3.x, `Save()` and `Load()` wrote and read PlayerPrefs directly, so an upgraded scene without a handler still compiles but its save and load operations stop working.
 - `ArcweavePlayer` now runs the element's content script (`RunContentScript()`) itself, before raising `onElementEnter`. A custom UI that still calls `e.RunContentScript()` in its `onElementEnter` handler, as the 3.x demo UI and README did, runs every script twice (for example `gold = gold + 10` adds 20). Remove that call and only read `RuntimeContent`.
+- The web import API key is no longer saved in `ArcweaveProjectAsset`, so it isn't committed to version control or included in builds. The inspector saves it in `UserSettings/ArcweaveSettings.json` for the current user only, so each developer enters their own key. Existing assets keep importing with the key saved in them, with a warning, until it is moved (see Deprecated). Web imports in a build no longer find a key unless it is passed to `ImportProjectAsync(apiKey)` or is still saved in the asset.
 - `ArcweaveProjectAsset.FetchProjectJson()`, the protected method subclasses override to replace the download of the project json, is now `FetchProjectJson(string apiKey)` and receives the API key of the import. Subclasses that override it must add the parameter.
 
 ### Added
 
+- Added `ArcweaveUserSettings` (editor only), which saves the API key in `UserSettings/ArcweaveSettings.json`. In the editor, imports that are not passed a key use the key in the user settings, then the `ARCWEAVE_API_KEY` environment variable, then a key saved in the asset by an older version.
+- Added a **Move Key to User Settings** button to the inspector of project assets that still contain an API key, whatever their import source, and a warning when building while any project asset contains one. When a key is already in the user settings or `ARCWEAVE_API_KEY`, the button is **Remove Key from Asset** and keeps that key.
 - Added `ArcweaveProjectAsset.ImportProjectAsync(string apiKey)` and `EnsureImportedAsync(string apiKey)`. A web import uses the passed API key to download the project and its media instead of the one saved in the asset, and never saves it, so the key can come from an environment variable or a secrets manager, for example on a build server.
 
 ### Changed
@@ -21,6 +24,7 @@ All notable changes to this project will be documented in this file.
 
 ### Deprecated
 
+- Deprecated `ArcweaveProjectAsset.userAPIKey`. It is still serialized and used as the last fallback so existing assets keep importing. Move the key out of the asset with the inspector's **Move Key to User Settings** button, and revoke the key in Arcweave if the asset was committed or built with it.
 - Deprecated `ArcweavePlayer.Save()`, `ArcweavePlayer.Load()` and `ArcweavePlayer.SAVE_KEY` in favor of `RequestSave()`, `RequestLoad()` and `ArcweaveSaveHandler.SAVE_KEY`. They remain as wrappers and need an `ArcweaveSaveHandler` like the new methods.
 
 ### Fixed
