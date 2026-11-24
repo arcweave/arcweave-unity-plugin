@@ -41,6 +41,7 @@ namespace Arcweave.Tests
             asset.userAPIKey = "test-key";
             asset.projectHash = "test-hash";
             asset.apiUrl = server.ApiUrl;
+            asset.server = server;
             asset.projectJson = ProjectJson();
             AssetDatabase.CreateAsset(asset, temporaryFolder + "/Project.asset");
         }
@@ -93,6 +94,104 @@ namespace Arcweave.Tests
             Assert.That(Cover().ResolveImage(), Is.SameAs(Cover().downloadedImage));
             Assert.That(Music().TryGetAudioClip(), Is.SameAs(Music().downloadedClip));
             Assert.That(server.Authorizations, Is.All.EqualTo("Bearer test-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator ApiKeyPassedToTheImportIsUsedForTheProjectAndItsMedia()
+        {
+            asset.downloadMedia = true;
+            asset.userAPIKey = "";
+
+            yield return Await(asset.ImportProjectAsync("passed-key"));
+
+            Assert.That(asset.IsImported, Is.True);
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("passed-key"));
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer passed-key" }));
+            Assert.That(server.RequestCount, Is.GreaterThan(0));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer passed-key"));
+            Assert.That(asset.userAPIKey, Is.Empty, "The passed key must not be saved in the asset.");
+            EditorUtility.SetDirty(asset);
+            AssetDatabase.SaveAssetIfDirty(asset);
+            Assert.That(File.ReadAllText(AssetDatabase.GetAssetPath(asset)), Does.Not.Contain("passed-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator ApiKeyPassedToTheImportTakesPriorityOverTheSavedOne()
+        {
+            asset.downloadMedia = true;
+
+            yield return Await(asset.EnsureImportedAsync("passed-key"));
+
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("passed-key"));
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer passed-key" }));
+            Assert.That(server.RequestCount, Is.GreaterThan(0));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer passed-key"));
+            Assert.That(asset.userAPIKey, Is.EqualTo("test-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator EmptyApiKeyPassedToTheImportUsesTheSavedOne()
+        {
+            asset.downloadMedia = true;
+
+            yield return Await(asset.ImportProjectAsync(""));
+
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("test-key"));
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer test-key" }));
+            Assert.That(server.RequestCount, Is.GreaterThan(0));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer test-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator ApiKeyPassedToTheImportIsTrimmed()
+        {
+            asset.downloadMedia = true;
+
+            yield return Await(asset.ImportProjectAsync("  passed-key\r\n"));
+
+            Assert.That(asset.IsImported, Is.True);
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer passed-key" }));
+            Assert.That(server.RequestCount, Is.GreaterThan(0));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer passed-key"));
+        }
+
+        [UnityTest]
+        public IEnumerator BlankApiKeyPassedToTheImportUsesTheSavedOne()
+        {
+            yield return Await(asset.ImportProjectAsync("   "));
+
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer test-key" }));
+        }
+
+        [UnityTest]
+        public IEnumerator ImportJoinedWithAnotherApiKeyKeepsTheKeyItStartedWith()
+        {
+            asset.downloadMedia = true;
+            server.Hold();
+            var first = asset.ImportProjectAsync("first-key");
+            yield return WaitUntil(() => server.RequestCount > 0);
+
+            var joined = asset.ImportProjectAsync("second-key");
+            Assert.That(joined, Is.SameAs(first));
+
+            server.Release();
+            yield return Await(joined);
+
+            Assert.That(asset.fetchedWithApiKey, Is.EqualTo("first-key"));
+            Assert.That(server.ProjectAuthorizations, Is.EqualTo(new[] { "Bearer first-key" }));
+            Assert.That(server.Authorizations, Is.All.EqualTo("Bearer first-key"));
+        }
+
+        [Test]
+        public void ImportWithoutAnyApiKeyFails()
+        {
+            asset.userAPIKey = "";
+
+            var import = asset.ImportProjectAsync();
+
+            Assert.That(import.IsFaulted, Is.True);
+            Assert.That(import.Exception.InnerException, Is.TypeOf<InvalidOperationException>());
+            Assert.That(asset.fetchedWithApiKey, Is.Null);
         }
 
         [UnityTest]

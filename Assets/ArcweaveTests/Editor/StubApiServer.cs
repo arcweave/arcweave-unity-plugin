@@ -7,7 +7,9 @@ using System.Threading.Tasks;
 
 namespace Arcweave.Tests
 {
-    ///<summary>A local stub of the asset file endpoint of Arcweave's web API: GET /api/{hash}/asset/{id}/file.</summary>
+    ///<summary>A local stub of the project json and asset file endpoints of Arcweave's web API:
+    /// GET /api/{hash}/unity and GET /api/{hash}/asset/{id}/file.
+    /// Project json requests are recorded separately, are not held, and are not counted in RequestCount.</summary>
     public sealed class StubApiServer : IDisposable
     {
         public sealed class Response
@@ -22,6 +24,8 @@ namespace Arcweave.Tests
         private readonly Dictionary<string, byte[]> files = new Dictionary<string, byte[]>();
         private readonly Dictionary<string, Queue<Response>> pendingResponses = new Dictionary<string, Queue<Response>>();
         private readonly List<KeyValuePair<string, string>> requests = new List<KeyValuePair<string, string>>();
+        private readonly List<string> projectAuthorizations = new List<string>();
+        private string projectJson = "";
         private TaskCompletionSource<bool> hold;
 
         public string ApiUrl { get; }
@@ -42,6 +46,16 @@ namespace Arcweave.Tests
                 }
             }
             Task.Run(Listen);
+        }
+
+        ///<summary>Serves the project json with status 200.</summary>
+        public void SetProjectJson(string json) {
+            lock ( sync ) { projectJson = json ?? ""; }
+        }
+
+        ///<summary>The Authorization header of every project json request.</summary>
+        public IEnumerable<string> ProjectAuthorizations {
+            get { lock ( sync ) { return projectAuthorizations.ToList(); } }
         }
 
         ///<summary>Serves the file of an asset id with status 200.</summary>
@@ -101,8 +115,19 @@ namespace Arcweave.Tests
         }
 
         private void Handle(HttpListenerContext context) {
-            // /api/{hash}/asset/{id}/file
             var segments = context.Request.Url.AbsolutePath.Trim('/').Split('/');
+            // /api/{hash}/unity
+            if ( segments.Length == 3 && segments[0] == "api" && segments[2] == "unity" ) {
+                byte[] json;
+                lock ( sync ) {
+                    projectAuthorizations.Add(context.Request.Headers["Authorization"]);
+                    json = System.Text.Encoding.UTF8.GetBytes(projectJson);
+                }
+                Respond(context, new Response { body = json });
+                return;
+            }
+
+            // /api/{hash}/asset/{id}/file
             var assetId = segments.Length == 5 && segments[0] == "api" && segments[2] == "asset" && segments[4] == "file"
                 ? Uri.UnescapeDataString(segments[3])
                 : null;
@@ -121,7 +146,10 @@ namespace Arcweave.Tests
                 }
             }
             waitFor?.Wait();
+            Respond(context, response);
+        }
 
+        private static void Respond(HttpListenerContext context, Response response) {
             try {
                 context.Response.StatusCode = response.status;
                 if ( response.retryAfter != null ) { context.Response.AddHeader("Retry-After", response.retryAfter); }

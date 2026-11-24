@@ -36,9 +36,9 @@ namespace Arcweave
 
         ///<summary>Downloads the media of a newly made project of the project asset and links it to the project.
         /// Never faults: media that cannot be downloaded or saved keeps its previous copy and logs a warning.</summary>
-        public static async Task DownloadAsync(ArcweaveProjectAsset projectAsset, Project.Project project) {
+        public static async Task DownloadAsync(ArcweaveProjectAsset projectAsset, Project.Project project, string apiKey) {
             try {
-                await DownloadMediaAsync(projectAsset, project);
+                await DownloadMediaAsync(projectAsset, project, apiKey);
             }
             catch ( Exception e ) {
                 Debug.LogException(e);
@@ -48,7 +48,7 @@ namespace Arcweave
             }
         }
 
-        static async Task DownloadMediaAsync(ArcweaveProjectAsset projectAsset, Project.Project project) {
+        static async Task DownloadMediaAsync(ArcweaveProjectAsset projectAsset, Project.Project project, string apiKey) {
             if ( string.IsNullOrEmpty(AssetDatabase.GetAssetPath(projectAsset)) ) {
                 Debug.LogWarning("Skipping media download because the Arcweave project is not saved as an asset.");
                 return;
@@ -78,7 +78,7 @@ namespace Arcweave
                 }
 
                 var url = projectAsset.ApiUrl + Uri.EscapeDataString(projectAsset.projectHash) + "/asset/" + Uri.EscapeDataString(id) + "/file";
-                var bytes = await FetchAsync(url, projectAsset.userAPIKey, name, $"Downloading media {i + 1}/{ids.Count}: {name}", (float)i / ids.Count, progress);
+                var bytes = await FetchAsync(url, apiKey, name, $"Downloading media {i + 1}/{ids.Count}: {name}", (float)i / ids.Count, progress);
                 if ( bytes != null ) {
                     downloads[id] = bytes;
                 }
