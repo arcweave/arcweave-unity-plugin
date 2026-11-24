@@ -34,6 +34,32 @@ namespace Arcweave
             }
         }
 
+        ///<summary>Where a downloaded file is saved: the asset's own file from a previous import, replaced in place and
+        /// found by its GUID, or a new file, which is only ever created and never replaces a file at its path.</summary>
+        sealed class Target
+        {
+            public readonly string id;
+            public readonly string path;
+            public readonly string ownedGuid;
+            public bool IsOwned => ownedGuid != null;
+
+            public Target(string id, string path, string ownedGuid) {
+                this.id = id;
+                this.path = path;
+                this.ownedGuid = ownedGuid;
+            }
+        }
+
+        ///<summary>The paths chosen for the files of an import, which may not be written yet. Paths that differ only in case
+        /// or Unicode normalization are the same path, since some file systems treat them as the same name.</summary>
+        sealed class ClaimedPaths
+        {
+            readonly HashSet<string> paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            public void Add(string path) => paths.Add(ArcweaveMediaNames.Normalize(path));
+            public bool Contains(string path) => paths.Contains(ArcweaveMediaNames.Normalize(path));
+        }
+
         ///<summary>Downloads the media of a newly made project of the project asset and links it to the project.
         /// Never faults: media that cannot be downloaded or saved keeps its previous copy and logs a warning.</summary>
         public static async Task DownloadAsync(ArcweaveProjectAsset projectAsset, Project.Project project, string apiKey) {
@@ -58,6 +84,8 @@ namespace Arcweave
             var audioAssets = new Dictionary<string, List<AudioAsset>>();
             var names = new Dictionary<string, string>();
             CollectMedia(project, covers, audioAssets, names);
+            // Sanitized before any path operation, since some of them throw on characters that aren't allowed in paths
+            var fileNames = names.ToDictionary(entry => entry.Key, entry => ArcweaveMediaNames.SanitizeName(entry.Value));
 
             var downloads = new Dictionary<string, byte[]>();
             var ids = names.Keys.ToList();
@@ -65,15 +93,10 @@ namespace Arcweave
             for ( var i = 0; i < ids.Count && !progress.Canceled; i++ ) {
                 var id = ids[i];
                 var name = names[id];
-                var extension = System.IO.Path.GetExtension(name).ToLowerInvariant();
+                var extension = System.IO.Path.GetExtension(fileNames[id]).ToLowerInvariant();
                 var supportedExtensions = covers.ContainsKey(id) ? IMAGE_EXTENSIONS : AUDIO_EXTENSIONS;
                 if ( !supportedExtensions.Contains(extension) ) {
                     Debug.LogWarning($"Skipping '{name}' because Unity cannot import '{extension}' files.");
-                    continue;
-                }
-                // The id names the downloaded file, so anything that is not a plain file name is never used in a path
-                if ( id.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0 || id.Trim('.').Length == 0 ) {
-                    Debug.LogWarning($"Skipping '{name}' because its asset id '{id}' is not a valid file name.");
                     continue;
                 }
 
@@ -87,7 +110,7 @@ namespace Arcweave
                 Debug.LogWarning("Media download canceled. Media that was not downloaded keeps its previous copy.");
             }
 
-            // Nothing below awaits, so the paths resolved here are still current when the files are written and deleted.
+            // Nothing below awaits, so the paths resolved here are still current when the files are moved, written and deleted.
             var assetPath = AssetDatabase.GetAssetPath(projectAsset);
             if ( string.IsNullOrEmpty(assetPath) ) {
                 Debug.LogWarning("Skipping media update because the Arcweave project asset was deleted during the download.");
@@ -102,72 +125,178 @@ namespace Arcweave
                 projectAsset.downloadedMedia = new List<ArcweaveProjectAsset.DownloadedMedia>();
             }
 
-            // Files downloaded by previous imports. Only these files are ever replaced or deleted.
+            // Files downloaded by previous imports, by GUID. Only these files are ever replaced, moved or deleted.
             // The linked file of each Arcweave asset id comes first, followed by any files that could not be deleted yet.
-            var ownedPaths = new List<KeyValuePair<string, string>>();
-            var previousPaths = new Dictionary<string, string>();
+            var owned = new List<ArcweaveProjectAsset.DownloadedMedia>();
+            var previousGuids = new Dictionary<string, string>();
             foreach ( var media in projectAsset.downloadedMedia ) {
-                var path = AssetDatabase.GUIDToAssetPath(media.guid);
-                if ( !string.IsNullOrEmpty(path) && File.Exists(path) ) {
-                    ownedPaths.Add(new KeyValuePair<string, string>(media.assetId, path));
-                    if ( !previousPaths.ContainsKey(media.assetId) ) { previousPaths[media.assetId] = path; }
+                if ( OwnedPath(media.guid) != null ) {
+                    owned.Add(media);
+                    if ( !previousGuids.ContainsKey(media.assetId) ) { previousGuids[media.assetId] = media.guid; }
                 }
             }
 
+            // The file each asset is linked to, by GUID: its previous file or its verified new file. Files are found by GUID
+            // whenever they are used, since callbacks of other editor extensions can move files during the import.
             // A previous file is kept when its replacement cannot be downloaded or saved, so a failed import does not remove media.
+            var keptGuids = new Dictionary<string, string>();
             var paths = new Dictionary<string, string>();
             foreach ( var id in ids ) {
-                if ( !downloads.ContainsKey(id) && previousPaths.TryGetValue(id, out var previousPath) ) {
-                    paths[id] = previousPath;
+                if ( !downloads.ContainsKey(id) && previousGuids.TryGetValue(id, out var previousGuid) ) {
+                    keptGuids[id] = previousGuid;
                 }
             }
 
             var folder = string.IsNullOrEmpty(projectAsset.mediaFolderGuid) ? null : AssetDatabase.GUIDToAssetPath(projectAsset.mediaFolderGuid);
-            if ( downloads.Count > 0 && ( string.IsNullOrEmpty(folder) || !AssetDatabase.IsValidFolder(folder) ) ) {
-                var parentFolder = System.IO.Path.GetDirectoryName(assetPath).Replace('\\', '/');
-                var folderName = System.IO.Path.GetFileName(AssetDatabase.GenerateUniqueAssetPath(parentFolder + "/" + projectAsset.name + " Media"));
-                projectAsset.mediaFolderGuid = AssetDatabase.CreateFolder(parentFolder, folderName);
-                folder = parentFolder + "/" + folderName;
+            if ( string.IsNullOrEmpty(folder) || !AssetDatabase.IsValidFolder(folder) ) {
+                folder = null;
             }
 
+            // Where each downloaded file is saved. The media folder is created and files are moved before the asset-editing batch,
+            // so they are in the asset database when the files are written.
+            var targets = new List<Target>();
+            var claimedPaths = new ClaimedPaths();
+            foreach ( var id in downloads.Keys ) {
+                var extension = System.IO.Path.GetExtension(fileNames[id]).ToLowerInvariant();
+                var previousPath = previousGuids.TryGetValue(id, out var previousGuid) ? OwnedPath(previousGuid) : null;
+                var keepsPrevious = previousPath != null && System.IO.Path.GetExtension(previousPath).ToLowerInvariant() == extension;
+
+                // A file keeps its name and place once it is saved, so renaming or moving the asset in Arcweave or the file
+                // in Unity never breaks references to it. Only files still named after their asset id by 3.1.0 are renamed, once.
+                string path;
+                if ( keepsPrevious && ( !IsNamedByVersion310(previousPath, id, folder) || ArcweaveMediaNames.AreSameName(System.IO.Path.GetFileName(previousPath), fileNames[id]) ) ) {
+                    path = previousPath;
+                } else {
+                    try {
+                        path = NewPath(id);
+                    }
+                    catch ( Exception e ) {
+                        // Eg. a folder that can't be listed
+                        Debug.LogWarning($"Could not find a path for '{names[id]}': {e.Message}");
+                        path = null;
+                    }
+                    if ( keepsPrevious ) {
+                        // Moving keeps the file's GUID, so references to it keep working
+                        var error = path == null ? "" : AssetDatabase.MoveAsset(previousPath, path);
+                        if ( path == null || !string.IsNullOrEmpty(error) ) {
+                            if ( path != null ) { Debug.LogWarning($"Could not rename '{names[id]}' from {previousPath} to {path}: {error}"); }
+                            path = previousPath;
+                        }
+                    }
+                }
+                if ( path == null ) {
+                    continue;
+                }
+                targets.Add(new Target(id, path, keepsPrevious ? previousGuid : null));
+                claimedPaths.Add(path);
+            }
+
+            ///<summary>Returns a free path in the media folder named after the asset, creating the folder, or null if it can't be created.</summary>
+            string NewPath(string id) {
+                // The media folder is only created when a file needs a path in it, and only tried once per import
+                if ( folder == null ) {
+                    var parentFolder = System.IO.Path.GetDirectoryName(assetPath).Replace('\\', '/');
+                    var folderName = System.IO.Path.GetFileName(AssetDatabase.GenerateUniqueAssetPath(parentFolder + "/" + projectAsset.name + " Media"));
+                    projectAsset.mediaFolderGuid = AssetDatabase.CreateFolder(parentFolder, folderName);
+                    folder = AssetDatabase.GUIDToAssetPath(projectAsset.mediaFolderGuid) ?? "";
+                    if ( folder == "" ) {
+                        Debug.LogWarning($"Could not create the media folder {parentFolder}/{folderName}, so new media is not saved.");
+                    }
+                }
+                return folder == "" ? null : UniquePath(folder + "/" + fileNames[id], claimedPaths);
+            }
+
+            // Files are written and imported in one batch. A new file only replaces the previous copy once the batch is done and
+            // it is checked, and unused files are only deleted after that, so a broken or replaced download never loses a working file.
             var saved = 0;
-            var undeletedPaths = new List<KeyValuePair<string, string>>();
+            var newFiles = new Dictionary<string, string>();
             AssetDatabase.StartAssetEditing();
             try {
-                foreach ( var download in downloads ) {
-                    // Overwrite the previous file in place when possible, so its GUID and any references to it are kept.
-                    // Otherwise use a unique path, so files the importer does not own are never overwritten.
-                    var extension = System.IO.Path.GetExtension(names[download.Key]).ToLowerInvariant();
-                    var hasPrevious = previousPaths.TryGetValue(download.Key, out var previousPath);
-                    var path = hasPrevious && System.IO.Path.GetExtension(previousPath).ToLowerInvariant() == extension
-                        ? previousPath
-                        : AssetDatabase.GenerateUniqueAssetPath($"{folder}/{download.Key}{extension}");
+                foreach ( var target in targets ) {
+                    var id = target.id;
+                    var path = target.path;
+                    var bytes = downloads[id];
                     try {
-                        if ( !File.Exists(path) || !File.ReadAllBytes(path).SequenceEqual(download.Value) ) {
-                            WriteFile(path, download.Value);
+                        // Checked again right before writing, since a callback, eg. of another editor extension, may have moved the
+                        // asset's file or saved another file at the path since it was chosen
+                        if ( target.IsOwned ? OwnedPath(target.ownedGuid) != path : IsOccupied(path) ) {
+                            throw new IOException("The file at the path changed during the import.");
+                        }
+                        if ( !target.IsOwned || !File.ReadAllBytes(path).SequenceEqual(bytes) ) {
+                            WriteFile(path, bytes, target.IsOwned);
                             AssetDatabase.ImportAsset(path);
                         }
-                        paths[download.Key] = path;
-                        saved++;
+                        if ( target.IsOwned ) {
+                            keptGuids[id] = target.ownedGuid;
+                            saved++;
+                        } else {
+                            newFiles[id] = path;
+                        }
                     }
                     catch ( Exception e ) {
                         // Eg. a read-only file checked in to version control
-                        Debug.LogWarning($"Could not save '{names[download.Key]}' to {path}: {e.Message}");
-                        if ( hasPrevious ) { paths[download.Key] = previousPath; }
+                        Debug.LogWarning($"Could not save '{names[id]}' to {path}: {e.Message}");
+                        if ( previousGuids.TryGetValue(id, out var previousGuid) ) { keptGuids[id] = previousGuid; }
                     }
                 }
+                var targetIds = new HashSet<string>(targets.Select(target => target.id));
+                foreach ( var id in downloads.Keys.Where(id => !targetIds.Contains(id)) ) {
+                    if ( previousGuids.TryGetValue(id, out var previousGuid) ) { keptGuids[id] = previousGuid; }
+                }
+            }
+            finally {
+                AssetDatabase.StopAssetEditing();
+            }
 
-                var linkedPaths = new HashSet<string>(paths.Values);
-                foreach ( var owned in ownedPaths.GroupBy(entry => entry.Value).Select(group => group.First()) ) {
-                    if ( !linkedPaths.Contains(owned.Value) && !AssetDatabase.DeleteAsset(owned.Value) ) {
+            // A new file is only used and owned if it still holds what was written and Unity can load it: a callback of another
+            // editor extension may have moved it and saved another file at its path while it was imported, and a broken download
+            // can't be loaded. Otherwise the asset keeps its previous copy, and a file that isn't the download is left alone.
+            // From here on, a verified new file is found by its GUID like the previous files, since callbacks may still move it.
+            foreach ( var file in newFiles ) {
+                var id = file.Key;
+                var path = file.Value;
+                try {
+                    var isDownload = File.Exists(path) && File.ReadAllBytes(path).SequenceEqual(downloads[id]);
+                    if ( isDownload && LoadMedia(id, path, covers) != null ) {
+                        keptGuids[id] = AssetDatabase.AssetPathToGUID(path);
+                        saved++;
+                        continue;
+                    }
+                    if ( isDownload ) {
+                        Debug.LogWarning($"Could not load '{names[id]}' from {path}, so it keeps its previous copy.");
+                        if ( !AssetDatabase.DeleteAsset(path) ) { Debug.LogWarning($"Could not delete {path}."); }
+                    } else {
+                        Debug.LogWarning($"The file at {path} changed while '{names[id]}' was imported, so it is left alone and '{names[id]}' keeps its previous copy.");
+                    }
+                }
+                catch ( Exception e ) {
+                    // Eg. another program holding the file open. The file is not owned, so it is left alone.
+                    Debug.LogWarning($"Could not check '{names[id]}' at {path}, so it keeps its previous copy: {e.Message}");
+                }
+                if ( previousGuids.TryGetValue(id, out var previousGuid) ) { keptGuids[id] = previousGuid; }
+            }
+
+            var undeleted = new List<ArcweaveProjectAsset.DownloadedMedia>();
+            var linkedGuids = new HashSet<string>(keptGuids.Values);
+            AssetDatabase.StartAssetEditing();
+            try {
+                foreach ( var media in owned.GroupBy(media => media.guid).Select(group => group.First()) ) {
+                    var path = OwnedPath(media.guid);
+                    if ( path == null || linkedGuids.Contains(media.guid) ) { continue; }
+                    if ( !AssetDatabase.DeleteAsset(path) ) {
                         // Still owned, so a later import tries again
-                        Debug.LogWarning($"Could not delete unused media file {owned.Value}.");
-                        undeletedPaths.Add(owned);
+                        Debug.LogWarning($"Could not delete unused media file {path}.");
+                        undeleted.Add(media);
                     }
                 }
             }
             finally {
                 AssetDatabase.StopAssetEditing();
+            }
+
+            foreach ( var kept in keptGuids ) {
+                var path = OwnedPath(kept.Value);
+                if ( path != null ) { paths[kept.Key] = path; }
             }
 
             // Every cover and audio asset is linked, to its file or to nothing, so the project never references another asset's media.
@@ -192,11 +321,31 @@ namespace Arcweave
                 }
             }
 
-            projectAsset.downloadedMedia = paths.Concat(undeletedPaths)
+            projectAsset.downloadedMedia = paths
                 .Select(entry => new ArcweaveProjectAsset.DownloadedMedia(entry.Key, AssetDatabase.AssetPathToGUID(entry.Value)))
+                .Concat(undeleted)
                 .ToList();
             EditorUtility.SetDirty(projectAsset);
             Debug.Log($"Downloaded {saved} of {names.Count} media files for {projectAsset.name}");
+        }
+
+        ///<summary>Returns the path of a downloaded file by GUID, or null if it no longer exists.</summary>
+        static string OwnedPath(string guid) {
+            var path = AssetDatabase.GUIDToAssetPath(guid);
+            return !string.IsNullOrEmpty(path) && File.Exists(path) ? path : null;
+        }
+
+        ///<summary>Loads the downloaded file of an Arcweave asset as an image for covers or as audio, or returns null if Unity can't.</summary>
+        static UnityEngine.Object LoadMedia(string id, string path, Dictionary<string, List<Cover>> covers) {
+            return covers.ContainsKey(id) ? (UnityEngine.Object)AssetDatabase.LoadAssetAtPath<Texture2D>(path) : AssetDatabase.LoadAssetAtPath<AudioClip>(path);
+        }
+
+        ///<summary>True if the file is still where and how 3.1.0 saved it: in the media folder, named after its asset id with a
+        /// lowercase extension. A file the user renamed or moved, even only changing the case of its extension, is not.</summary>
+        static bool IsNamedByVersion310(string path, string id, string mediaFolder) {
+            return !string.IsNullOrEmpty(mediaFolder)
+                && string.Equals(System.IO.Path.GetDirectoryName(path).Replace('\\', '/'), mediaFolder, StringComparison.Ordinal)
+                && System.IO.Path.GetFileName(path) == id + System.IO.Path.GetExtension(path).ToLowerInvariant();
         }
 
         ///<summary>Collects the image covers and audio assets of the project grouped by Arcweave asset id.</summary>
@@ -215,6 +364,39 @@ namespace Arcweave
                 }
                 list.Add(audioAsset);
             }
+        }
+
+        ///<summary>Returns the path, or a unique one from AssetDatabase.GenerateUniqueAssetPath ("name 1.ext", "name 2.ext"...) if it is taken.
+        /// Paths claimed by other files of this import are taken, since they may not be written yet, and so are names that differ
+        /// only in case or Unicode normalization, since some file systems and Unity treat them as the same path.</summary>
+        static string UniquePath(string path, ClaimedPaths claimedPaths) {
+            var folder = path.Substring(0, path.LastIndexOf('/'));
+            var stem = System.IO.Path.GetFileNameWithoutExtension(path);
+            var extension = System.IO.Path.GetExtension(path);
+            if ( !IsTaken(path, claimedPaths) ) {
+                return path;
+            }
+            var candidate = AssetDatabase.GenerateUniqueAssetPath(path);
+            for ( var number = 1; string.IsNullOrEmpty(candidate) || IsTaken(candidate, claimedPaths); number++ ) {
+                var numbered = $"{folder}/{stem} {number}{extension}";
+                var unique = AssetDatabase.GenerateUniqueAssetPath(numbered);
+                candidate = string.IsNullOrEmpty(unique) ? numbered : unique;
+            }
+            return candidate;
+        }
+
+        static bool IsTaken(string path, ClaimedPaths claimedPaths) => claimedPaths.Contains(path) || IsOccupied(path);
+
+        ///<summary>True if the file system has the path or its .meta file, which would give a new file another asset's GUID, or the folder
+        /// has a file or folder whose name matches either ignoring case and Unicode normalization, since some file systems treat those
+        /// as the same name, eg. "é" written as one or two characters on APFS.</summary>
+        static bool IsOccupied(string path) {
+            if ( File.Exists(path) || Directory.Exists(path) || File.Exists(path + ".meta") ) { return true; }
+            var separator = path.LastIndexOf('/');
+            var folder = path.Substring(0, separator);
+            var name = path.Substring(separator + 1);
+            return Directory.Exists(folder) && Directory.EnumerateFileSystemEntries(folder).Select(System.IO.Path.GetFileName)
+                .Any(entry => ArcweaveMediaNames.AreSameName(entry, name) || ArcweaveMediaNames.AreSameName(entry, name + ".meta"));
         }
 
         ///<summary>Downloads an asset file, waiting and retrying while rate limited. Returns null if the download fails or is canceled.</summary>
@@ -264,17 +446,30 @@ namespace Arcweave
             return Math.Min(Math.Max(1, seconds), MAX_RETRY_SECONDS);
         }
 
-        ///<summary>Writes the file through a temporary file, so a failed write never leaves it truncated. Replacing keeps its .meta and GUID.</summary>
-        static void WriteFile(string path, byte[] bytes) {
+        ///<summary>Writes the file. A new file is created only if nothing is at its path, in one step, so it can never replace a file that
+        /// appeared there since the path was checked; a failed write deletes it. An owned file is replaced through a temporary file,
+        /// so a failed write never leaves it truncated, and replacing keeps its .meta and GUID.</summary>
+        static void WriteFile(string path, byte[] bytes, bool replace) {
+            if ( !replace ) {
+                var created = false;
+                try {
+                    using ( var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None) ) {
+                        created = true;
+                        stream.Write(bytes, 0, bytes.Length);
+                    }
+                }
+                catch {
+                    if ( created ) { TryDeleteFile(path); }
+                    throw;
+                }
+                return;
+            }
+
             Directory.CreateDirectory("Temp");
             var temporaryPath = System.IO.Path.Combine("Temp", "ArcweaveMedia-" + Guid.NewGuid().ToString("N") + System.IO.Path.GetExtension(path));
             try {
                 File.WriteAllBytes(temporaryPath, bytes);
-                if ( File.Exists(path) ) {
-                    File.Replace(temporaryPath, path, null);
-                } else {
-                    File.Move(temporaryPath, path);
-                }
+                File.Replace(temporaryPath, path, null);
             }
             finally {
                 if ( File.Exists(temporaryPath) ) { TryDeleteFile(temporaryPath); }
