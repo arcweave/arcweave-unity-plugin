@@ -48,6 +48,14 @@ Every test that imports from web uses `TemporaryUserSettings`, which points the 
 
 `Arcweave.Tests.AudioNumbersTests` imports a project whose starting element plays one audio asset. Arcweave exports may write the audio `delay` as a string (for example, `"delay": "1200"` in The Castle template). They cover delays and volumes written as integers (including zero, negative and large ones), decimals, numeric strings read regardless of the current culture, `null` or omitted, and values that are not numbers, which are reported and replaced by the default (a delay of `0` and a volume of `1`) instead of failing the import.
 
+## Reset all tests
+
+`Arcweave.Tests.ResetAllTests` runs Arcscript's `resetAll()` on a project with global and board variables that differ from their default values. They check that `resetAll()` without arguments resets every variable, through `AwInterpreter` and through an element's content script, that `resetAll()` in a project without variables changes nothing, that `resetAll(health)` resets every variable except `health`, and that the other functions that can be called without arguments (`random()`, `visits()` and `resetVisits()`) still work.
+
+## Starting element tests
+
+`Arcweave.Tests.StartingElementTests` imports projects whose `startingElement` is omitted, `null`, empty, the id of an element that is not in the project or whose record is `null`, or an element that is not on any imported board. They check that these import with a `null` `StartingElement` and a warning instead of throwing (a starting element that is not on an imported board is not made at all, so a missing cover asset on it doesn't fail the import), through `ProjectMaker` and through `ImportProject` from json (where `IsImported` stays false, since the project can't be played), and that `StartingElement` can be set to `null`.
+
 ## Legacy fixture
 
 `Editor/Fixtures/ProjectBeforeGlobalVariables.asset.txt` was serialized by Unity 6000.5.7f1 with the plugin at commit `97582c542cdc8ce25257f2a2f79932186e7b8d0a`, before `Project.Variables` was renamed. It contains:

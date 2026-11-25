@@ -106,7 +106,10 @@ namespace Arcweave
             window._assetID = asset.GetInstanceID();
 #endif
             window._currentBoardIndex = 0;
-            window.PanTo(asset.Project.Boards[0].Nodes[0].Pos - new Vector2(100, 100));
+            // A project can have no boards, or an empty first board
+            var boards = asset.Project?.Boards;
+            var firstNode = boards != null && boards.Count > 0 && boards[0].Nodes?.Count > 0 ? boards[0].Nodes[0] : null;
+            window.PanTo(firstNode != null ? firstNode.Pos - new Vector2(100, 100) : Vector2.zero);
         }
 
         ///----------------------------------------------------------------------------------------------
@@ -139,6 +142,11 @@ namespace Arcweave
         void OnGUI() {
 
             if ( asset == null ) {
+                return;
+            }
+
+            if ( project?.Boards == null || project.Boards.Count == 0 ) {
+                EditorGUILayout.HelpBox("The project has no boards.", MessageType.Info);
                 return;
             }
 
@@ -225,7 +233,7 @@ namespace Arcweave
                     var e = node as Element;
                     var coverImage = e.cover?.ResolveImage();
 
-                    var title = string.Format("<size=14><b>{0}</b></size>", ( e.Id == project.StartingElement.Id ? "<color=#db841e>★</color> " : string.Empty ) + Interpreter.Utils.CleanString(e.Title));
+                    var title = string.Format("<size=14><b>{0}</b></size>", ( project.StartingElement != null && e.Id == project.StartingElement.Id ? "<color=#db841e>★</color> " : string.Empty ) + Interpreter.Utils.CleanString(e.Title));
                     var content = string.Format("<size=11>{0}</size>", Interpreter.Utils.CleanString(e.RawContent));
 
                     var titleSize = _contentStyle.CalcSize(new GUIContent(title));

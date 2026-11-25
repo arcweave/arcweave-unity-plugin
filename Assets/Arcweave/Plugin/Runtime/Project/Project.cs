@@ -30,9 +30,13 @@ namespace Arcweave.Project
         [UnityEngine.SerializeField] private string _startingElementId;
         [System.NonSerialized] private Element _startingElement;
 
+        ///<summary>The element the story starts from, or null if the project has none.</summary>
         public Element StartingElement {
-            get { return _startingElement != null ? _startingElement : _startingElement = GetNodeWithID<Element>(_startingElementId); }
-            set { _startingElementId = value.Id; _startingElement = value; }
+            get {
+                if ( _startingElement != null || string.IsNullOrEmpty(_startingElementId) ) { return _startingElement; }
+                return _startingElement = GetNodeWithID<Element>(_startingElementId);
+            }
+            set { _startingElementId = value?.Id; _startingElement = value; }
         }
 
         public Project(string name, Element startingElement, List<Board> boards, List<Component> components, List<Variable> variables) {
