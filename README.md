@@ -865,4 +865,6 @@ project.Initialize();
 
 ## License
 
-See the LICENSE file for details.
+The plugin is released under the MIT license. See the [LICENSE](LICENSE) file for details.
+
+The plugin bundles the Arcscript interpreter and the ANTLR 4 runtime (BSD 3-Clause) and Full Serializer (MIT), which keep their own licenses. Their license texts are in [THIRD_PARTY_NOTICES.md](Assets/Arcweave/THIRD_PARTY_NOTICES.md), which is also included in the packages.

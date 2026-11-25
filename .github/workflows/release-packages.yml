@@ -1,6 +1,8 @@
 name: Release packages
 
-# Attaches ArcweaveForUnity.unitypackage and ArcweaveForUnity.zip to every published release.
+# Attaches ArcweaveForUnity.unitypackage and ArcweaveForUnity.zip to every published release,
+# after checking the release tag matches the first version in Changelog.md, and posts the
+# release to Slack.
 # The README and the marketing website link to them through
 # https://github.com/arcweave/arcweave-unity-plugin/releases/latest/download/<name>,
 # which serves the files of the release marked as Latest, so keep the file names stable.
@@ -21,6 +23,19 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Check the changelog version matches the release
+        if: github.event_name == 'release'
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # Unity has no version file, so the first "## " section of the changelog is the version.
+          # An "Unreleased" section above it fails the check: rename it to the version first.
+          section=$(sed -n '/^## /{ s/^##[[:space:]]*//; s/[[:space:]]*$//; p; q; }' Changelog.md)
+          [[ "$section" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]] ||
+            { echo "The first section of Changelog.md is \"$section\", which is not a version. Rename it to the release's version." >&2; exit 1; }
+          [ "v$section" = "$TAG" ] ||
+            { echo "The first section of Changelog.md is $section, but the release is $TAG" >&2; exit 1; }
+
       - name: Build packages
         run: bash .github/scripts/build-release-packages.sh HEAD dist
 
@@ -40,3 +55,51 @@ jobs:
         with:
           name: ArcweaveForUnity
           path: dist/
+
+  notify:
+    # Posts to the Slack releases channel after the packages are attached, so the download links work.
+    if: github.event_name == 'release'
+    needs: package
+    runs-on: ubuntu-latest
+    permissions: {}
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_RELEASES_WEBHOOK_URL }}
+    steps:
+      - name: Check the Slack webhook is configured
+        if: env.SLACK_WEBHOOK == ''
+        run: echo "::warning::SLACK_RELEASES_WEBHOOK_URL is not set for this repository, so the release is not posted to Slack."
+
+      - name: Create Slack payload
+        if: env.SLACK_WEBHOOK != ''
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
+          DOWNLOAD_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}
+        run: |
+          jq --null-input \
+            --arg tag "$TAG" \
+            --arg release_url "$RELEASE_URL" \
+            --arg release_body "$RELEASE_BODY" \
+            --arg prerelease "$PRERELEASE" \
+            --arg download_url "$DOWNLOAD_URL" \
+            'def escape: gsub("\r"; "") | gsub("&"; "&amp;") | gsub("<"; "&lt;") | gsub(">"; "&gt;");
+            {
+              text: (
+                "*<\($release_url)|Arcweave Unity Plugin \($tag)>*" +
+                (if $prerelease == "true" then " (pre-release)" else "" end) + "\n" +
+                "Download <\($download_url)/ArcweaveForUnity.unitypackage|ArcweaveForUnity.unitypackage> or " +
+                "<\($download_url)/ArcweaveForUnity.zip|ArcweaveForUnity.zip>" +
+                (if $release_body == "" then "" else "\n```\($release_body | escape)```" end)
+              )
+            }' > slack-payload.json
+
+      - name: Send release notes to Slack
+        if: env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v2.1.1
+        with:
+          webhook: ${{ env.SLACK_WEBHOOK }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload-file-path: slack-payload.json
