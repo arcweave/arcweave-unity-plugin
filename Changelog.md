@@ -2,7 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-## Unreleased
+## 4.0.1
+
+### Added
+
+- Added third-party notices to the `.unitypackage` and the `.zip`, in `Assets/Arcweave/THIRD_PARTY_NOTICES.md`. They include the license texts of the bundled Arcscript interpreter, ANTLR 4 runtime (`Antlr4.Runtime.Standard.dll` 4.13.1) and Full Serializer.
 
 ### Fixed
 
