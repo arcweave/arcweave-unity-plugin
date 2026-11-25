@@ -64,8 +64,6 @@ namespace Arcweave.Project
 
         public Project MakeProject() {
             var name = jproject["name"]?.AsString;
-            var startElementid = jproject["startingElement"]?.AsString;
-            var startElement = TryMakeElement(startElementid);
             var projBoards = new List<Board>();
             var projComponents = new List<Component>();
             var projVariables = new List<Variable>();
@@ -73,6 +71,7 @@ namespace Arcweave.Project
                 var board = TryMakeBoard(key);
                 if ( board != null ) { projBoards.Add(board); } //null = has children
             }
+            var startElement = FindStartingElement(projBoards);
             foreach ( var key in jcomponents.AsDictionary.Keys ) {
                 var component = TryMakeComponent(key);
                 if ( component != null ) { projComponents.Add(component); } //null = has children
@@ -83,6 +82,26 @@ namespace Arcweave.Project
             }
             MakeAttributeVariables();
             return new Project(name, startElement, projBoards, projComponents, projVariables);
+        }
+
+        //A project can have no starting element, or one that was deleted. Its StartingElement is null then, instead of failing the import.
+        //It is looked up on the imported boards, since only their nodes are initialized, eg. an export of some boards can leave out the starting element's board.
+        Element FindStartingElement(List<Board> projBoards) {
+            var jid = jproject["startingElement"];
+            var id = jid != null && jid.IsString ? jid.AsString : null;
+            if ( string.IsNullOrEmpty(id) ) {
+                Debug.LogWarning("Arcweave import: the project has no starting element. Set one in Arcweave to play it.");
+                return null;
+            }
+            if ( !jelements.AsDictionary.TryGetValue(id, out var jelement) || jelement == null || !jelement.IsDictionary ) {
+                Debug.LogWarning($"Arcweave import: the project's starting element '{id}' was not found in the project. Set one in Arcweave to play it.");
+                return null;
+            }
+            var element = projBoards.Select(board => board.ElementWithID(id)).FirstOrDefault(found => found != null);
+            if ( element == null ) {
+                Debug.LogWarning($"Arcweave import: the project's starting element '{id}' is not on any imported board. Set one in Arcweave to play it.");
+            }
+            return element;
         }
 
         ///----------------------------------------------------------------------------------------------

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Fixed
+
+- Fixed Arcscript's `resetAll()` without arguments throwing a `NullReferenceException`. It now resets every variable, as `resetAll(x)` resets every variable except `x`. Ported from arcweave/arcscript-interpreters.
+- Fixed importing a project without a starting element, or whose starting element is not in the project, throwing a `NullReferenceException`. A starting element that is not on any imported board (for example, in an export that leaves out its board) is treated the same way, instead of importing and then failing when the story starts. The project now imports with a warning and a `null` `StartingElement`, so `IsImported` is false, and the demo `ArcweavePlayer` imports it again and then reports that the project has no starting element. Setting `Project.StartingElement` to `null` no longer throws, and the Project Viewer window no longer throws for a project without a starting element, without boards, or whose first board is empty.
+
 ## 4.0.0
 
 ### Breaking changes
